@@ -61,7 +61,7 @@
                 <div class="menu-title">Master Data</div>
             </a>
             <ul>
-                <li> <a href="{{route('manage-types.index')}}"><i class="bx bx-right-arrow-alt"></i>Kelola Jenis</a>
+                <li> <a href="{{route('master-types.index')}}"><i class="bx bx-right-arrow-alt"></i>Kelola Jenis</a>
                 </li>
                 <li> <a href="#"><i class="bx bx-right-arrow-alt"></i>Kelola Merek</a>
                 </li>

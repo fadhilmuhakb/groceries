@@ -4,14 +4,28 @@ namespace App\Http\Controllers;
 
 use App\Models\tb_types;
 use Illuminate\Http\Request;
+use Yajra\DataTables\Facades\DataTables;
 
 class TbTypesController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $types = tb_types::all();
+        if($request->ajax()) {
+            return DataTables::of($types)
+                    ->addColumn('action', function ($type) {
+                        return '<a href="/master-type/edit/'.$type->id.'" class="btn btn-sm btn-success"><i class="bx bx-pencil me-0"></i>
+                        </a>
+                        <a href="/master-type/delete/'.$type->id.'" class="btn btn-sm btn-danger"><i class="bx bx-trash me-0"></i>
+                        </a>
+                        ';
+                    })
+                    ->rawColumns(['action'])
+                    ->make(true);
+        }
         return view('pages.admin.master.manage_type.index');
     }
 
@@ -20,7 +34,7 @@ class TbTypesController extends Controller
      */
     public function create()
     {
-        //
+        return view('pages.admin.master.manage_type.create');
     }
 
     /**
@@ -28,7 +42,13 @@ class TbTypesController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'type_name' => 'required',
+            'description' => 'nullable'
+        ]);
+
+
+        return back()->with('success', 'Form berhasil dikirim!');
     }
 
     /**

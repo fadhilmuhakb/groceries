@@ -27,6 +27,9 @@ Route::group(['middleware' => ['auth']], function() {
 
 
     Route::prefix('master-type')->group(function() {
-        Route::get('/', [TbTypesController::class, 'index'])->name('manage-types.index');
+        Route::get('/', [TbTypesController::class, 'index'])->name('master-types.index');
+        Route::get('/create', [TbTypesController::class, 'create'])->name('master-types.create');
+        Route::post('/store', [TbTypesController::class, 'store'])->name('master-type.store');
     });
+
 });

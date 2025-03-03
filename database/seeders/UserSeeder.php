@@ -20,6 +20,7 @@ class UserSeeder extends Seeder
                 'name' => "Superadmin",
                 'email' => "superadmin@mail.com",
                 'password' => Hash::make('12345678'),
+                'roles' => 'superadmin',
                 'email_verified_at' => now(),
             ],
         );
