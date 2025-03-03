@@ -20,7 +20,7 @@
         </li>
         <li>
             <a href="#" >
-                <div class="parent-icon"><i class='bx bx-home-circle'></i>
+                <div class="parent-icon"><i class='bx bx-user-circle'></i>
                 </div>
                 <div class="menu-title">Kelola Admin</div>
             </a>
@@ -61,7 +61,7 @@
                 <div class="menu-title">Master Data</div>
             </a>
             <ul>
-                <li> <a href="#"><i class="bx bx-right-arrow-alt"></i>Kelola Jenis</a>
+                <li> <a href="{{route('manage-types.index')}}"><i class="bx bx-right-arrow-alt"></i>Kelola Jenis</a>
                 </li>
                 <li> <a href="#"><i class="bx bx-right-arrow-alt"></i>Kelola Merek</a>
                 </li>

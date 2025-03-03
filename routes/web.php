@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\TbTypesController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -23,4 +24,9 @@ Auth::routes();
 
 Route::group(['middleware' => ['auth']], function() {
     Route::get('/', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+
+
+    Route::prefix('master-type')->group(function() {
+        Route::get('/', [TbTypesController::class, 'index'])->name('manage-types.index');
+    });
 });
