@@ -8,4 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class tb_units extends Model
 {
     use HasFactory;
+    protected $fillable = [
+        'unit_name',
+        'description'
+    ];
 }
