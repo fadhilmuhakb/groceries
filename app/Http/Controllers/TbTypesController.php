@@ -103,13 +103,13 @@ class TbTypesController extends Controller
             DB::commit();
             return response()->json([
                 'success'=>true,
-                'message'=>'Personel berhasil di hapus',
+                'message'=>'Jenis berhasil di hapus',
             ]);
         }catch(\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'success'=>false,
-                'message'=>'Personel berhasil di hapus',
+                'message'=>'Jenis berhasil di hapus',
             ]);
         }
     }

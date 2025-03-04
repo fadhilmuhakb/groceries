@@ -63,7 +63,7 @@
             <ul>
                 <li> <a href="{{route('master-types.index')}}"><i class="bx bx-right-arrow-alt"></i>Kelola Jenis</a>
                 </li>
-                <li> <a href="#"><i class="bx bx-right-arrow-alt"></i>Kelola Merek</a>
+                <li> <a href="{{route('master-brand.index')}}"><i class="bx bx-right-arrow-alt"></i>Kelola Merek</a>
                 </li>
                 <li> <a href="#"><i class="bx bx-right-arrow-alt"></i>Kelola Produk</a>
                 </li>

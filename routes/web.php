@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\TbBrandsController;
 use App\Http\Controllers\TbTypesController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -34,6 +35,15 @@ Route::group(['middleware' => ['auth']], function() {
         Route::put('/update/{id}', [TbTypesController::class, 'update'])->name('master-type.update');
         Route::delete('/delete/{id}', [TbTypesController::class, 'destroy'])->name('master-type.delete');
         
+    });
+    Route::prefix('master-brand')->group(function() {
+        Route::get('/', [TbBrandsController::class, 'index'])->name('master-brand.index');
+        Route::get('/create', [TbBrandsController::class, 'create'])->name('master-brand.create');
+        Route::get('/edit/{id}', [TbBrandsController::class, 'edit'])->name('master-brand.edit');
+        Route::post('/store', [TbBrandsController::class, 'store'])->name('master-brand.store');
+        Route::put('/update/{id}', [TbBrandsController::class, 'update'])->name('master-brand.update');
+        Route::delete('/delete/{id}', [TbBrandsController::class, 'destroy'])->name('master-brand.delete');
+
     });
 
 });
