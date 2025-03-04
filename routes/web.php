@@ -29,7 +29,11 @@ Route::group(['middleware' => ['auth']], function() {
     Route::prefix('master-type')->group(function() {
         Route::get('/', [TbTypesController::class, 'index'])->name('master-types.index');
         Route::get('/create', [TbTypesController::class, 'create'])->name('master-types.create');
+        Route::get('/edit/{id}', [TbTypesController::class, 'edit'])->name('master-types.edit');
         Route::post('/store', [TbTypesController::class, 'store'])->name('master-type.store');
+        Route::put('/update/{id}', [TbTypesController::class, 'update'])->name('master-type.update');
+        Route::delete('/delete/{id}', [TbTypesController::class, 'destroy'])->name('master-type.delete');
+        
     });
 
 });

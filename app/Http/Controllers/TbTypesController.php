@@ -20,7 +20,7 @@ class TbTypesController extends Controller
                     ->addColumn('action', function ($type) {
                         return '<a href="/master-type/edit/'.$type->id.'" class="btn btn-sm btn-success"><i class="bx bx-pencil me-0"></i>
                         </a>
-                        <a href="/master-type/delete/'.$type->id.'" class="btn btn-sm btn-danger"><i class="bx bx-trash me-0"></i>
+                        <a href="javascript:void(0)" onClick="confirmDelete('.$type->id.')" class="btn btn-sm btn-danger"><i class="bx bx-trash me-0"></i>
                         </a>
                         ';
                     })
@@ -48,14 +48,13 @@ class TbTypesController extends Controller
             'type_name' => 'required',
             'description' => 'nullable'
         ]);
-        
+
         DB::beginTransaction();
         try {
-
             
-
+            tb_types::create($validated);
             DB::commit();
-            return back()->with('success', 'Form berhasil dikirim!');
+            return redirect('/master-type')->with('success', 'Data berhasil dikirim!');
         } catch(\Exception $e) {
             DB::rollBack();
             return back()->with('error', $e->getMessage());
@@ -63,34 +62,55 @@ class TbTypesController extends Controller
     }
 
     /**
-     * Display the specified resource.
-     */
-    public function show(tb_types $tb_types)
-    {
-        //
-    }
-
-    /**
      * Show the form for editing the specified resource.
      */
-    public function edit(tb_types $tb_types)
+    public function edit($id)
     {
-        //
+        $type = tb_types::where('id', $id)->first();
+        return view('pages.admin.master.manage_type.create', ['type'=>$type]);
+
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, tb_types $tb_types)
+    public function update(Request $request, $id)
     {
-        //
+        $data = $request->validate([
+            'type_name' => 'required',
+            'description' => 'nullable',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            tb_types::where('id', $id)->update($data);
+            DB::commit();
+            return redirect('/master-type')->with('success', 'Data berhasil diperbaharui!');
+        } catch(\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', $e->getMessage());
+        }
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(tb_types $tb_types)
+    public function destroy($id)
     {
-        //
+        DB::beginTransaction();
+        try {
+            tb_types::where('id', $id)->delete();
+            DB::commit();
+            return response()->json([
+                'success'=>true,
+                'message'=>'Personel berhasil di hapus',
+            ]);
+        }catch(\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success'=>false,
+                'message'=>'Personel berhasil di hapus',
+            ]);
+        }
     }
 }
