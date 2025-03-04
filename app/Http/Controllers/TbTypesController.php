@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\tb_types;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class TbTypesController extends Controller
@@ -42,13 +43,23 @@ class TbTypesController extends Controller
      */
     public function store(Request $request)
     {
+        
         $validated = $request->validate([
             'type_name' => 'required',
             'description' => 'nullable'
         ]);
+        
+        DB::beginTransaction();
+        try {
 
+            
 
-        return back()->with('success', 'Form berhasil dikirim!');
+            DB::commit();
+            return back()->with('success', 'Form berhasil dikirim!');
+        } catch(\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', $e->getMessage());
+        }
     }
 
     /**

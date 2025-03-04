@@ -25,21 +25,21 @@
             <form action="{{route('master-type.store')}}" method="POST">
             <div class="row">
                 @csrf
-                <div class="col-6">
+                <div class="col-6 mb-3">
                   <label for="name_type">Nama Jenis</label>
-                  <input class="form-control form-control mb-3" type="text" name="type_name" value="{{ old('type_name') }}">
+                  <input class="form-control form-control" type="text" name="type_name" value="{{ old('type_name') }}">
 
-                  @error('name_type')
+                  @error('type_name')
                       <div class="text-danger">{{ $message }}</div>
                   @enderror
                 </div>
-                <div class="col-6">
+                <div class="col-6 mb-3">
                   <label for="description">Keterangan</label>
-                  <input class="form-control form-control mb-3" type="text" name="description" value="{{ old('description') }}">
+                  <input class="form-control form-control" type="text" name="description" value="{{ old('description') }}">
                 </div>
 
                 <div class="col-12 text-end">
-                  <button class="btn btn-primary" type="submit">Simpan</button>
+                  <button class="btn btn-primary" type="submit"><i class="bx bx-plus"></i> Tambah</button>
                 </div>
             </div>
             </form>
@@ -50,4 +50,24 @@
         </div>
       </div>
     </div>
+
+    @section('scripts')
+    <script>
+      @if(session('success'))
+          Swal.fire({
+              icon: 'success',
+              title: 'Success!',
+              text: '{{ session('success') }}',
+          });
+      @endif
+
+      @if($errors->any())
+          Swal.mixin({
+              icon: 'error',
+              title: 'Oops...',
+              text: '{{ $errors->first() }}', // Menampilkan pesan error pertama
+          });
+      @endif
+  </script>
+    @endsection
 @endsection
