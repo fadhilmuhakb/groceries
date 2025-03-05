@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\TbBrandsController;
+use App\Http\Controllers\TbProductsController;
 use App\Http\Controllers\TbTypesController;
 use App\Http\Controllers\TbUnitsController;
 use Illuminate\Support\Facades\Route;
@@ -53,5 +54,13 @@ Route::group(['middleware' => ['auth']], function() {
         Route::post('/store', [TbUnitsController::class, 'store'])->name('master-unit.store');
         Route::put('/update/{id}', [TbUnitsController::class, 'update'])->name('master-unit.update');
         Route::delete('/delete/{id}', [TbUnitsController::class, 'destroy'])->name('master-unit.delete');
+    });
+    Route::prefix('master-product')->group(callback: function() {
+        Route::get('/', [TbProductsController::class, 'index'])->name('master-product.index');
+        Route::get('/create', [TbProductsController::class, 'create'])->name('master-product.create');
+        Route::get('/edit/{id}', [TbProductsController::class, 'edit'])->name('master-product.edit');
+        Route::post('/store', [TbProductsController::class, 'store'])->name('master-product.store');
+        Route::put('/update/{id}', [TbProductsController::class, 'update'])->name('master-product.update');
+        Route::delete('/delete/{id}', [TbProductsController::class, 'destroy'])->name('master-product.delete');
     });
 });

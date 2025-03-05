@@ -108,13 +108,13 @@ class TbUnitsController extends Controller
             DB::commit();
             return response()->json([
                 'success'=>true,
-                'message'=>'Personel berhasil di hapus',
+                'message'=>'Unit berhasil dihapus',
             ]);
         }catch(\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'success'=>false,
-                'message'=>'Personel berhasil di hapus',
+                'message'=>'Unit berhasil dihapus',
             ]);
         }
     
