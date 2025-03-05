@@ -5,7 +5,7 @@
 @section('content')
     <!--breadcrumb-->
     <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
-        <div class="breadcrumb-title pe-3">Jenis</div>
+        <div class="breadcrumb-title pe-3">Merek</div>
         <div class="ps-3">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-0 p-0">
@@ -24,7 +24,7 @@
             </div>
         </div>
     </div>
-    <h6 class="mb-0 text-uppercase">Kelola Jenis</h6>
+    <h6 class="mb-0 text-uppercase">Kelola Merek</h6>
     <hr/>
     <div class="card">
         <div class="card-body">
