@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\TbBrandsController;
 use App\Http\Controllers\TbTypesController;
+use App\Http\Controllers\TbUnitsController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -45,5 +46,12 @@ Route::group(['middleware' => ['auth']], function() {
         Route::delete('/delete/{id}', [TbBrandsController::class, 'destroy'])->name('master-brand.delete');
 
     });
-
+    Route::prefix('master-unit')->group(callback: function() {
+        Route::get('/', [TbUnitsController::class, 'index'])->name('master-unit.index');
+        Route::get('/create', [TbUnitsController::class, 'create'])->name('master-unit.create');
+        Route::get('/edit/{id}', [TbUnitsController::class, 'edit'])->name('master-unit.edit');
+        Route::post('/store', [TbUnitsController::class, 'store'])->name('master-unit.store');
+        Route::put('/update/{id}', [TbUnitsController::class, 'update'])->name('master-unit.update');
+        Route::delete('/delete/{id}', [TbUnitsController::class, 'destroy'])->name('master-unit.delete');
+    });
 });

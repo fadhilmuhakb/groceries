@@ -67,7 +67,7 @@
                 </li>
                 <li> <a href="#"><i class="bx bx-right-arrow-alt"></i>Kelola Produk</a>
                 </li>
-                <li> <a href="#"><i class="bx bx-right-arrow-alt"></i>Kelola Satuan</a>
+                <li> <a href="{{route('master-unit.index')}}"><i class="bx bx-right-arrow-alt"></i>Kelola Satuan</a>
                 </li>
             </ul>
         </li>
