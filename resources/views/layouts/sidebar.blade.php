@@ -47,7 +47,7 @@
             </a>
         </li>
         <li>
-            <a href="#" >
+            <a href="{{route('user.index')}}" >
                 <div class="parent-icon"><i class='bx bx-user'></i>
                 </div>
                 <div class="menu-title">Kelola User</div>

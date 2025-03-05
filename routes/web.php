@@ -4,6 +4,8 @@ use App\Http\Controllers\TbBrandsController;
 use App\Http\Controllers\TbProductsController;
 use App\Http\Controllers\TbTypesController;
 use App\Http\Controllers\TbUnitsController;
+use App\Http\Controllers\TbUserController;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -62,5 +64,14 @@ Route::group(['middleware' => ['auth']], function() {
         Route::post('/store', [TbProductsController::class, 'store'])->name('master-product.store');
         Route::put('/update/{id}', [TbProductsController::class, 'update'])->name('master-product.update');
         Route::delete('/delete/{id}', [TbProductsController::class, 'destroy'])->name('master-product.delete');
+    });
+
+    Route::prefix('user')->group(function() {
+        Route::get('/', [TbUserController::class, 'index'])->name('user.index');
+        Route::get('/create', [TbUserController::class, 'create'])->name('user.create');
+        Route::get('/edit/{id}', [TbUserController::class, 'edit'])->name('user.edit');
+        Route::get('/store', [TbUserController::class, 'store'])->name('user.store');
+        Route::get('/update/{id}', [TbUserController::class, 'update'])->name('user.update');
+        Route::get('/delete/{id}', [TbUserController::class, 'destroy'])->name('user.delete');
     });
 });
