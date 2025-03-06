@@ -20,7 +20,7 @@
                 <a href="{{route('user.create')}}" class="btn btn-success">
                     + Tambah
                 </a>
-                
+
             </div>
         </div>
     </div>
@@ -32,7 +32,6 @@
                 <table id="table-type" class="table table-striped table-bordered" style="width:100%">
                     <thead>
                         <tr>
-                            <th>No.</th>
                             <th>No.</th>
                             <th>Nama User</th>
                             <th>Email</th>
@@ -71,7 +70,7 @@
                 url: `/user/delete/${id}`,
                 type: 'DELETE',
                 data: {
-                    _token: token, 
+                    _token: token,
                 },
                 success: function(response) {
                     Swal.fire({
@@ -79,7 +78,7 @@
                         title: 'Sukses',
                         text: response.message,
                     });
-                    $('#table-type').DataTable().ajax.reload(); 
+                    $('#table-type').DataTable().ajax.reload();
                 },
                 error: function(err) {
                     Swal.fire({
@@ -103,23 +102,11 @@
                         return meta.row +meta.settings._iDisplayStart + 1;
                     }
                 },
-                {data:'id', name:'id'},
                 {data:'name', name:'name'},
                 {data:'email', name:'email'},
                 {data:'roles', name:'roles'},
                 {data:'store_id', name:'store_id'},
-                {data: 'null', name: 'action', orderable: false, searchable: false, className:'text-end',
-                render: function(data, type, row) {
-                    return `
-                            <a href="/user/edit/${row.id}" class="btn btn-sm btn-success">
-                                <i class="bx bx-pencil me-0"></i>
-                            </a>
-                            <a href="javascript:void(0)" onClick="confirmDelete('${row.id}')" class="btn btn-sm btn-danger">
-                                <i class="bx bx-trash me-0"></i>
-                            </a>
-                        `;
-                    }
-                 }
+                {data: 'action', name: 'action', orderable: false, searchable: false, className:'text-end'}
 
             ]
         })

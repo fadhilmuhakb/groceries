@@ -26,13 +26,13 @@
             <div class="row">
                 @csrf
                 @if(isset($user))
-                  @method('PUT') 
+                  @method('PUT')
                 @endif
                 <div class="col-6 mb-3">
                   <label for="name">Nama User</label>
-                  <input class="form-control" 
-                  type="text" 
-                  name="name" 
+                  <input class="form-control"
+                  type="text"
+                  name="name"
                   value="{{ isset($user) ? $user->name : old('name') }}">
 
                   @error('name')
@@ -41,9 +41,9 @@
                 </div>
                 <div class="col-6 mb-3">
                   <label for="name">Email</label>
-                  <input class="form-control" 
-                  type="email" 
-                  name="email" 
+                  <input class="form-control"
+                  type="email"
+                  name="email"
                   value="{{ isset($user) ? $user->email : old('email') }}">
 
                   @error('email')
@@ -53,9 +53,9 @@
                 @if(!isset($user))
                 <div class="col-6 mb-3">
                   <label for="name">Password</label>
-                  <input class="form-control" 
-                  type="password" 
-                  name="password" 
+                  <input class="form-control"
+                  type="password"
+                  name="password"
                   value="{{ isset($user) ? $user->password : old('password') }}">
 
                   @error('password')
@@ -64,9 +64,9 @@
                 </div>
                 <div class="col-6 mb-3">
                   <label for="name">Retype Password</label>
-                  <input class="form-control" 
-                  type="password" 
-                  name="password_confirmation" 
+                  <input class="form-control"
+                  type="password"
+                  name="password_confirmation"
                   value="{{ isset($user) ? $user->password : old('password_confirmation') }}">
 
                   @error('password_confirmation')
@@ -75,33 +75,33 @@
                 </div>
                 @endif
                 <div class="col-6 mb-3">
-                  <label for="name">Role</label>
-                  <select class="form-select">
+                  <label for="roles">Role</label>
+                  <select class="form-select" name="roles">
                     <option value="">Pilih Role</option>
-                    <option value="superadmin" {{ (isset($user) && $user->role == 'superadmin') || old('role') == 'superadmin' ? 'selected' : '' }}>Superadmin</option>
-                    <option value="admin" {{ (isset($user) && $user->role == 'admin') || old('role') == 'admin' ? 'selected' : '' }}>Admin</option>
-                    <option value="staff" {{ (isset($user) && $user->role == 'staff') || old('role') == 'staff' ? 'selected' : '' }}>Staff</option>
+                    <option value="superadmin" {{ (isset($user) && $user->roles == 'superadmin') || old('roles') == 'superadmin' ? 'selected' : '' }}>Superadmin</option>
+                    <option value="admin" {{ (isset($user) && $user->roles == 'admin') || old('roles') == 'admin' ? 'selected' : '' }}>Admin</option>
+                    <option value="staff" {{ (isset($user) && $user->roles == 'staff') || old('roles') == 'staff' ? 'selected' : '' }}>Staff</option>
                   </select>
 
-                  @error('role')
+                  @error('roles')
                       <div class="text-danger">{{ $message }}</div>
                   @enderror
                 </div>
                 <div class="col-6 mb-3">
                     <label for="name">Store</label>
-                    <input class="form-control" 
+                    <input class="form-control"
                     type="text"
-                    disabled 
-                    name="store_id" 
+                    disabled
+                    name="store_id"
                     value="{{ isset($user) ? $user->store_id : old('store_id') }}">
-  
+
                     @error('store_id')
                         <div class="text-danger">{{ $message }}</div>
                     @enderror
                   </div>
                 {{-- <div class="col-6 mb-3">
                   <label for="description">Keterangan</label>
-                  <input class="form-control form-control" type="text" name="description" 
+                  <input class="form-control form-control" type="text" name="description"
                   value="{{ isset($user) ? $user->description : old('description') }}">
                 </div> --}}
 
@@ -110,8 +110,8 @@
                 </div>
             </div>
             </form>
-            
-            
+
+
 
           </div>
         </div>

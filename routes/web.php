@@ -38,7 +38,7 @@ Route::group(['middleware' => ['auth']], function() {
         Route::post('/store', [TbTypesController::class, 'store'])->name('master-type.store');
         Route::put('/update/{id}', [TbTypesController::class, 'update'])->name('master-type.update');
         Route::delete('/delete/{id}', [TbTypesController::class, 'destroy'])->name('master-type.delete');
-        
+
     });
     Route::prefix('master-brand')->group(function() {
         Route::get('/', [TbBrandsController::class, 'index'])->name('master-brand.index');
@@ -70,8 +70,8 @@ Route::group(['middleware' => ['auth']], function() {
         Route::get('/', [TbUserController::class, 'index'])->name('user.index');
         Route::get('/create', [TbUserController::class, 'create'])->name('user.create');
         Route::get('/edit/{id}', [TbUserController::class, 'edit'])->name('user.edit');
-        Route::get('/store', [TbUserController::class, 'store'])->name('user.store');
-        Route::get('/update/{id}', [TbUserController::class, 'update'])->name('user.update');
-        Route::get('/delete/{id}', [TbUserController::class, 'destroy'])->name('user.delete');
+        Route::post('/store', [TbUserController::class, 'store'])->name('user.store');
+        Route::put('/update/{id}', [TbUserController::class, 'update'])->name('user.update');
+        Route::delete('/delete/{id}', [TbUserController::class, 'destroy'])->name('user.delete');
     });
 });
