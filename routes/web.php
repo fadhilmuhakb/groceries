@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\TbBrandsController;
 use App\Http\Controllers\TbProductsController;
+use App\Http\Controllers\TbSuppliersController;
 use App\Http\Controllers\TbTypesController;
 use App\Http\Controllers\TbUnitsController;
 use App\Http\Controllers\TbUserController;
@@ -73,5 +74,14 @@ Route::group(['middleware' => ['auth']], function() {
         Route::post('/store', [TbUserController::class, 'store'])->name('user.store');
         Route::put('/update/{id}', [TbUserController::class, 'update'])->name('user.update');
         Route::delete('/delete/{id}', [TbUserController::class, 'destroy'])->name('user.delete');
+    });
+
+    Route::prefix('supplier')->group(function() {
+        Route::get('/', [TbSuppliersController::class, 'index'])->name('supplier.index');
+        Route::get('/create', [TbSuppliersController::class, 'create'])->name('supplier.create');
+        Route::get('/edit/{id}', [TbSuppliersController::class, 'edit'])->name('supplier.edit');
+        Route::post('/store', [TbSuppliersController::class, 'store'])->name('supplier.store');
+        Route::put('/update/{id}', [TbSuppliersController::class, 'update'])->name('supplier.update');
+        Route::delete('/delete/{id}', [TbSuppliersController::class, 'destroy'])->name('supplier.delete');
     });
 });

@@ -33,10 +33,10 @@
             </a>
         </li>
         <li>
-            <a href="#" >
+            <a href="{{route('supplier.index')}}" >
                 <div class="parent-icon"><i class='bx bx-book'></i>
                 </div>
-                <div class="menu-title">Kelola Rapat</div>
+                <div class="menu-title">Kelola Supplier</div>
             </a>
         </li>
         <li>
