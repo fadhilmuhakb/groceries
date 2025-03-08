@@ -89,11 +89,17 @@
                 </div>
                 <div class="col-6 mb-3">
                     <label for="name">Store</label>
-                    <input class="form-control"
+                    <select name="store_id" class="form-select">
+                      <option value="">Pilih Toko</option>
+                      @foreach ($stores as $store)
+                        <option value="{{$store->id}}" {{(isset($user) && $user->store_id == $store->id) || old('store_id') == $store->id ? 'selected': ''}}>{{$store->store_name}}</option>
+                      @endforeach
+                    </select>
+                    {{-- <input class="form-control"
                     type="text"
                     disabled
                     name="store_id"
-                    value="{{ isset($user) ? $user->store_id : old('store_id') }}">
+                    value="{{ isset($user) ? $user->store_id : old('store_id') }}"> --}}
 
                     @error('store_id')
                         <div class="text-danger">{{ $message }}</div>

@@ -45,4 +45,9 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+
+    public function store() {
+        return $this->belongsTo(tb_stores::class, 'store_id');
+    }
 }

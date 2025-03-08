@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\tb_stores;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,7 @@ class TbUserController extends Controller
 
     public function index(Request $request)
     {
-        $users = User::all();
+        $users = User::with('store')->get();
         if($request->ajax()) {
             return DataTables::of($users)
                     ->addColumn('action', function ($user) {
@@ -32,7 +33,8 @@ class TbUserController extends Controller
 
     public function create()
     {
-        return view('pages.admin.manage_user.create');
+        $stores = tb_stores::all();
+        return view('pages.admin.manage_user.create',['stores' =>  $stores]);
     }
 
     /**
@@ -47,7 +49,6 @@ class TbUserController extends Controller
             'roles' => 'required',
             'store_id' => 'nullable',
         ]);
-        // dd($data);
         DB::beginTransaction();
         try {
             $data['password'] = Hash::make($data['password']);
@@ -62,8 +63,9 @@ class TbUserController extends Controller
 
     public function edit($id)
     {
+        $stores = tb_stores::all();
         $user = User::where('id', $id)->first();
-        return view('pages.admin.manage_user.create', ['user'=>$user]);
+        return view('pages.admin.manage_user.create', ['user'=>$user, 'stores'=>$stores]);
     }
 
     /**
