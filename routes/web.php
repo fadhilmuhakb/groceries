@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\TbBrandsController;
+use App\Http\Controllers\TbIncomingGoodsController;
 use App\Http\Controllers\TbProductsController;
 use App\Http\Controllers\TbSuppliersController;
 use App\Http\Controllers\TbTypesController;
@@ -84,4 +85,14 @@ Route::group(['middleware' => ['auth']], function() {
         Route::put('/update/{id}', [TbSuppliersController::class, 'update'])->name('supplier.update');
         Route::delete('/delete/{id}', [TbSuppliersController::class, 'destroy'])->name('supplier.delete');
     });
+
+    Route::prefix('incoming-goods')->group(function() {
+        Route::get('/', [TbIncomingGoodsController::class, 'index'])->name('incoming-goods.index');
+        Route::get('/create', [TbIncomingGoodsController::class, 'create'])->name('incoming-goods.create');
+        Route::get('/edit/{id}', [TbIncomingGoodsController::class, 'create'])->name('incoming-goods.edit');
+        Route::get('/store', [TbIncomingGoodsController::class, 'store'])->name('incoming-goods.store');
+        Route::get('/update/{id}', [TbIncomingGoodsController::class, 'update'])->name('incoming-goods.update');
+        Route::get('/delete/{id}', [TbIncomingGoodsController::class, 'delete'])->name('incoming-goods.delete');
+    });
+
 });
