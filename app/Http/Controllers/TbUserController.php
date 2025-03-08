@@ -54,7 +54,7 @@ class TbUserController extends Controller
             $data['password'] = Hash::make($data['password']);
             User::create($data);
             DB::commit();
-            return redirect()->route('master-user.index')->with('success', 'User berahasil dibuat');
+            return redirect()->route('user.index')->with('success', 'User berahasil dibuat');
         }catch(\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', $e->getMessage());
