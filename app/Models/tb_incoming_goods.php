@@ -24,11 +24,6 @@ class tb_incoming_goods extends Model
         return $this->belongsTo(tb_products::class, 'product_id');
     }
 
-    public function supplier()
-    {
-        return $this->belongsTo(tb_suppliers::class, 'supplier_id');
-    }
-
     public function store()
     {
         return $this->belongsTo(tb_stores::class, 'store_id');

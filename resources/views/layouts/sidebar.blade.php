@@ -72,6 +72,19 @@
             </ul>
         </li>
 
+        <li>
+            <a href="javascript:void(0)" class="has-arrow">
+                <div class="parent-icon"><i class="bx bx-category"></i>
+                </div>
+                <div class="menu-title">Stock Opname</div>
+            </a>
+            <ul>
+                <li> <a href="{{route('incoming-goods.index')}}"><i class="bx bx-right-arrow-alt"></i>Barang Masuk</a>
+                </li>
+                <li> <a href="{{route('master-brand.index')}}"><i class="bx bx-right-arrow-alt"></i>Barang Keluar</a>
+                </li>
+            </ul>
+        </li>
     </ul>
     <!--end navigation-->
 </div>

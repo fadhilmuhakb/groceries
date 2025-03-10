@@ -14,12 +14,11 @@ return new class extends Migration
         Schema::create('tb_incoming_goods', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('product_id');
-            $table->unsignedBigInteger('supplier_id');
+            $table->unsignedBigInteger('purchase_id');
             $table->unsignedBigInteger('store_id');
             $table->bigInteger('stock');
             $table->integer('type');
             $table->text('description')->nullable();
-            $table->date('paid_of_date');
             $table->timestamps();
         });
     }

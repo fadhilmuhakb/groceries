@@ -38,6 +38,7 @@ class TbIncomingGoodsController extends Controller
      * Show the form for creating a new resource.
      */
     public function create()
+
     {
         $stores = tb_stores::all();
         $products = tb_products:: all();
