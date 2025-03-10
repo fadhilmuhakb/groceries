@@ -80,6 +80,7 @@ Route::group(['middleware' => ['auth']], function() {
         Route::get('/edit/{id}', [TbUserController::class, 'edit'])->name('user.edit');
         Route::post('/store', [TbUserController::class, 'store'])->name('user.store');
         Route::put('/update/{id}', [TbUserController::class, 'update'])->name('user.update');
+        Route::put('/update/password/{id}', [TbUserController::class, 'updatePassword'])->name('user.update.password');
         Route::delete('/delete/{id}', [TbUserController::class, 'destroy'])->name('user.delete');
     });
 

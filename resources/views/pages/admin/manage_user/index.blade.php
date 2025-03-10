@@ -17,10 +17,11 @@
         </div>
         <div class="ms-auto">
             <div class="btn-group">
+                @if(Auth::user()->roles == 'superadmin')
                 <a href="{{route('user.create')}}" class="btn btn-success">
                     + Tambah
                 </a>
-
+                @endif
             </div>
         </div>
     </div>
