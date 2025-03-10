@@ -1,123 +1,228 @@
 <?php
-
 namespace App\Http\Controllers;
 
-use App\Models\tb_products;
 use Illuminate\Http\Request;
+use App\Models\tb_products;
+use App\Models\tb_types;
+use App\Models\tb_brands;
+use App\Models\tb_units;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\ProductImport;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class TbProductsController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request)
     {
-        $products = tb_products::all();
-        if($request->ajax()) {
-            DataTables::of($products)
-            ->addColumn('action', function ($type) {
-                return '<a href="/master-unit/edit/'.$type->id.'" class="btn btn-sm btn-success"><i class="bx bx-pencil me-0"></i>
-                </a>
-                <a href="javascript:void(0)" onClick="confirmDelete('.$type->id.')" class="btn btn-sm btn-danger"><i class="bx bx-trash me-0"></i>
-                </a>
-                ';
-            })
-            ->rawColumns((['action']))
-            ->make(true);
+        $products = tb_products::with(['type', 'brand', 'unit'])->get();
+
+        if ($request->ajax()) {
+            return DataTables::of($products)
+                ->addColumn('type_name', function ($product) {
+                    return $product->type->type_name ?? '-';
+                })
+                ->addColumn('brand_name', function ($product) {
+                    return $product->brand->brand_name ?? '-';
+                })
+                ->addColumn('unit_name', function ($product) {
+                    return $product->unit->unit_name ?? '-';
+                })
+                ->addColumn('action', function ($product) {
+                    return '<a href="/master-product/edit/' . $product->id . '" class="btn btn-sm btn-success"><i class="bx bx-pencil me-0"></i></a>
+                            <a href="javascript:void(0)" onClick="confirmDelete(' . $product->id . ')" class="btn btn-sm btn-danger"><i class="bx bx-trash me-0"></i></a>';
+                })
+                ->rawColumns(['action'])
+                ->make(true);
         }
 
         return view('pages.admin.master.manage_product.index');
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        return view('pages.admin.master.manage_product.create');
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $data = $request->validate([
             'product_code' => 'required',
             'product_name' => 'required',
-            'type_id' => 'required',
-            'brand_id' => 'required',
-            'unit_id' => 'required',
+            'type_id' => 'required|exists:tb_types,id',
+            'brand_id' => 'required|exists:tb_brands,id',
+            'unit_id' => 'required|exists:tb_units,id',
+            'purchase_price' => 'required|numeric|min:0',
+            'selling_price' => 'required|numeric|min:0',
             'description' => 'nullable'
         ]);
-
 
         DB::beginTransaction();
         try {
             tb_products::create($data);
             DB::commit();
-            return redirect('/master-product')->with('success', 'Data berhasil dikirim!');
-        } catch(\Exception $e) {
+            return redirect('/master-product')->with('success', 'Data berhasil ditambahkan!');
+        } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', $e->getMessage());
         }
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit($id)
+
+    public function import(Request $request)
     {
-        $product = tb_products::where('id', $id)->first();
-        return view('pages.admin.master.manage_product.create', ['product'=>$product]);
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls'
+        ]);
+
+        $file = $request->file('file');
+        $data = Excel::toArray([], $file)[0];
+        array_shift($data);
+
+        $importedProducts = [];
+        foreach ($data as $row) {
+            $typeName = trim($row[2] ?? '');
+            $brandName = trim($row[3] ?? '');
+            $unitName = trim($row[4] ?? '');
+
+            $type = $typeName ? tb_types::firstOrCreate(
+                ['type_name' => $typeName],
+                ['description' => $typeName]
+            ) : null;
+
+            $brand = $brandName ? tb_brands::firstOrCreate(
+                ['brand_name' => $brandName],
+                ['description' => $brandName]
+            ) : null;
+
+            $unit = $unitName ? tb_units::firstOrCreate(
+                ['unit_name' => $unitName],
+                ['description' => $unitName]
+            ) : null;
+
+            $purchasePrice = is_numeric($row[5] ?? null) ? (float) $row[5] : 0;
+            $sellingPrice = is_numeric($row[6] ?? null) ? (float) $row[6] : 0;
+
+            $importedProducts[] = [
+                'product_code' => $row[0] ?? '',
+                'product_name' => $row[1] ?? '',
+                'type_id' => $type->id ?? null,
+                'brand_id' => $brand->id ?? null,
+                'unit_id' => $unit->id ?? null,
+                'purchase_price' => $purchasePrice,
+                'selling_price' => $sellingPrice,
+                'description' => $row[7] ?? ''
+            ];
+        }
+
+        session(['imported_products' => $importedProducts]);
+        return redirect()->route('master-product.preview');
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
+
+
+
+    public function preview()
+    {
+        $importedProducts = session('imported_products', []);
+        return view('pages.admin.master.manage_product.preview', compact('importedProducts'));
+    }
+
+    public function saveImported()
+    {
+        $importedProducts = session('imported_products', []);
+        $failedImports = [];
+
+        foreach ($importedProducts as $product) {
+            try {
+                tb_products::create([
+                    'product_code' => $product['product_code'],
+                    'product_name' => $product['product_name'],
+                    'type_id' => $product['type_id'],
+                    'brand_id' => $product['brand_id'],
+                    'unit_id' => $product['unit_id'],
+                    'purchase_price' => $product['purchase_price'] ?? 0,
+                    'selling_price' => $product['selling_price'] ?? 0,
+                    'description' => $product['description'] ?? '',
+                ]);
+            } catch (\Exception $e) {
+
+                $failedImports[] = $product;
+            }
+        }
+
+        session()->forget('imported_products');
+
+
+        if (!empty($failedImports)) {
+            session(['failed_imports' => $failedImports]);
+            return redirect()->route('master-product.index')->with('warning', 'Beberapa produk gagal diimpor.');
+        }
+
+        return redirect()->route('master-product.index')->with('success', 'Produk berhasil diimpor!');
+    }
+
+
+    public function create()
+    {
+        return view('pages.admin.master.manage_product.create', [
+            'types' => tb_types::all(),
+            'brands' => tb_brands::all(),
+            'units' => tb_units::all()
+        ]);
+    }
+    public function edit($id)
+    {
+        $product = tb_products::findOrFail($id);
+        return view('pages.admin.master.manage_product.create', [
+            'product' => $product,
+            'types' => tb_types::all(),
+            'brands' => tb_brands::all(),
+            'units' => tb_units::all()
+        ]);
+    }
     public function update(Request $request, $id)
     {
         $data = $request->validate([
             'product_code' => 'required',
             'product_name' => 'required',
-            'type_id' => 'required',
-            'brand_id' => 'required',
-            'unit_id' => 'required',
+            'type_id' => 'required|exists:tb_types,id',
+            'brand_id' => 'required|exists:tb_brands,id',
+            'unit_id' => 'required|exists:tb_units,id',
+            'purchase_price' => 'required|numeric|min:0',
+            'selling_price' => 'required|numeric|min:0',
             'description' => 'nullable'
         ]);
 
         DB::beginTransaction();
         try {
-            tb_products::where('id', $id)->update($data);
+            $product = tb_products::findOrFail($id);
+            $product->update($data);
             DB::commit();
-            return redirect('/master-product')->with('success', 'Data berhasil diperbaharui');
-        }catch(\Exception $e) {
+
+            return redirect('/master-product')->with('success', 'Data berhasil diperbarui!');
+        } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', $e->getMessage());
         }
     }
-
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy($id)
     {
-        DB::beginTransaction();
+        $product = tb_products::find($id);
+
+        if (!$product) {
+            return response()->json(['error' => 'Data tidak ditemukan'], 404);
+        }
+
         try {
-            tb_products::where('id',$id)->delete();
-            DB::commit();
-            return response()->json([
-                'success'=>true,
-                'message'=>'Produk berhasil dihapus',
-            ]);
-        }catch(\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success'=>false,
-                'message'=>'Produk gagal dihapus',
-            ]);
+            $product->delete();
+            return response()->json(['message' => 'Produk berhasil dihapus']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+    public function show($id)
+    {
+        $product = tb_products::find($id);
+        if (!$product) {
+            abort(404, "Product not found");
+        }
+        return response()->json($product);
+    }
+
 }

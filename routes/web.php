@@ -3,6 +3,7 @@
 use App\Http\Controllers\TbBrandsController;
 use App\Http\Controllers\TbIncomingGoodsController;
 use App\Http\Controllers\TbProductsController;
+use App\Http\Controllers\TbStoresController;
 use App\Http\Controllers\TbSuppliersController;
 use App\Http\Controllers\TbTypesController;
 use App\Http\Controllers\TbUnitsController;
@@ -59,13 +60,18 @@ Route::group(['middleware' => ['auth']], function() {
         Route::put('/update/{id}', [TbUnitsController::class, 'update'])->name('master-unit.update');
         Route::delete('/delete/{id}', [TbUnitsController::class, 'destroy'])->name('master-unit.delete');
     });
-    Route::prefix('master-product')->group(callback: function() {
+    Route::prefix('master-product')->group(function() {
         Route::get('/', [TbProductsController::class, 'index'])->name('master-product.index');
+        Route::get('/{id}', [TbProductsController::class, 'show'])->name('master-product.show');
         Route::get('/create', [TbProductsController::class, 'create'])->name('master-product.create');
         Route::get('/edit/{id}', [TbProductsController::class, 'edit'])->name('master-product.edit');
         Route::post('/store', [TbProductsController::class, 'store'])->name('master-product.store');
         Route::put('/update/{id}', [TbProductsController::class, 'update'])->name('master-product.update');
         Route::delete('/delete/{id}', [TbProductsController::class, 'destroy'])->name('master-product.delete');
+        Route::get('/import', [TbProductsController::class, 'import'])->name('master-product.import');
+        Route::post('/import', [TbProductsController::class, 'import'])->name('master-product.import');
+        Route::get('/preview', [TbProductsController::class, 'preview'])->name('master-product.preview');
+        Route::post('/save-imported', [TbProductsController::class, 'saveImported'])->name('master-product.saveImported');
     });
 
     Route::prefix('user')->group(function() {
@@ -93,6 +99,14 @@ Route::group(['middleware' => ['auth']], function() {
         Route::get('/store', [TbIncomingGoodsController::class, 'store'])->name('incoming-goods.store');
         Route::get('/update/{id}', [TbIncomingGoodsController::class, 'update'])->name('incoming-goods.update');
         Route::get('/delete/{id}', [TbIncomingGoodsController::class, 'delete'])->name('incoming-goods.delete');
+    });
+    Route::prefix('store')->group(function() {
+        Route::get('/', [TbStoresController::class, 'index'])->name('store.index');
+        Route::get('/create', [TbStoresController::class, 'create'])->name('store.create');
+        Route::get('/edit/{id}', [TbStoresController::class, 'edit'])->name('store.edit');
+        Route::post('/store', [TbStoresController::class, 'store'])->name('store.store');
+        Route::put('/update/{id}', [TbStoresController::class, 'update'])->name('store.update');
+        Route::delete('/delete/{id}', [TbStoresController::class, 'delete'])->name('store.delete');
     });
 
 });

@@ -40,7 +40,7 @@
             </a>
         </li>
         <li>
-            <a href="#" >
+        <a href="{{route('store.index')}}" >
                 <div class="parent-icon"><i class='bx bx-store'></i>
                 </div>
                 <div class="menu-title">Kelola Toko</div>
@@ -65,7 +65,7 @@
                 </li>
                 <li> <a href="{{route('master-brand.index')}}"><i class="bx bx-right-arrow-alt"></i>Kelola Merek</a>
                 </li>
-                <li> <a href="#"><i class="bx bx-right-arrow-alt"></i>Kelola Produk</a>
+                <li> <a href="{{ route('master-product.index') }}"><i class="bx bx-right-arrow-alt"></i>Kelola Produk</a>
                 </li>
                 <li> <a href="{{route('master-unit.index')}}"><i class="bx bx-right-arrow-alt"></i>Kelola Satuan</a>
                 </li>

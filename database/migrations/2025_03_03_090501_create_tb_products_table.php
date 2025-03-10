@@ -15,10 +15,12 @@ return new class extends Migration
             $table->id();
             $table->string('product_code');
             $table->string('product_name');
-            $table->unsignedBigInteger('type_id');
-            $table->unsignedBigInteger('brand_id');
-            $table->unsignedBigInteger('unit_id');
-            $table->text('description');
+            $table->unsignedBigInteger('type_id')->nullable();
+            $table->unsignedBigInteger('brand_id')->nullable();
+            $table->unsignedBigInteger('unit_id')->nullable();
+            $table->decimal('purchase_price', 15, 2)->default(0); 
+            $table->decimal('selling_price', 15, 2)->default(0);  
+            $table->text('description')->nullable(); // Bisa null
             $table->timestamps();
         });
     }
