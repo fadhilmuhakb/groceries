@@ -18,11 +18,13 @@ class TbUserController extends Controller
         if($request->ajax()) {
             return DataTables::of($users)
                     ->addColumn('action', function ($user) {
-                        return '<a href="/user/edit/'.$user->id.'" class="btn btn-sm btn-success"><i class="bx bx-pencil me-0"></i>
-                        </a>
-                        <a href="javascript:void(0)" onClick="confirmDelete(\''.$user->id.'\')" class="btn btn-sm btn-danger"><i class="bx bx-trash me-0"></i>
-                        </a>
-                        ';
+                        if(auth()->user()->roles == 'superadmin') {
+                            return '<a href="/user/edit/'.$user->id.'" class="btn btn-sm btn-success"><i class="bx bx-pencil me-0"></i>
+                            </a>
+                            <a href="javascript:void(0)" onClick="confirmDelete(\''.$user->id.'\')" class="btn btn-sm btn-danger"><i class="bx bx-trash me-0"></i>
+                            </a>
+                            ';
+                        }
                     })
                     ->rawColumns(['action'])
                     ->make(true);
@@ -88,6 +90,27 @@ class TbUserController extends Controller
         }catch(\Exception $e) {
             dd($e->getMessage());
             DB::rollBack();
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function updatePassword(Request $request, $id)
+    {
+        $data = $request->validate([
+            'new_password' => 'required|min:8|confirmed'
+        ]);
+        // dd(auth()->user()->password);
+        DB::beginTransaction();
+        try {
+            User::where('id', $id)->update([
+                'password' => Hash::make($request->new_password)
+            ]);
+            DB::commit();
+            return redirect()->route('user.index')->with('success', 'Password berhasil diperbaharui');
+        } catch(\Exception $e) {
+            DB::rollBack();
+            dd('error');
+
             return redirect()->back()->with('error', $e->getMessage());
         }
     }

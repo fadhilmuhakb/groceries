@@ -95,21 +95,11 @@
                         <option value="{{$store->id}}" {{(isset($user) && $user->store_id == $store->id) || old('store_id') == $store->id ? 'selected': ''}}>{{$store->store_name}}</option>
                       @endforeach
                     </select>
-                    {{-- <input class="form-control"
-                    type="text"
-                    disabled
-                    name="store_id"
-                    value="{{ isset($user) ? $user->store_id : old('store_id') }}"> --}}
 
                     @error('store_id')
                         <div class="text-danger">{{ $message }}</div>
                     @enderror
                   </div>
-                {{-- <div class="col-6 mb-3">
-                  <label for="description">Keterangan</label>
-                  <input class="form-control form-control" type="text" name="description"
-                  value="{{ isset($user) ? $user->description : old('description') }}">
-                </div> --}}
 
                 <div class="col-12 text-end">
                   <button class="btn btn-primary" type="submit">{{isset($user) ? 'Update' : 'Tambah'}}</button>
@@ -117,10 +107,45 @@
             </div>
             </form>
 
-
-
           </div>
         </div>
+        @if(isset($user))
+        <div class="card">
+          <div class="card-body">
+            <form action="{{route('user.update.password', $user->id)}}" method="POST">
+              <div class="row">
+              @csrf
+              @method('PUT')
+              <div class="col-12 mb-3">
+                <label for="name">Password</label>
+                <input class="form-control"
+                type="password"
+                name="new_password"
+                value="">
+
+                @error('new_password')
+                    <div class="text-danger">{{ $message }}</div>
+                @enderror
+              </div>
+              <div class="col-12 mb-3">
+                <label for="name">Retype Password</label>
+                <input class="form-control"
+                type="password"
+                name="new_password_confirmation"
+                value="">
+
+                @error('new_password_confirmation')
+                    <div class="text-danger">{{ $message }}</div>
+                @enderror
+              </div>
+              <div class="col-12 text-end">
+                <button class="btn btn-primary" type="submit">Update Password</button>
+              </div>
+              </div>
+            </form>
+          </div>
+        </div>
+        @endif
       </div>
     </div>
 
