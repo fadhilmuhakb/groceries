@@ -8,6 +8,7 @@ use App\Http\Controllers\TbSuppliersController;
 use App\Http\Controllers\TbTypesController;
 use App\Http\Controllers\TbUnitsController;
 use App\Http\Controllers\TbUserController;
+use App\Http\Controllers\TbPurchaseController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -30,11 +31,11 @@ use Illuminate\Support\Facades\Auth;
 Auth::routes();
 
 
-Route::group(['middleware' => ['auth']], function() {
+Route::group(['middleware' => ['auth']], function () {
     Route::get('/', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
 
-    Route::prefix('master-type')->group(function() {
+    Route::prefix('master-type')->group(function () {
         Route::get('/', [TbTypesController::class, 'index'])->name('master-types.index');
         Route::get('/create', [TbTypesController::class, 'create'])->name('master-types.create');
         Route::get('/edit/{id}', [TbTypesController::class, 'edit'])->name('master-types.edit');
@@ -43,7 +44,7 @@ Route::group(['middleware' => ['auth']], function() {
         Route::delete('/delete/{id}', [TbTypesController::class, 'destroy'])->name('master-type.delete');
 
     });
-    Route::prefix('master-brand')->group(function() {
+    Route::prefix('master-brand')->group(function () {
         Route::get('/', [TbBrandsController::class, 'index'])->name('master-brand.index');
         Route::get('/create', [TbBrandsController::class, 'create'])->name('master-brand.create');
         Route::get('/edit/{id}', [TbBrandsController::class, 'edit'])->name('master-brand.edit');
@@ -52,7 +53,7 @@ Route::group(['middleware' => ['auth']], function() {
         Route::delete('/delete/{id}', [TbBrandsController::class, 'destroy'])->name('master-brand.delete');
 
     });
-    Route::prefix('master-unit')->group(callback: function() {
+    Route::prefix('master-unit')->group(callback: function () {
         Route::get('/', [TbUnitsController::class, 'index'])->name('master-unit.index');
         Route::get('/create', [TbUnitsController::class, 'create'])->name('master-unit.create');
         Route::get('/edit/{id}', [TbUnitsController::class, 'edit'])->name('master-unit.edit');
@@ -60,7 +61,7 @@ Route::group(['middleware' => ['auth']], function() {
         Route::put('/update/{id}', [TbUnitsController::class, 'update'])->name('master-unit.update');
         Route::delete('/delete/{id}', [TbUnitsController::class, 'destroy'])->name('master-unit.delete');
     });
-    Route::prefix('master-product')->group(function() {
+    Route::prefix('master-product')->group(function () {
         Route::get('/', [TbProductsController::class, 'index'])->name('master-product.index');
         Route::get('/{id}', [TbProductsController::class, 'show'])->name('master-product.show');
         Route::get('/create', [TbProductsController::class, 'create'])->name('master-product.create');
@@ -74,7 +75,7 @@ Route::group(['middleware' => ['auth']], function() {
         Route::post('/save-imported', [TbProductsController::class, 'saveImported'])->name('master-product.saveImported');
     });
 
-    Route::prefix('user')->group(function() {
+    Route::prefix('user')->group(function () {
         Route::get('/', [TbUserController::class, 'index'])->name('user.index');
         Route::get('/create', [TbUserController::class, 'create'])->name('user.create');
         Route::get('/edit/{id}', [TbUserController::class, 'edit'])->name('user.edit');
@@ -83,7 +84,7 @@ Route::group(['middleware' => ['auth']], function() {
         Route::delete('/delete/{id}', [TbUserController::class, 'destroy'])->name('user.delete');
     });
 
-    Route::prefix('supplier')->group(function() {
+    Route::prefix('supplier')->group(function () {
         Route::get('/', [TbSuppliersController::class, 'index'])->name('supplier.index');
         Route::get('/create', [TbSuppliersController::class, 'create'])->name('supplier.create');
         Route::get('/edit/{id}', [TbSuppliersController::class, 'edit'])->name('supplier.edit');
@@ -92,15 +93,17 @@ Route::group(['middleware' => ['auth']], function() {
         Route::delete('/delete/{id}', [TbSuppliersController::class, 'destroy'])->name('supplier.delete');
     });
 
-    Route::prefix('incoming-goods')->group(function() {
-        Route::get('/', [TbIncomingGoodsController::class, 'index'])->name('incoming-goods.index');
-        Route::get('/create', [TbIncomingGoodsController::class, 'create'])->name('incoming-goods.create');
-        Route::get('/edit/{id}', [TbIncomingGoodsController::class, 'create'])->name('incoming-goods.edit');
-        Route::get('/store', [TbIncomingGoodsController::class, 'store'])->name('incoming-goods.store');
-        Route::get('/update/{id}', [TbIncomingGoodsController::class, 'update'])->name('incoming-goods.update');
-        Route::get('/delete/{id}', [TbIncomingGoodsController::class, 'delete'])->name('incoming-goods.delete');
+    Route::prefix('purchase')->group(function () {
+        Route::get('/', [TbPurchaseController::class, 'index'])->name('purchase.index');
+        Route::get('/create', [TbPurchaseController::class, 'create'])->name('purchase.create');
+        Route::get('/edit/{id}', [TbPurchaseController::class, 'edit'])->name('purchase.edit');
+        Route::get('/store', [TbPurchaseController::class, 'store'])->name('purchase.store');
+        Route::post('/store', [TbPurchaseController::class, 'store'])->name('purchase.store'); // Pastikan ini ada
+        Route::get('/update/{id}', [TbPurchaseController::class, 'update'])->name('purchase.update');
+        Route::put('/update/{id}', [TbPurchaseController::class, 'update'])->name('purchase.update');
+        Route::get('/delete/{id}', [TbPurchaseController::class, 'delete'])->name('purchase.delete');
     });
-    Route::prefix('store')->group(function() {
+    Route::prefix('store')->group(function () {
         Route::get('/', [TbStoresController::class, 'index'])->name('store.index');
         Route::get('/create', [TbStoresController::class, 'create'])->name('store.create');
         Route::get('/edit/{id}', [TbStoresController::class, 'edit'])->name('store.edit');

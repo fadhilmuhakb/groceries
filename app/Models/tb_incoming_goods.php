@@ -8,15 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class tb_incoming_goods extends Model
 {
     use HasFactory;
-    protected $fillable = [
-        'product_id',
-        'supplier_id',
-        'store_id',
-        'stock',
-        'type',
-        'description',
-        'paid_of_date'
-    ];
+    protected $fillable = ['purchase_id', 'product_id', 'stock', 'description'];
+
 
 
     public function product()
@@ -24,8 +17,5 @@ class tb_incoming_goods extends Model
         return $this->belongsTo(tb_products::class, 'product_id');
     }
 
-    public function store()
-    {
-        return $this->belongsTo(tb_stores::class, 'store_id');
-    }
+  
 }

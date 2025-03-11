@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('tb_purchases', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('supplier_id')->nullable();
+            $table->unsignedBigInteger('store_id')->nullable();
             $table->unsignedBigInteger('total_price')->nullable();
-            $table->timestamps('paid_date');
             $table->timestamps();
         });//
     }
@@ -25,6 +25,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        //
+        Schema::dropIfExists('tb_purchases');
+        
     }
 };

@@ -2,6 +2,7 @@
 
 @section('css')
     <link href="{{ asset('assets/plugins/datatable/css/dataTables.bootstrap5.min.css') }}" rel="stylesheet" />
+
 @endsection
 
 @section('content')
@@ -22,12 +23,11 @@
                 <table id="table-purchase" class="table table-striped table-bordered" style="width:100%">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th>No</th>
                             <th>Supplier</th>
                             <th>Total Harga</th>
-                            <th>Tanggal Bayar</th>
+                            <th>Toko</th>
                             <th>Dibuat Pada</th>
-                            <th>Diperbarui Pada</th>
                             <th>Aksi</th>
                         </tr>
                     </thead>
@@ -41,6 +41,8 @@
 @section('scripts')
     <script src="{{ asset('assets/plugins/datatable/js/jquery.dataTables.min.js') }}"></script>
     <script src="{{ asset('assets/plugins/datatable/js/dataTables.bootstrap5.min.js') }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdn.datatables.net/plug-ins/1.11.5/dataRender/datetime.js"></script>
 
     <script>
         $(document).ready(function () {
@@ -49,15 +51,27 @@
                 serverSide: true,
                 ajax: "{{ route('purchase.index') }}",
                 columns: [
-                    { data: 'id', name: 'id' },
+                    {
+                        data: null,
+                        render: function (data, type, row, meta) {
+                            return meta.row + meta.settings._iDisplayStart + 1;
+                        }
+                    },
                     { data: 'supplier.name', name: 'supplier.name' },
                     { data: 'total_price', name: 'total_price' },
-                    { data: 'paid_date', name: 'paid_date' },
-                    { data: 'created_at', name: 'created_at' },
-                    { data: 'updated_at', name: 'updated_at' },
-                    { data: 'action', name: 'action', orderable: false, searchable: false }
+                    { data: 'store.store_name', name: 'store.store_name' },
+                    {
+                        data: 'created_at',
+                        name: 'created_at',
+                        render: function (data) {
+                            return moment(data).format('DD MMM YYYY');
+                        }
+                    },
+                    { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center align-self-center' }
                 ]
             });
         });
     </script>
 @endsection
+
+sesuaikan untuk createnya pula

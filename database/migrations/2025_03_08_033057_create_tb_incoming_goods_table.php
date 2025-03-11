@@ -15,9 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('product_id');
             $table->unsignedBigInteger('purchase_id');
-            $table->unsignedBigInteger('store_id');
             $table->bigInteger('stock');
-            $table->integer('type');
             $table->text('description')->nullable();
             $table->timestamps();
         });

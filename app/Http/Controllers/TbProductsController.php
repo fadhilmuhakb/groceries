@@ -111,17 +111,11 @@ class TbProductsController extends Controller
         }
 
         session(['imported_products' => $importedProducts]);
-        return redirect()->route('master-product.preview');
+        session()->save();
+        return view('pages.admin.master.manage_product.preview', data: compact('importedProducts'));
     }
 
 
-
-
-    public function preview()
-    {
-        $importedProducts = session('imported_products', []);
-        return view('pages.admin.master.manage_product.preview', compact('importedProducts'));
-    }
 
     public function saveImported()
     {

@@ -79,7 +79,7 @@
                 <div class="menu-title">Stock Opname</div>
             </a>
             <ul>
-                <li> <a href="{{route('incoming-goods.index')}}"><i class="bx bx-right-arrow-alt"></i>Barang Masuk</a>
+                <li> <a href="{{route('purchase.index')}}"><i class="bx bx-right-arrow-alt"></i>Pembelian</a>
                 </li>
                 <li> <a href="{{route('master-brand.index')}}"><i class="bx bx-right-arrow-alt"></i>Barang Keluar</a>
                 </li>
