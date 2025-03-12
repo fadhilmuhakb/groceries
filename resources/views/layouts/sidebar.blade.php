@@ -19,10 +19,10 @@
             </a>
         </li>
         <li>
-            <a href="#" >
+            <a href="{{route('sales.index')}}" >
                 <div class="parent-icon"><i class='bx bx-user-circle'></i>
                 </div>
-                <div class="menu-title">Kelola Admin</div>
+                <div class="menu-title">Sales</div>
             </a>
         </li>
         <li>

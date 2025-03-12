@@ -9,6 +9,7 @@ use App\Http\Controllers\TbTypesController;
 use App\Http\Controllers\TbUnitsController;
 use App\Http\Controllers\TbUserController;
 use App\Http\Controllers\TbPurchaseController;
+use App\Http\Controllers\TbSalesController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -111,6 +112,10 @@ Route::group(['middleware' => ['auth']], function () {
         Route::post('/store', [TbStoresController::class, 'store'])->name('store.store');
         Route::put('/update/{id}', [TbStoresController::class, 'update'])->name('store.update');
         Route::delete('/delete/{id}', [TbStoresController::class, 'delete'])->name('store.delete');
+    });
+
+    Route::prefix('sales')->group(function() {
+        Route::get('/', [TbSalesController::class, 'index'])->name('sales.index');
     });
 
 });
