@@ -106,7 +106,7 @@
                 {data:'name', name:'name'},
                 {data:'email', name:'email'},
                 {data:'roles', name:'roles'},
-                {data:'store.store_name', name:'store.store_name'},
+                {data:'store.store_name', name:'store.store_name', defaultContent: '-',},
                 {data: 'action', name: 'action', orderable: false, searchable: false, className:'text-end'}
 
             ]
