@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('tb_units', function (Blueprint $table) {
             $table->id();
             $table->string('unit_name');
-            $table->text('description');
+            $table->text('description')->nullable();
             $table->timestamps();
         });
     }
