@@ -17,5 +17,10 @@ class tb_incoming_goods extends Model
         return $this->belongsTo(tb_products::class, 'product_id');
     }
 
-  
+    public function purchase()
+    {
+        return $this->belongsTo(tb_purchase::class, 'purchase_id');
+    }
+
+
 }

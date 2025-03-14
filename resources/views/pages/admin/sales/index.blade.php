@@ -20,11 +20,11 @@
                 <a href="{{route('master-unit.create')}}" class="btn btn-success">
                     + Tambah
                 </a>
-                
+
             </div> --}}
         </div>
     </div>
-    <h6 class="mb-0 text-uppercase">Kelola Jenis</h6>
+    <h6 class="mb-0 text-uppercase">Sales</h6>
     <hr/>
     <div class="row">
         <div class="col-8">
@@ -52,12 +52,20 @@
         <div class="col-4">
             <div class="card">
                 <div class="card-body">
-                    Data Checkout
+                    <h6 class="mb-4">Data Checkout</h6>
+                    <div class="overflow-auto" style="max-height: 400px" id="card-sales">
+                        {{-- Data from array javascript --}}
+                    </div>
+
+                    <div class="" id="card-detail">
+
+                    </div>
+
                 </div>
             </div>
         </div>
     </div>
-    
+
 
 @endsection
 @section('scripts')
@@ -65,62 +73,140 @@
 <script src="{{asset('assets/plugins/datatable/js/dataTables.bootstrap5.min.js')}}"></script>
 
 <script>
-//     const confirmDelete = (id) => {
-//     let token = $("meta[name='csrf-token']").attr("content");
-//     Swal.fire({
-//         title: 'Apakah Anda yakin?',
-//         text: "Data akan dihapus permanen!",
-//         icon: 'warning',
-//         showCancelButton: true,
-//         confirmButtonColor: '#3085d6',
-//         cancelButtonColor: '#d33',
-//         confirmButtonText: 'Ya, hapus!',
-//         cancelButtonText: 'Batal'
-//     }).then((result) => {
-//         if (result.isConfirmed) {
-//             $.ajax({
-//                 url: `/master-unit/delete/${id}`,
-//                 type: 'DELETE',
-//                 data: {
-//                     _token: token, 
-//                 },
-//                 success: function(response) {
-//                     Swal.fire({
-//                         icon: 'success',
-//                         title: 'Sukses',
-//                         text: response.message,
-//                     });
-//                     $('#table-type').DataTable().ajax.reload(); 
-//                 },
-//                 error: function(err) {
-//                     Swal.fire({
-//                         icon: 'error',
-//                         title: 'Oops...',
-//                         text: err.responseJSON.message || 'Terjadi kesalahan saat menghapus data!',
-//                     });
-//                 }
-//             });
-//         }
-//     });
-// };
-    // $(document).ready(function() {
-    //     $('#table-type').DataTable({
-    //         processing: true,
-    //         serverSide: true,
-    //         ajax: "{{url('/master-unit')}}",
-    //         columns: [
-    //             {data: null,
-    //                 render: function(data, type, row, meta){
-    //                     return meta.row +meta.settings._iDisplayStart + 1;
-    //                 }
-    //             },
-    //             {data:'unit_name', name:'unit_name'},
-    //             {data:'description', name:'description'},
-    //             { data: 'action', name: 'action', orderable: false, searchable: false, className:'text-end' }
+    let dataSales = [];
 
-    //         ]
-    //     })
-    // });
+    $(document).ready(function() {
+        $('#table-type').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: "{{url('/sales')}}",
+            columns: [
+                {data:'product.product_code', name:'product.product_code'},
+                {data:'product.product_name', name:'product.product_name'},
+                {data:'product.unit_id', name:'product.unit_id'},
+                {data:'product.selling_price', name:'product.selling_price'},
+                {data:'stock', name:'stock'},
+                { data: 'action', name: 'action', orderable: false, searchable: false, className:'text-center' }
+
+            ]
+        })
+    });
+
+    const handleSelect = (productData) => {
+        const existingProduct = dataSales.find((data) => data.product_id === productData.product.id);
+
+        if (existingProduct) {
+            existingProduct.qty += 1;
+            existingProduct.total = parseInt(existingProduct.qty) * parseInt(existingProduct.selling_price);
+        } else {
+            dataSales.push({
+                product_id: productData.product.id,
+                product_code: productData.product.product_code,
+                product_name: productData.product.product_name,
+                unit_id: productData.product.unit_id,
+                selling_price: productData.product.selling_price,
+                stock: productData.stock,
+                qty: 1,
+                total: productData.product.selling_price
+            });
+        }
+
+        renderData();
+    }
+
+    const handlePlus = (id) => {
+        const dataExist = dataSales.find((data) => data.product_id === id);
+        if(dataExist) {
+            dataExist.qty += 1;
+            dataExist.total = dataExist.qty * dataExist.selling_price;
+        }
+        renderData();
+    }
+
+    const qtyChange = (id, value) => {
+        const dataExist = dataSales.find((data) => data.product_id === id);
+        if(dataExist) {
+            dataExist.qty = parseInt(value,10);
+            dataExist.total = dataExist.qty * dataExist.selling_price;
+        }
+        renderData();
+    }
+
+    const handleMinus = (id) => {
+        const dataExist = dataSales.find((data) => data.product_id === id);
+        if(dataExist) {
+            if(dataExist.qty <= 1) {
+                const index = dataSales.findIndex((data) => data.product_id === id);
+                dataSales.splice(index, 1);
+            } else {
+                dataExist.qty -= 1;
+                dataExist.total = dataExist.qty * dataExist.selling_price;
+        }
+            renderData();
+        }
+    }
+
+    const handleDelete = (id) => {
+        const index = dataSales.findIndex((data) => data.product_id === id);
+        dataSales.splice(index, 1);
+        renderData();
+    }
+
+    const formattedPrice = (price) => {
+        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(price);
+    }
+
+    const renderData = () => {
+        $('#card-sales').empty();
+        $('#card-detail').empty();
+
+        if(dataSales.length > 0) {
+            dataSales.forEach((data) => {
+            $('#card-sales').append(`
+                <div class="card">
+                <div class="card-body">
+
+                    <div class="row align-items-center">
+                        <div class="col-5 ">
+                            <div class="fw-bold">${data.product_name}</div>
+                            <div>${formattedPrice(data.selling_price)}</div>
+                        </div>
+                        <div class="col-5">
+                            <div class="input-group input-spinner">
+                                <button class="btn btn-white" type="button" onClick="handlePlus(${data.product_id})"> + </button>
+                                <input type="number" class="form-control" onchange="qtyChange(${data.product_id}, this.value)" value="${data.qty}">
+                                <button class="btn btn-white" type="button" onClick="handleMinus(${data.product_id})"> − </button>
+                            </div>
+                        </div>
+                        <div class="col-2">
+                            <button class="btn btn-sm btn-danger" onClick="handleDelete(${data.product_id})">X</button>
+                        </div>
+                    </div>
+
+                    </div>
+                </div>
+                `);
+            });
+        $total = dataSales.reduce((acc, curr) => acc + parseInt(curr.total), 0);
+        $('#card-detail').append(`
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="fw-bold">Total</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="fw-bold">${formattedPrice($total)}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `);
+
+        } else {
+            $('#card-sales').append('Silahkan Pilih Produk');
+        }
+    }
 
       @if(session('success'))
           Swal.fire({
