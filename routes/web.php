@@ -3,6 +3,7 @@
 use App\Http\Controllers\TbBrandsController;
 use App\Http\Controllers\TbIncomingGoodsController;
 use App\Http\Controllers\TbProductsController;
+use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\TbStoresController;
 use App\Http\Controllers\TbSuppliersController;
 use App\Http\Controllers\TbTypesController;
@@ -113,6 +114,11 @@ Route::group(['middleware' => ['auth']], function () {
         Route::put('/update/{id}', [TbStoresController::class, 'update'])->name('store.update');
         Route::delete('/delete/{id}', [TbStoresController::class, 'delete'])->name('store.delete');
     });
+
+    Route::prefix('inventory')->group(function () {
+        Route::get('/', [InventoryController::class, 'index'])->name('inventory.index');
+    });
+
 
     Route::prefix('sales')->group(function() {
         Route::get('/', [TbSalesController::class, 'index'])->name('sales.index');

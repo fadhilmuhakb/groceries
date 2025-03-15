@@ -81,7 +81,9 @@
             <ul>
                 <li> <a href="{{route('purchase.index')}}"><i class="bx bx-right-arrow-alt"></i>Pembelian</a>
                 </li>
+                <li> <a href="{{route('inventory.index')}}"><i class="bx bx-right-arrow-alt"></i>Inventory</a>
                 <li> <a href="{{route('master-brand.index')}}"><i class="bx bx-right-arrow-alt"></i>Barang Keluar</a>
+
                 </li>
             </ul>
         </li>
