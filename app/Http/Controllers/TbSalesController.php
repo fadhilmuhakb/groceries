@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\tb_incoming_goods;
 use App\Models\tb_products;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -11,7 +12,8 @@ class TbSalesController extends Controller
 {
     public function index(Request $request)
     {
-        // dd(tb_incoming_goods::with('product')->get());
+        $user_id = auth()->user()->id;
+        $user = User::where('id', $user_id)->with('store')->first();
         if(auth()->user()->roles == 'superadmin') {
             $product = tb_incoming_goods::with('product', 'purchase')->get();
         }
@@ -34,6 +36,6 @@ class TbSalesController extends Controller
                         ->rawColumns(['action'])
                         ->make(true);
         };
-        return view('pages.admin.sales.index');
+        return view('pages.admin.sales.index', ['user' => $user]);
     }
 }

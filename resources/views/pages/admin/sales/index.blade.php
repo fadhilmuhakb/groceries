@@ -26,6 +26,54 @@
     </div>
     <h6 class="mb-0 text-uppercase">Sales</h6>
     <hr/>
+    <div class="row mb-3">
+        <div class="col-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12">
+                            <div style="font-size: 18px" class="fw-bold">No. Invoice</div>
+                            <p style="font-size: 14px">INV-08250001</p>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label for="">Tanggal</label>
+                            <input type="date" name="" class="form-control">
+                        </div>
+                    </div>
+                    <hr>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <h4>{{$user->store->store_name ?? '-'}}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row mb-3">
+        <div class="row">
+            <div class="col-3">
+                <input type="text" name="" class="form-control">
+            </div>
+            <div class="col-2">
+                <input type="text" name="" class="form-control">
+            </div>
+            <div class="col-2">
+                <input type="text" name="" class="form-control">
+            </div>
+            <div class="col-3">
+                <input type="text" name="" class="form-control">
+            </div>
+            <div class="col-2">
+                <a href="javascript:void(0)" style="font-size: 24px; "><i class="lni lni-circle-plus"></i></a>
+                <a href="javascript:void(0)" style="font-size: 24px; color:red"><i class="lni lni-circle-minus"></i></a>
+            </div>
+        </div>
+    </div>
     <div class="row">
         <div class="col-8">
             <div class="card">
