@@ -62,23 +62,38 @@
             <div class="card">
                 <div class="card-body">
                     <div class="row mb-3">
+                        <table class="table table-bordered mb-0">
+                            <thead>
+                                <tr>
+                                    <th width="35%">Produk</th>
+                                    <th width="10%">Qty</th>
+                                    <th width="15%">Diskon</th>
+                                    <th>Deskripsi</th>
+                                    <th width="10%"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="product-list">
+                                <tr>
+                                    <td>
+                                        <select type="text" name="products[0][product_id]" class="form-select product-select2"></select>
+                                    </td>
+                                    <td>
+                                        <input type="number" name="products[0][qty]" class="form-control">
+                                    </td>
+                                    <td>
+                                        <input type="text" name="products[0][discount]" class="form-control">
+                                    </td>
+                                    <td>
+                                        <input type="text" name="products[0][description]" class="form-control">
+                                    </td>
+                                    <td>
+                                        <a href="javascript:void(0)" style="font-size: 24px;" onClick="handleAdd()"><i class="lni lni-circle-plus"></i></a>
+                                        <a href="javascript:void(0)" style="font-size: 24px; color:red"><i class="lni lni-circle-minus"></i></a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                         <div class="row">
-                            <div class="col-3">
-                                <select type="text" name="" class="form-select product-select2"></select>
-                            </div>
-                            <div class="col-2">
-                                <input type="text" name="" class="form-control">
-                            </div>
-                            <div class="col-2">
-                                <input type="text" name="" class="form-control">
-                            </div>
-                            <div class="col-3">
-                                <input type="text" name="" class="form-control">
-                            </div>
-                            <div class="col-2">
-                                <a href="javascript:void(0)" style="font-size: 24px; "><i class="lni lni-circle-plus"></i></a>
-                                <a href="javascript:void(0)" style="font-size: 24px; color:red"><i class="lni lni-circle-minus"></i></a>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -135,6 +150,10 @@
 
 <script>
     $(document).ready(function() {
+        select2();
+    })
+    
+    const select2 = () => {
         $('.product-select2').select2({
             theme: 'bootstrap-5',
             placeholder:'Cari produk...',
@@ -164,7 +183,38 @@
             console.log('Selected Value:', selectedValue);
             console.log('Selected Text:', selectedText);
         });
-    })
+    }
+   
+
+    const handleAdd = () => {
+        let productIndex = 1;
+        $('#product-list').append(
+            `
+            <tr>
+                <td>
+                    <select type="text" name="products[${productIndex}][product_id]" class="form-select product-select2"></select>
+                </td>
+                <td>
+                    <input type="number" name="products[${productIndex}][qty]" class="form-control">
+                </td>
+                <td>
+                    <input type="text" name="products[${productIndex}][discount]" class="form-control">
+                </td>
+                <td>
+                    <input type="text" name="products[${productIndex}][description]" class="form-control">
+                </td>
+                <td>
+                    <a href="javascript:void(0)" style="font-size: 24px;" onClick="handleAdd()"><i class="lni lni-circle-plus"></i></a>
+                    <a href="javascript:void(0)" style="font-size: 24px; color:red"><i class="lni lni-circle-minus"></i></a>
+                </td>
+            </tr>
+            `
+        )
+
+        select2();
+
+        productIndex++;
+    }
     // let dataSales = [];
 
     // $(document).ready(function() {
