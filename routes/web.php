@@ -124,4 +124,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::get('/', [TbSalesController::class, 'index'])->name('sales.index');
     });
 
+    Route::prefix('options')->group(function() {
+        Route::get('/incoming-goods', [TbIncomingGoodsController::class, 'options'])->name('options.incoming_goods');
+    });
 });

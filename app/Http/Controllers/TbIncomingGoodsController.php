@@ -6,15 +6,63 @@ use App\Models\tb_incoming_goods;
 use App\Models\tb_products;
 use App\Models\tb_stores;
 use App\Models\tb_suppliers;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class TbIncomingGoodsController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    
+    public function options(Request $request)
+    {
+        try {
+            $user_id = auth()->user()->id;
+            $user = User::where('id', $user_id)->with('store')->first();
+            if(auth()->user()->roles == 'superadmin') {
+                $products = tb_incoming_goods::with('product', 'purchase')
+                                            ->when($request->search_term, function($q1) use($request) {
+                                                $q1->whereHas('product', function($q2) use($request) {
+                                                    $q2->where('product_name', 'LIKE', '%'.$request->search_term.'%');
+                                                });
+                                            })
+                                            ->get();
+            }
+            else if(auth()->user()->roles == 'staff') {
+                $products = tb_incoming_goods::with('product', 'purchase')
+                                            ->whereHas('purchase', function($q) {
+                                                $q->where('store_id', auth()->user()->store_id);
+                                            })
+                                            ->when($request->search_term, function($q1) use($request) {
+                                                $q1->whereHas('product', function($q2) use($request) {
+                                                    $q2->where('product_name', 'LIKE', '%'.$request->search_term.'%');
+                                                });
+                                            })
+                                            ->get();
+            }
+
+            $options = [];
+            foreach($products as $product) {
+                $options[] = [
+                    'id' => $product->product->id,
+                    'text' => $product->product->product_name
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Data berhasil diambil',
+                'data' => $options
+            ]);
+
+        }catch(\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+
     public function index(Request $request)
     {
         $incomingGoods = tb_incoming_goods::all();
