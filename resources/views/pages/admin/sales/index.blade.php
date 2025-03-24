@@ -209,6 +209,8 @@
 
     let formData = [];
     let formCustomerMoney = {};
+    let productIndex = 1;
+
     const select2 = () => {
         $('.product-select2').select2({
             theme: 'bootstrap-5',
@@ -252,7 +254,6 @@
 
 
     const handleAdd = () => {
-        let productIndex = 1;
         $('#product-list').append(
             `
             <tr>
