@@ -22,9 +22,8 @@ class TbIncomingGoodsController extends Controller
             if(auth()->user()->roles == 'superadmin') {
                 $products = tb_incoming_goods::with('product', 'purchase')
                                             ->when($request->search_term, function($q1) use($request) {
-                                                $q1->whereHas('product', function($q2) use($request) {
-                                                    $q2->where('product_name', 'LIKE', '%'.$request->search_term.'%');
-                                                });
+                                                $q1->whereRelation('product', 'product_name', 'LIKE', '%'.$request->search_term.'%')
+                                                    ->orWhereRelation('product', 'product_code', 'LIKE','%'.$request->search_term.'%');
                                             })
                                             ->get();
             }
@@ -34,9 +33,8 @@ class TbIncomingGoodsController extends Controller
                                                 $q->where('store_id', auth()->user()->store_id);
                                             })
                                             ->when($request->search_term, function($q1) use($request) {
-                                                $q1->whereHas('product', function($q2) use($request) {
-                                                    $q2->where('product_name', 'LIKE', '%'.$request->search_term.'%');
-                                                });
+                                                $q1->whereRelation('product', 'product_name', 'LIKE', '%'.$request->search_term.'%')
+                                                    ->orWhereRelation('product', 'product_code', 'LIKE','%'.$request->search_term.'%');
                                             })
                                             ->get();
             }
@@ -45,7 +43,7 @@ class TbIncomingGoodsController extends Controller
             foreach($products as $product) {
                 $options[] = [
                     'id' => $product->product->id,
-                    'text' => $product->product->product_name,
+                    'text' => $product->product->product_code.' - '.$product->product->product_name,
                     'selling_price' => $product->product->selling_price
                 ];
             }
