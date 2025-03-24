@@ -13,7 +13,7 @@ use Yajra\DataTables\Facades\DataTables;
 
 class TbIncomingGoodsController extends Controller
 {
-    
+
     public function options(Request $request)
     {
         try {
@@ -45,7 +45,8 @@ class TbIncomingGoodsController extends Controller
             foreach($products as $product) {
                 $options[] = [
                     'id' => $product->product->id,
-                    'text' => $product->product->product_name
+                    'text' => $product->product->product_name,
+                    'selling_price' => $product->product->selling_price
                 ];
             }
 

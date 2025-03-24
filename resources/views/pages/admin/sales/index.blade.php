@@ -66,10 +66,11 @@
                             <thead>
                                 <tr>
                                     <th width="35%">Produk</th>
+                                    <th width="15%">Harga</th>
                                     <th width="10%">Qty</th>
                                     <th width="15%">Diskon</th>
                                     <th>Deskripsi</th>
-                                    <th width="10%"></th>
+                                    <th width="8%"></th>
                                 </tr>
                             </thead>
                             <tbody id="product-list">
@@ -78,20 +79,45 @@
                                         <select type="text" name="products[0][product_id]" class="form-select product-select2"></select>
                                     </td>
                                     <td>
-                                        <input type="number" name="products[0][qty]" class="form-control">
+                                        <input type="number" name="products[0][selling_price]" class="form-control" disabled>
                                     </td>
                                     <td>
-                                        <input type="text" name="products[0][discount]" class="form-control">
+                                        <input type="number" name="products[0][qty]" oninput="qtyChange(0, this.value)" class="form-control">
+                                    </td>
+                                    <td>
+                                        <input type="number" name="products[0][discount]" oninput="discountChange(0, this.value)" class="form-control">
                                     </td>
                                     <td>
                                         <input type="text" name="products[0][description]" class="form-control">
                                     </td>
                                     <td>
-                                        <a href="javascript:void(0)" style="font-size: 24px;" onClick="handleAdd()"><i class="lni lni-circle-plus"></i></a>
-                                        <a href="javascript:void(0)" style="font-size: 24px; color:red"><i class="lni lni-circle-minus"></i></a>
+                                        <a href="javascript:void(0)" style="font-size: 24px;" onClick="handlePlus(0)"><i class="lni lni-circle-plus"></i></a>
+                                        <a href="javascript:void(0)" style="font-size: 24px; color:red" onClick="handleMinus(0)"><i class="lni lni-circle-minus"></i></a>
                                     </td>
                                 </tr>
                             </tbody>
+                            <tfooter>
+                                <tr>
+                                    <td colspan="6">
+                                        <a href="javascript:void(0)" onClick="handleAdd()">+ Tambah Produk</a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="text-end fw-bold" style="font-size: 14px">SUB TOTAL</td>
+                                    <td class="text-end">
+                                        <div id="total-discount" class="fw-bold" style="font-size: 14px"></div>
+                                    </td>
+                                    <td class="text-end">
+                                        <div id="sub-total-price" class="fw-bold" style="font-size: 14px"></div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="text-end fw-bold" style="font-size: 14px">TOTAL</td>
+                                    <td colspan="2" class="text-end">
+                                        <div id="total-price" class="fw-bold" style="font-size: 14px"></div>
+                                    </td>
+                                </tr>
+                            </tfooter>
                         </table>
                         <div class="row">
                         </div>
@@ -100,7 +126,7 @@
             </div>
         </div>
     </div>
-    
+
     {{-- <div class="row">
         <div class="col-8">
             <div class="card">
@@ -129,7 +155,7 @@
                 <div class="card-body">
                     <h6 class="mb-4">Data Checkout</h6>
                     <div class="overflow-auto" style="max-height: 400px" id="card-sales">
-                        
+
                     </div>
 
                     <div class="" id="card-detail">
@@ -151,8 +177,25 @@
 <script>
     $(document).ready(function() {
         select2();
+        getFormData();
     })
-    
+
+    const debounce = (callback, wait) => {
+        let timeoutId = null;
+        return (...args) => {
+            window.clearTimeout(timeoutId);
+            timeoutId = window.setTimeout(() => {
+            callback(...args);
+            }, wait);
+        };
+    }
+
+    const formattedPrice = (price) => {
+        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(price);
+    }
+
+    let selectedValues = [];
+    let formData = [];
     const select2 = () => {
         $('.product-select2').select2({
             theme: 'bootstrap-5',
@@ -167,8 +210,9 @@
                     }
                 },
                 processResults: function(response) {
+                    const filteredData = response.data.filter(item => !selectedValues.includes(item.id));
                 return {
-                    results: response.data,
+                    results: filteredData,
                 };
             },
             cache: true
@@ -178,13 +222,19 @@
 
 
         $('.product-select2').on('select2:select', function(e) {
+            var selectName = $(this).attr('name');
+            var index = Number(selectName.match(/\[(\d+)\]/)[1]);
             var selectedValue = e.params.data.id;
-            var selectedText = e.params.data.text;
-            console.log('Selected Value:', selectedValue);
-            console.log('Selected Text:', selectedText);
+            selectedValues.push(selectedValue);
+            let selling_price = $(`input[name="products[${index}][selling_price]"]`);
+            let qty = $(`input[name="products[${index}][qty]"]`);
+            selling_price.val(e.params.data.selling_price);
+            qty.val(1);
+
+            getFormData();
         });
     }
-   
+
 
     const handleAdd = () => {
         let productIndex = 1;
@@ -195,17 +245,27 @@
                     <select type="text" name="products[${productIndex}][product_id]" class="form-select product-select2"></select>
                 </td>
                 <td>
-                    <input type="number" name="products[${productIndex}][qty]" class="form-control">
+                    <input type="number" name="products[${productIndex}][selling_price]" class="form-control" disabled>
                 </td>
                 <td>
-                    <input type="text" name="products[${productIndex}][discount]" class="form-control">
+                    <input type="number" name="products[${productIndex}][qty]" oninput="qtyChange(${productIndex}, this.value)" class="form-control">
+                </td>
+                <td>
+                    <input type="number" name="products[${productIndex}][discount]" oninput="discountChange(${productIndex}, this.value)" class="form-control">
                 </td>
                 <td>
                     <input type="text" name="products[${productIndex}][description]" class="form-control">
                 </td>
                 <td>
-                    <a href="javascript:void(0)" style="font-size: 24px;" onClick="handleAdd()"><i class="lni lni-circle-plus"></i></a>
-                    <a href="javascript:void(0)" style="font-size: 24px; color:red"><i class="lni lni-circle-minus"></i></a>
+                    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center">
+                        <div>
+                            <a href="javascript:void(0)" style="font-size: 24px;" onClick="handlePlus(${productIndex})"><i class="lni lni-circle-plus"></i></a>
+                            <a href="javascript:void(0)" style="font-size: 24px; color:red" onClick="handleMinus(${productIndex})"><i class="lni lni-circle-minus"></i></a>
+                        </div>
+                        <div>
+                            <a href="javascript:void(0)" class="delete-item" style="font-size: 20px; color:red"><i class="lni lni-trash"></i></a>
+                        </div>
+                    </div>
                 </td>
             </tr>
             `
@@ -215,6 +275,67 @@
 
         productIndex++;
     }
+
+    const handlePlus = (productIndex) => {
+
+        let qtyField = $(`input[name="products[${productIndex}][qty]"]`);
+        qtyField.val(parseInt(qtyField.val() || 0) + 1);
+        getFormData();
+    }
+
+    const handleMinus = (productIndex) => {
+        let qtyField = $(`input[name="products[${productIndex}][qty]"]`);
+        if(qtyField.val() > 1) {
+            qtyField.val(parseInt(qtyField.val() || 0) - 1);
+        } else {
+        }
+        getFormData();
+    }
+
+    const discountChange = debounce((idx, value) => {
+        // console.log(idx);
+        $(`input[name="products[${idx}][discount]"]`).val(value);
+        getFormData();
+    },500)
+
+    const qtyChange = debounce((idx, value) => {
+        $(`input[name="products[${idx}][qty]"]`).val(value);
+        getFormData();
+    }, 500);
+
+
+    $(document).on('click','.delete-item', function() {
+        $(this).closest('tr').remove();
+        getFormData();
+    })
+
+
+    const getFormData = () => {
+        formData = [];
+        let productIndex = 0;
+        $('#product-list tr').each((index,row) => {
+            let product = {
+                product_id: $(row).find('select[name^="products"]').val(),
+                qty: $(row).find('input[name^="products"][name$="[qty]"]').val(),
+                discount: $(row).find('input[name^="products"][name$="[discount]"]').val(),
+                description: $(row).find('input[name^="products"][name$="[description]"]').val(),
+                selling_price: $(row).find('input[name^="products"][name$="[selling_price]"]').val(),
+            }
+
+            formData.push(product);
+
+            productIndex++;
+        })
+
+        let totalDiscount = formData.reduce((num, item) => num + Number(item.discount), 0);
+        let totalSelling = formData.reduce((num, item) => num + (Number(item.selling_price)*Number(item.qty)), 0);
+        $('#total-discount').text(formattedPrice(totalDiscount));
+        $('#sub-total-price').text(formattedPrice(totalSelling));
+        $('#total-price').text(formattedPrice(totalSelling-totalDiscount));
+        // console.log(formData);
+    }
+
+
     // let dataSales = [];
 
     // $(document).ready(function() {
@@ -294,9 +415,7 @@
     //     renderData();
     // }
 
-    // const formattedPrice = (price) => {
-    //     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(price);
-    // }
+
 
     // const renderData = () => {
     //     $('#card-sales').empty();
