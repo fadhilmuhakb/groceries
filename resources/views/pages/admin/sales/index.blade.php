@@ -117,6 +117,19 @@
                                         <div id="total-price" class="fw-bold" style="font-size: 14px"></div>
                                     </td>
                                 </tr>
+                                <tr>
+                                    <td colspan="6">&nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="text-end fw-bold" style="vertical-align:middle;">JUMLAH UANG DIBAYAR</td>
+                                    <td colspan="2"><input type="number" oninput="customerMoney(this.value)" id="customer-money" name="customer_money" style="text-align: right" class="form-control" placeholder="Masukan uang yang diterima"></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="text-end fw-bold" style="vertical-align:middle;">UANG KEMBALI</td>
+                                    <td colspan="2" class="text-end">
+                                        <div id="money-back" class="fw-bold" style="font-size: 14px"></div>
+                                    </td>
+                                </tr>
                             </tfooter>
                         </table>
                         <div class="row">
@@ -176,8 +189,8 @@
 
 <script>
     $(document).ready(function() {
-        select2();
         getFormData();
+        select2();
     })
 
     const debounce = (callback, wait) => {
@@ -194,8 +207,8 @@
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(price);
     }
 
-    let selectedValues = [];
     let formData = [];
+    let formCustomerMoney = {};
     const select2 = () => {
         $('.product-select2').select2({
             theme: 'bootstrap-5',
@@ -210,7 +223,9 @@
                     }
                 },
                 processResults: function(response) {
-                    const filteredData = response.data.filter(item => !selectedValues.includes(item.id));
+                    const filteredData = response.data.filter(item =>
+                        !formData.some(data => data.product_id == item.id)
+                    );
                 return {
                     results: filteredData,
                 };
@@ -225,7 +240,7 @@
             var selectName = $(this).attr('name');
             var index = Number(selectName.match(/\[(\d+)\]/)[1]);
             var selectedValue = e.params.data.id;
-            selectedValues.push(selectedValue);
+            // selectedValues.push(selectedValue);
             let selling_price = $(`input[name="products[${index}][selling_price]"]`);
             let qty = $(`input[name="products[${index}][qty]"]`);
             selling_price.val(e.params.data.selling_price);
@@ -293,7 +308,6 @@
     }
 
     const discountChange = debounce((idx, value) => {
-        // console.log(idx);
         $(`input[name="products[${idx}][discount]"]`).val(value);
         getFormData();
     },500)
@@ -302,6 +316,12 @@
         $(`input[name="products[${idx}][qty]"]`).val(value);
         getFormData();
     }, 500);
+
+    const customerMoney = debounce((value) => {
+        $('#customer-money').val(value);
+
+        getFormData();
+    }, 500)
 
 
     $(document).on('click','.delete-item', function() {
@@ -312,6 +332,7 @@
 
     const getFormData = () => {
         formData = [];
+        formCustomerMoney = {};
         let productIndex = 0;
         $('#product-list tr').each((index,row) => {
             let product = {
@@ -326,13 +347,18 @@
 
             productIndex++;
         })
-
         let totalDiscount = formData.reduce((num, item) => num + Number(item.discount), 0);
         let totalSelling = formData.reduce((num, item) => num + (Number(item.selling_price)*Number(item.qty)), 0);
+
+        formCustomerMoney = {
+            customer_money: $('#customer-money').val(),
+            customer_money_back: Number($('#customer-money').val()) - (totalSelling-totalDiscount),
+        }
+
         $('#total-discount').text(formattedPrice(totalDiscount));
         $('#sub-total-price').text(formattedPrice(totalSelling));
         $('#total-price').text(formattedPrice(totalSelling-totalDiscount));
-        // console.log(formData);
+        $('#money-back').text(formattedPrice(formCustomerMoney.customer_money_back));
     }
 
 
