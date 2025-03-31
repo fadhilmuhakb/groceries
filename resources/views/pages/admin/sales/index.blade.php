@@ -331,6 +331,38 @@
     })
 
 
+    // For Barcode
+    let lastKeyTime = 0;
+    let barcode = ""
+    $(document).keypress(function(e) {
+        const currentTime = new Date().getTime();
+        if(currentTime - lastKeyTime > 100) {
+            barcode = "";
+        }
+
+        if(e.key === "Enter") {
+            if(barcode.length > 3) {
+                processBarcode(barcode);
+            }
+
+            barcode = ""
+        } else {
+            barcode += e.key;
+        }
+
+        lastKeyTime = currentTime;
+    })
+
+
+    const processBarcode = (barcode) => {
+        console.log('this barcode',barcode);
+        // let getIndex = formData.length + 1
+        handleAdd();
+
+        // console.log('form data length', formData.length);
+    }
+
+
     const getFormData = () => {
         formData = [];
         formCustomerMoney = {};
