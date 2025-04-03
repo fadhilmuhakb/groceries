@@ -44,7 +44,8 @@ class TbIncomingGoodsController extends Controller
                 $options[] = [
                     'id' => $product->product->id,
                     'text' => $product->product->product_code.' - '.$product->product->product_name,
-                    'selling_price' => $product->product->selling_price
+                    'selling_price' => $product->product->selling_price,
+                    'product_code' => $product->product->product_code
                 ];
             }
 

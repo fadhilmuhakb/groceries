@@ -76,6 +76,7 @@
                             <tbody id="product-list">
                                 <tr>
                                     <td>
+                                        <input type="hidden" name="products[0][product_code]">
                                         <select type="text" name="products[0][product_id]" class="form-select product-select2"></select>
                                     </td>
                                     <td>
@@ -99,7 +100,7 @@
                             <tfooter>
                                 <tr>
                                     <td colspan="6">
-                                        <a href="javascript:void(0)" onClick="handleAdd()">+ Tambah Produk</a>
+                                        <a href="javascript:void(0)" onClick="handleAdd('')">+ Tambah Produk</a>
                                     </td>
                                 </tr>
                                 <tr>
@@ -190,7 +191,7 @@
 <script>
     $(document).ready(function() {
         getFormData();
-        select2();
+        select2('',0);
     })
 
     const debounce = (callback, wait) => {
@@ -210,9 +211,12 @@
     let formData = [];
     let formCustomerMoney = {};
     let productIndex = 1;
-
-    const select2 = () => {
-        $('.product-select2').select2({
+    
+    // For call select2 every single append new row
+    const select2 = (barcode, id) => {
+        let select2Id = $('#select2')
+        const $selectElement = $(`select[name="products[${id}][product_id]"]`);
+        $selectElement.select2({
             theme: 'bootstrap-5',
             placeholder:'Cari produk...',
             ajax: {
@@ -221,13 +225,31 @@
                 delay: 250,
                 data: function(params) {
                     return {
-                        search_term: params.term
+                        search_term: barcode ?  barcode : params.term
                     }
                 },
                 processResults: function(response) {
-                    const filteredData = response.data.filter(item =>
-                        !formData.some(data => data.product_id == item.id)
-                    );
+                    let filteredData;
+                    if(barcode !== '') {
+                        const product = response.data[0];
+                        
+                        if(response.data.length === 1) {
+                            setTimeout(() => {
+                                
+                                getFormData();
+                            }, 100);
+
+                            filteredData = response.data;
+                        } else if(response.data.length === 0) {
+                            alert('Produk dengan barcode ini tidak ditemukan');
+                        }
+                        
+                    } else {
+                        filteredData = response.data.filter(item =>
+                            !formData.some(data => data.product_id == item.id)
+                        );
+                    }
+                    
                 return {
                     results: filteredData,
                 };
@@ -242,23 +264,33 @@
             var selectName = $(this).attr('name');
             var index = Number(selectName.match(/\[(\d+)\]/)[1]);
             var selectedValue = e.params.data.id;
-            // selectedValues.push(selectedValue);
             let selling_price = $(`input[name="products[${index}][selling_price]"]`);
             let qty = $(`input[name="products[${index}][qty]"]`);
+            let product_code = $(`input[name="products[${index}][product_code]"]`);
             selling_price.val(e.params.data.selling_price);
             qty.val(1);
+            product_code.val(e.params.data.product_code);
 
             getFormData();
         });
     }
 
+    // For hide the focus after using barcode
+    function hideSelect2Keyboard(e){
+            $('.product-select2, :focus,input').prop('focus',false).blur();
+        }
 
-    const handleAdd = () => {
-        $('#product-list').append(
+    // Adding new row
+    const handleAdd = (barcode) => {
+        let checkValueProduct = $(`select[name="products[${productIndex-1}][product_id]"]`).val();
+
+        if(checkValueProduct !== null) {
+            $('#product-list').append(
             `
             <tr>
                 <td>
-                    <select type="text" name="products[${productIndex}][product_id]" class="form-select product-select2"></select>
+                    <input type="hidden" name="products[${productIndex}][product_code]" class="form-control">
+                    <select type="text" name="products[${productIndex}][product_id]" class="form-select product-select2" id="select2"></select>
                 </td>
                 <td>
                     <input type="number" name="products[${productIndex}][selling_price]" class="form-control" disabled>
@@ -285,13 +317,39 @@
                 </td>
             </tr>
             `
-        )
+            )
+        } else {
+            productIndex = productIndex - 1;
+        }
+        
+        if(barcode !== '') {
+            select2(barcode, productIndex);
+            const product_id = $(`select[name="products[${productIndex}][product_id]"]`)
+            product_id.select2('open');
+            $('.select2-search__field').val(barcode).trigger('input');
 
-        select2();
-
+            let $options = $('.select2-results__option');
+            if ($options.length > 0) {
+                setTimeout(function() {
+                    $('.select2-results__option').first().trigger('mouseup');
+                    setTimeout(function () {
+                        $("select").select2({
+                            theme: "bootstrap-5"
+                        }).on("select2-open", hideSelect2Keyboard);
+                        
+                        product_id.select2('close');
+                    }, 200); 
+                    
+                }, 500);
+            }
+        } else {
+            select2(barcode, productIndex);
+        }
+        
         productIndex++;
     }
 
+    // Increase qty row selected
     const handlePlus = (productIndex) => {
 
         let qtyField = $(`input[name="products[${productIndex}][qty]"]`);
@@ -299,6 +357,7 @@
         getFormData();
     }
 
+    // Decreas qrt every row selected
     const handleMinus = (productIndex) => {
         let qtyField = $(`input[name="products[${productIndex}][qty]"]`);
         if(qtyField.val() > 1) {
@@ -308,30 +367,33 @@
         getFormData();
     }
 
+    // Input discount every single row
     const discountChange = debounce((idx, value) => {
         $(`input[name="products[${idx}][discount]"]`).val(value);
         getFormData();
     },500)
 
+    // custom input qty every single row
     const qtyChange = debounce((idx, value) => {
         $(`input[name="products[${idx}][qty]"]`).val(value);
         getFormData();
     }, 500);
 
+    // input customer money
     const customerMoney = debounce((value) => {
         $('#customer-money').val(value);
 
         getFormData();
     }, 500)
 
-
+    // Delete every single row
     $(document).on('click','.delete-item', function() {
         $(this).closest('tr').remove();
         getFormData();
     })
 
 
-    // For Barcode
+    // handle barcode
     let lastKeyTime = 0;
     let barcode = ""
     $(document).keypress(function(e) {
@@ -354,22 +416,34 @@
     })
 
 
+    // Moving barcode to ui
     const processBarcode = (barcode) => {
-        console.log('this barcode',barcode);
-        // let getIndex = formData.length + 1
-        handleAdd();
+    console.log('Barcode scanned:', barcode);
 
-        // console.log('form data length', formData.length);
+    let existingProductIndex = formData.findIndex(item => item.product_code == barcode);
+    console.log(existingProductIndex);
+    if (existingProductIndex !== -1) { 
+        let qtyField = $(`input[name="products[${existingProductIndex}][qty]"]`);
+        qtyField.val(parseInt(qtyField.val()) + 1); 
+    } else {
+        handleAdd(barcode);
+    }
+    
+        getFormData();
+        console.log(formData);
+
     }
 
-
+    // every single row add to formData
     const getFormData = () => {
         formData = [];
         formCustomerMoney = {};
         let productIndex = 0;
         $('#product-list tr').each((index,row) => {
             let product = {
+                idx: index,
                 product_id: $(row).find('select[name^="products"]').val(),
+                product_code: $(row).find('input[name^="products"][name$="[product_code]"]').val(),
                 qty: $(row).find('input[name^="products"][name$="[qty]"]').val(),
                 discount: $(row).find('input[name^="products"][name$="[discount]"]').val(),
                 description: $(row).find('input[name^="products"][name$="[description]"]').val(),
@@ -392,141 +466,10 @@
         $('#sub-total-price').text(formattedPrice(totalSelling));
         $('#total-price').text(formattedPrice(totalSelling-totalDiscount));
         $('#money-back').text(formattedPrice(formCustomerMoney.customer_money_back));
+        
     }
 
-
-    // let dataSales = [];
-
-    // $(document).ready(function() {
-    //     $('#table-type').DataTable({
-    //         processing: true,
-    //         serverSide: true,
-    //         ajax: "{{url('/sales')}}",
-    //         columns: [
-    //             {data:'product.product_code', name:'product.product_code'},
-    //             {data:'product.product_name', name:'product.product_name'},
-    //             {data:'product.unit_id', name:'product.unit_id'},
-    //             {data:'product.selling_price', name:'product.selling_price'},
-    //             {data:'stock', name:'stock'},
-    //             { data: 'action', name: 'action', orderable: false, searchable: false, className:'text-center' }
-
-    //         ]
-    //     })
-    // });
-
-    // const handleSelect = (productData) => {
-    //     const existingProduct = dataSales.find((data) => data.product_id === productData.product.id);
-
-    //     if (existingProduct) {
-    //         existingProduct.qty += 1;
-    //         existingProduct.total = parseInt(existingProduct.qty) * parseInt(existingProduct.selling_price);
-    //     } else {
-    //         dataSales.push({
-    //             product_id: productData.product.id,
-    //             product_code: productData.product.product_code,
-    //             product_name: productData.product.product_name,
-    //             unit_id: productData.product.unit_id,
-    //             selling_price: productData.product.selling_price,
-    //             stock: productData.stock,
-    //             qty: 1,
-    //             total: productData.product.selling_price
-    //         });
-    //     }
-
-    //     renderData();
-    // }
-
-    // const handlePlus = (id) => {
-    //     const dataExist = dataSales.find((data) => data.product_id === id);
-    //     if(dataExist) {
-    //         dataExist.qty += 1;
-    //         dataExist.total = dataExist.qty * dataExist.selling_price;
-    //     }
-    //     renderData();
-    // }
-
-    // const qtyChange = (id, value) => {
-    //     const dataExist = dataSales.find((data) => data.product_id === id);
-    //     if(dataExist) {
-    //         dataExist.qty = parseInt(value,10);
-    //         dataExist.total = dataExist.qty * dataExist.selling_price;
-    //     }
-    //     renderData();
-    // }
-
-    // const handleMinus = (id) => {
-    //     const dataExist = dataSales.find((data) => data.product_id === id);
-    //     if(dataExist) {
-    //         if(dataExist.qty <= 1) {
-    //             const index = dataSales.findIndex((data) => data.product_id === id);
-    //             dataSales.splice(index, 1);
-    //         } else {
-    //             dataExist.qty -= 1;
-    //             dataExist.total = dataExist.qty * dataExist.selling_price;
-    //     }
-    //         renderData();
-    //     }
-    // }
-
-    // const handleDelete = (id) => {
-    //     const index = dataSales.findIndex((data) => data.product_id === id);
-    //     dataSales.splice(index, 1);
-    //     renderData();
-    // }
-
-
-
-    // const renderData = () => {
-    //     $('#card-sales').empty();
-    //     $('#card-detail').empty();
-
-    //     if(dataSales.length > 0) {
-    //         dataSales.forEach((data) => {
-    //         $('#card-sales').append(`
-    //             <div class="card">
-    //             <div class="card-body">
-
-    //                 <div class="row align-items-center">
-    //                     <div class="col-5 ">
-    //                         <div class="fw-bold">${data.product_name}</div>
-    //                         <div>${formattedPrice(data.selling_price)}</div>
-    //                     </div>
-    //                     <div class="col-5">
-    //                         <div class="input-group input-spinner">
-    //                             <button class="btn btn-white" type="button" onClick="handlePlus(${data.product_id})"> + </button>
-    //                             <input type="number" class="form-control" onchange="qtyChange(${data.product_id}, this.value)" value="${data.qty}">
-    //                             <button class="btn btn-white" type="button" onClick="handleMinus(${data.product_id})"> − </button>
-    //                         </div>
-    //                     </div>
-    //                     <div class="col-2">
-    //                         <button class="btn btn-sm btn-danger" onClick="handleDelete(${data.product_id})">X</button>
-    //                     </div>
-    //                 </div>
-
-    //                 </div>
-    //             </div>
-    //             `);
-    //         });
-    //     $total = dataSales.reduce((acc, curr) => acc + parseInt(curr.total), 0);
-    //     $('#card-detail').append(`
-    //         <div class="card">
-    //             <div class="card-body">
-    //                 <div class="row">
-    //                     <div class="col-6">
-    //                         <div class="fw-bold">Total</div>
-    //                     </div>
-    //                     <div class="col-6">
-    //                         <div class="fw-bold">${formattedPrice($total)}</div>
-    //                     </div>
-    //                 </div>
-    //             </div>
-    //         </div>
-    //     `);
-
-    //     } else {
-    //         $('#card-sales').append('Silahkan Pilih Produk');
-    //     }
-    // }
+    
 
       @if(session('success'))
           Swal.fire({
