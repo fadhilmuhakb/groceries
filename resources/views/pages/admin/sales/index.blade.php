@@ -19,12 +19,6 @@
             </nav>
         </div>
         <div class="ms-auto">
-            {{-- <div class="btn-group">
-                <a href="{{route('master-unit.create')}}" class="btn btn-success">
-                    + Tambah
-                </a>
-
-            </div> --}}
         </div>
     </div>
     <h6 class="mb-0 text-uppercase">Sales</h6>
@@ -43,7 +37,7 @@
                     <div class="row">
                         <div class="col-6 mb-3">
                             <label for="">Tanggal</label>
-                            <input type="date" name="" class="form-control">
+                            <input type="date" id="transaction-date" class="form-control" onchange="getFormData()">
                         </div>
                     </div>
                     <hr>
@@ -131,6 +125,12 @@
                                         <div id="money-back" class="fw-bold" style="font-size: 14px"></div>
                                     </td>
                                 </tr>
+                                <tr>
+                                    <td colspan="6">&nbsp;</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="6" style="text-align: right"><button class="btn btn-primary" style="width: 200px" id="btn-processes">Proses Pembayaran</button> </td>
+                                </tr>
                             </tfooter>
                         </table>
                         <div class="row">
@@ -140,46 +140,6 @@
             </div>
         </div>
     </div>
-
-    {{-- <div class="row">
-        <div class="col-8">
-            <div class="card">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table id="table-type" class="table table-striped table-bordered" style="width:100%">
-                            <thead>
-                                <tr>
-                                    <th>Kode</th>
-                                    <th>Nama</th>
-                                    <th>Unit</th>
-                                    <th>Harga</th>
-                                    <th>Stok</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-4">
-            <div class="card">
-                <div class="card-body">
-                    <h6 class="mb-4">Data Checkout</h6>
-                    <div class="overflow-auto" style="max-height: 400px" id="card-sales">
-
-                    </div>
-
-                    <div class="" id="card-detail">
-
-                    </div>
-
-                </div>
-            </div>
-        </div>
-    </div> --}}
 
 
 @endsection
@@ -192,6 +152,16 @@
     $(document).ready(function() {
         getFormData();
         select2('',0);
+
+        $('#btn-processes').on('click', function() {
+            if(formData.transaction_date === '' || formData.transaction_date === null) {
+                console.log('must input transaction date')
+            }
+
+            if(formData.customer_money == 0 || formData.customer_money === null) {
+                console.log('mus input customer money')
+            }
+        })
     })
 
     const debounce = (callback, wait) => {
@@ -208,7 +178,7 @@
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(price);
     }
 
-    let formData = [];
+    let formData = {transaction_date:'',no_invoice:'', customer_money:0, products:[]};
     let formCustomerMoney = {};
     let productIndex = 1;
     
@@ -246,7 +216,7 @@
                         
                     } else {
                         filteredData = response.data.filter(item =>
-                            !formData.some(data => data.product_id == item.id)
+                            !formData.products.some(data => data.product_id == item.id)
                         );
                     }
                     
@@ -282,6 +252,7 @@
 
     // Adding new row
     const handleAdd = (barcode) => {
+        console.log('add')
         let checkValueProduct = $(`select[name="products[${productIndex-1}][product_id]"]`).val();
 
         if(checkValueProduct !== null) {
@@ -418,7 +389,6 @@
 
     // Moving barcode to ui
     const processBarcode = (barcode) => {
-    console.log('Barcode scanned:', barcode);
 
     let existingProductIndex = formData.findIndex(item => item.product_code == barcode);
     console.log(existingProductIndex);
@@ -436,7 +406,9 @@
 
     // every single row add to formData
     const getFormData = () => {
-        formData = [];
+        let transaction_date = $('#transaction-date').val();
+        let customer_money = $('#customer-money').val();
+        formData = {'transaction_date': transaction_date, no_invoice:'', 'customer_money':customer_money ?? 0, 'products':[]};
         formCustomerMoney = {};
         let productIndex = 0;
         $('#product-list tr').each((index,row) => {
@@ -450,12 +422,12 @@
                 selling_price: $(row).find('input[name^="products"][name$="[selling_price]"]').val(),
             }
 
-            formData.push(product);
+            formData.products.push(product);
 
             productIndex++;
         })
-        let totalDiscount = formData.reduce((num, item) => num + Number(item.discount), 0);
-        let totalSelling = formData.reduce((num, item) => num + (Number(item.selling_price)*Number(item.qty)), 0);
+        let totalDiscount = formData.products.reduce((num, item) => num + Number(item.discount), 0);
+        let totalSelling = formData.products.reduce((num, item) => num + (Number(item.selling_price)*Number(item.qty)), 0);
 
         formCustomerMoney = {
             customer_money: $('#customer-money').val(),
