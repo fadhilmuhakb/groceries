@@ -72,23 +72,23 @@ class TbSalesController extends Controller
         try {
             $user = auth()->user();
             $sell = tb_sell::create([
-                'no_invoice' => $request->no_invoice,
+                'no_invoice' => $request->data['no_invoice'],
                 'store_id' => $user->store_id,
-                'date' => $request->transaction_date,
-                'total_price' => $request->total_price,
-                'payment_amount' => $request->customer_money,
+                'date' => $request->data['transaction_date'],
+                'total_price' => $request->data['total_price'],
+                'payment_amount' => $request->data['customer_money'],
 
             ]);
 
-            foreach($request->products as $product) {
+            foreach($request->data['products'] as $product) {
                 tb_outgoing_goods::create([
-                    'product_id' => $product->product_id,
+                    'product_id' => $product['product_id'],
                     'sell_id' => $sell->id,
-                    'date' => $request->transaction_date,
-                    'quantity_out' => $product->qty,
-                    'discount' => $product->discount,
+                    'date' => $request->data['transaction_date'],
+                    'quantity_out' => $product['qty'],
+                    'discount' => $product['discount'],
                     'recorded_by' => $user->name,
-                    'description' => $product->description
+                    'description' => $product['description']
                 ]);
             }
             DB::commit();

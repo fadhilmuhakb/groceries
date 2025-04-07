@@ -191,33 +191,35 @@
                         })
 
                         $('.swal-button--custom1').on('click', () => {
-                            swal.
-                        })
+                            console.log(formData);
+                            $.ajax({
+                                url: '{{route('sales.store')}}',
+                                type: 'POST',
+                                data: {
+                                    _token: token,
+                                    data: formData
+                                },
+                                success: function(repsonse) {
+                                    console.log(response)
+                                    btnProcesses.removeAttr("disabled");
+                                    Swal.close();
+                                },
+                                error: function(err) {
+                                    if(err.responseJSON) {
+                                        Swal.fire({
+                                        icon:'error',
+                                        title: 'error',
+                                        text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali'
+                                    });
+                                    }
+                                    
+                                    btnProcesses.removeAttr("disabled");
+                                }
+                            })
+                        });
                     }
                 })
-                // $.ajax({
-                //     url: '{{route('sales.store')}}',
-                //     type: 'POST',
-                //     data: {
-                //         _token: token,
-                //         data: formData
-                //     },
-                //     success: function(repsonse) {
-                //         console.log(response)
-                //         btnProcesses.removeAttr("disabled");
-                //     },
-                //     error: function(err) {
-                //         if(err.responseJSON) {
-                //             Swal.fire({
-                //             icon:'error',
-                //             title: 'error',
-                //             text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali'
-                //         });
-                //         }
-                        
-                //         btnProcesses.removeAttr("disabled");
-                //     }
-                // })
+                
             })
         })
 
