@@ -191,7 +191,7 @@
                         })
 
                         $('.swal-button--custom1').on('click', () => {
-                            console.log(formData);
+                            
                             $.ajax({
                                 url: '{{route('sales.store')}}',
                                 type: 'POST',
@@ -199,10 +199,13 @@
                                     _token: token,
                                     data: formData
                                 },
-                                success: function(repsonse) {
-                                    console.log(response)
+                                success: function(response) {
                                     btnProcesses.removeAttr("disabled");
-                                    Swal.close();
+                                    Swal.fire({
+                                        'icon': 'success',
+                                        'title': 'Sukses',
+                                        'text': response.message
+                                    })
                                 },
                                 error: function(err) {
                                     if(err.responseJSON) {
@@ -471,7 +474,6 @@
         const processBarcode = (barcode) => {
 
             let existingProductIndex = formData.findIndex(item => item.product_code == barcode);
-            // console.log(existingProductIndex);
             if (existingProductIndex !== -1) {
                 let qtyField = $(`input[name="products[${existingProductIndex}][qty]"]`);
                 qtyField.val(parseInt(qtyField.val()) + 1);
@@ -480,7 +482,6 @@
             }
 
             getFormData();
-            // console.log(formData);
 
         }
 
@@ -527,9 +528,6 @@
             $('#money-back').text(formattedPrice(formCustomerMoney.customer_money_back));
 
             formData.total_price = totalSelling-totalDiscount;
-
-        // console.log(formData);
-
 
         }
 
