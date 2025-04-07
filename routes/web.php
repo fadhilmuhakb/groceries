@@ -11,6 +11,7 @@ use App\Http\Controllers\TbUnitsController;
 use App\Http\Controllers\TbUserController;
 use App\Http\Controllers\TbPurchaseController;
 use App\Http\Controllers\TbSalesController;
+use App\Http\Controllers\TbSellController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -106,6 +107,11 @@ Route::group(['middleware' => ['auth']], function () {
         Route::put('/update/{id}', [TbPurchaseController::class, 'update'])->name('purchase.update');
         Route::get('/delete/{id}', [TbPurchaseController::class, 'delete'])->name('purchase.delete');
     });
+
+    Route::prefix('sell')->group(function() {
+        Route::get('/', [TbSellController::class, 'index'])->name('sell.index');
+    });
+    
     Route::prefix('store')->group(function () {
         Route::get('/', [TbStoresController::class, 'index'])->name('store.index');
         Route::get('/create', [TbStoresController::class, 'create'])->name('store.create');

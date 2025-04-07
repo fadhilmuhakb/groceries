@@ -162,20 +162,18 @@
     <script src="{{ asset('assets/plugins/select2/js/select2.min.js') }}"></script>
 
     <script>
+        const btnProcesses = $('#btn-processes');
         $(document).ready(function() {
             getFormData();
             select2('', 0);
-            const btnProcesses = $('#btn-processes');
-            let token = $("meta[name='csrf-token']").attr("content");
-
             btnProcesses.on('click', function() {
                 btnProcesses.attr('disabled', 'disabled');
                 Swal.fire({
                     title: 'Pilih langkah selanjutnya',
                     html: `
                         <div class="swal3-buttons">
-                            <button class="swal-button swal-button--custom1 btn btn-success">Simpan, lalu print</button>
-                            <button class="swal-button swal-button--custom2 btn btn-primary">Simpan, tanpa print</button>
+                            <button class="swal-button swal-button--print btn btn-success">Simpan, lalu print</button>
+                            <button class="swal-button swal-button--noprint btn btn-primary">Simpan, tanpa print</button>
                             <button class="swal-button swal-button--cancel btn btn-danger">Batal</button>
                         </div>
                     `,
@@ -190,41 +188,52 @@
                             btnProcesses.removeAttr("disabled");
                         })
 
-                        $('.swal-button--custom1').on('click', () => {
-                            
-                            $.ajax({
-                                url: '{{route('sales.store')}}',
-                                type: 'POST',
-                                data: {
-                                    _token: token,
-                                    data: formData
-                                },
-                                success: function(response) {
-                                    btnProcesses.removeAttr("disabled");
-                                    Swal.fire({
-                                        'icon': 'success',
-                                        'title': 'Sukses',
-                                        'text': response.message
-                                    })
-                                },
-                                error: function(err) {
-                                    if(err.responseJSON) {
-                                        Swal.fire({
-                                        icon:'error',
-                                        title: 'error',
-                                        text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali'
-                                    });
-                                    }
-                                    
-                                    btnProcesses.removeAttr("disabled");
-                                }
-                            })
+                        $('.swal-button--print').on('click', () => {
+                            console.log('with print');
+                            // saveProduct('print');
                         });
+
+                        $('.swal-button--noprint').on('click', () => {
+                            saveProduct('noprint');
+                        })
                     }
                 })
                 
             })
         })
+
+        const saveProduct = (type) => {
+            let token = $("meta[name='csrf-token']").attr("content");
+            
+
+            $.ajax({
+                    url: '{{route('sales.store')}}',
+                    type: 'POST',
+                    data: {
+                        _token: token,
+                        data: formData
+                    },
+                    success: function(response) {
+                        btnProcesses.removeAttr("disabled");
+                        Swal.fire({
+                            'icon': 'success',
+                            'title': 'Sukses',
+                            'text': response.message
+                        })
+                    },
+                    error: function(err) {
+                        if(err.responseJSON) {
+                            Swal.fire({
+                            icon:'error',
+                            title: 'error',
+                            text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali'
+                        });
+                        }
+                        
+                        btnProcesses.removeAttr("disabled");
+                    }
+                })
+        }
 
         const debounce = (callback, wait) => {
             let timeoutId = null;

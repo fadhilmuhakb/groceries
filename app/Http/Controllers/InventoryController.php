@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\tb_incoming_goods;
+use App\Models\tb_products;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -26,7 +27,6 @@ class InventoryController extends Controller
             DB::raw('SUM(ig.stock) as total_stock') 
         )
         ->groupBy('pr.product_name', 's.store_name');
-    
     
         if ($request->ajax()) {
             return DataTables::of($tb_incoming_goods->get()) 

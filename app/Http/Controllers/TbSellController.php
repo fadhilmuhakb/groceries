@@ -4,15 +4,39 @@ namespace App\Http\Controllers;
 
 use App\Models\tb_sell;
 use Illuminate\Http\Request;
+use Yajra\DataTables\Facades\DataTables;
 
 class TbSellController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $user = auth()->user();
+        if($user->roles == 'superadmin') {
+            $sells = tb_sell::with('store')->get();
+        } else {
+            $sells = tb_sell::with('store')
+                            ->where('store_id', $user->store_id)
+                            ->get();
+        }
+
+        if($request->ajax()) {
+            return DataTables::of($sells)
+            ->addColumn('action', function ($sells) {
+                return '
+                <div class="d-flex justify-content-center">
+                    <a href="/purchase/edit/'.$sells->id.'" class="btn btn-sm btn-success me-1">
+                       Edit <i class="bx bx-right-arrow-alt"></i> 
+                    </a>
+                </div>';
+            })
+            ->rawColumns(['action'])
+            ->make(true);
+        }
+
+        return view('pages.admin.sell.index');
     }
 
     /**

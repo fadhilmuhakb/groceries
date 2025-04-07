@@ -8,6 +8,7 @@ use App\Models\tb_brands;
 use App\Models\tb_units;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\ProductImport;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -15,7 +16,32 @@ class TbProductsController extends Controller
 {
     public function index(Request $request)
     {
-        $products = tb_products::with(['type', 'brand', 'unit'])->get();
+        $user = auth()->user();
+        // dd($user->roles);
+        if($user->roles == 'superadmin') {
+            $products = tb_products::with(['type', 'brand', 'unit'])->get();
+            // dd($products);
+        } else {
+            $products = tb_products::with(['incomingGoods' => function($query) {
+                $query->whereHas('purchase', function($q) {
+                    $q->where('store_id', auth()->user()->store_id);
+                });
+            },
+            'outgoingGoods' => function($query) {
+                $query->whereHas('sell', function($q) {
+                    $q->where('store_id', auth()->user()->store_id);
+                });
+            },
+            'type', 'brand', 'unit'])
+            ->get()
+            ->map(function($product) {
+                $totalIncoming = $product->incomingGoods->sum('stock');
+                $totalOutgoing = $product->outgoingGoods->sum('quantity_out');
+                $product->current_stock = $totalIncoming - $totalOutgoing;
+                return $product;
+            })
+            ->where('current_stock', '>', 0);
+        }
 
         if ($request->ajax()) {
             return DataTables::of($products)
@@ -62,7 +88,6 @@ class TbProductsController extends Controller
             return back()->with('error', $e->getMessage());
         }
     }
-
 
     public function import(Request $request)
     {

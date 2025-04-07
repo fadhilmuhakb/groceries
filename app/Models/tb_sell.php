@@ -21,4 +21,9 @@ class tb_sell extends Model
     {
         return $this->hasMany(tb_outgoing_goods::class, 'sell_id');
     }
+
+    public function store()
+    {
+        return $this->belongsTo(tb_stores::class, 'store_id');
+    }
 }

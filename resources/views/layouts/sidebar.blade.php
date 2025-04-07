@@ -25,13 +25,7 @@
                 <div class="menu-title">Sales</div>
             </a>
         </li>
-        <li>
-            <a href="#" >
-                <div class="parent-icon"><i class='bx bx bx-task'></i>
-                </div>
-                <div class="menu-title">Kelola Kegiatan</div>
-            </a>
-        </li>
+        @if(Auth::user()->roles == 'superadmin' || Auth::user()->roles == 'admin')
         <li>
             <a href="{{route('supplier.index')}}" >
                 <div class="parent-icon"><i class='bx bx-book'></i>
@@ -39,6 +33,8 @@
                 <div class="menu-title">Kelola Supplier</div>
             </a>
         </li>
+        @endif
+        @if(Auth::user()->roles == 'superadmin')
         <li>
         <a href="{{route('store.index')}}" >
                 <div class="parent-icon"><i class='bx bx-store'></i>
@@ -46,6 +42,8 @@
                 <div class="menu-title">Kelola Toko</div>
             </a>
         </li>
+        @endif
+        @if(Auth::user()->roles == 'superadmin')
         <li>
             <a href="{{route('user.index')}}" >
                 <div class="parent-icon"><i class='bx bx-user'></i>
@@ -53,7 +51,9 @@
                 <div class="menu-title">Kelola User</div>
             </a>
         </li>
+        @endif
 
+        @if(Auth::user()->roles == 'superadmin' || Auth::user()->roles == 'admin')
         <li>
             <a href="javascript:void(0)" class="has-arrow">
                 <div class="parent-icon"><i class="bx bx-category"></i>
@@ -71,7 +71,7 @@
                 </li>
             </ul>
         </li>
-
+        @endif
         <li>
             <a href="javascript:void(0)" class="has-arrow">
                 <div class="parent-icon"><i class="bx bx-category"></i>
@@ -79,10 +79,13 @@
                 <div class="menu-title">Stock Opname</div>
             </a>
             <ul>
-                <li> <a href="{{route('purchase.index')}}"><i class="bx bx-right-arrow-alt"></i>Pembelian</a>
+                @if(Auth::user()->roles =='superadmin' || Auth::user()->roles == 'admin')
+                <li> 
+                    <a href="{{route('purchase.index')}}"><i class="bx bx-right-arrow-alt"></i>Pembelian</a>
                 </li>
+                @endif
                 <li> <a href="{{route('inventory.index')}}"><i class="bx bx-right-arrow-alt"></i>Inventory</a>
-                <li> <a href="{{route('master-brand.index')}}"><i class="bx bx-right-arrow-alt"></i>Barang Keluar</a>
+                <li> <a href="{{route('sell.index')}}"><i class="bx bx-right-arrow-alt"></i>Barang Keluar</a>
 
                 </li>
             </ul>
