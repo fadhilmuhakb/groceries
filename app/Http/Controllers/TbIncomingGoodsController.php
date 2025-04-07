@@ -20,32 +20,71 @@ class TbIncomingGoodsController extends Controller
             $user_id = auth()->user()->id;
             $user = User::where('id', $user_id)->with('store')->first();
             if(auth()->user()->roles == 'superadmin') {
-                $products = tb_incoming_goods::with('product', 'purchase')
-                                            ->when($request->search_term, function($q1) use($request) {
-                                                $q1->whereRelation('product', 'product_name', 'LIKE', '%'.$request->search_term.'%')
-                                                    ->orWhereRelation('product', 'product_code', 'LIKE','%'.$request->search_term.'%');
-                                            })
-                                            ->get();
+
+                $products = tb_products::with(['incomingGoods', 'outgoingGoods'])
+                    ->when($request->search_term, function($query) use($request) {
+                        $query->where(function($q) use($request) {
+                            $q->where('product_name', 'LIKE', '%'.$request->search_term.'%')
+                                ->orWhere('product_code', 'LIKE','%'.$request->search_term.'%');
+                        });
+                    })
+                    ->get()
+                    ->map(function($product) {
+                        $totalIncoming = $product->incomingGoods->sum('stock');
+                        $totalOutgoing = $product->outgoingGoods->sum('quantity_out');
+                        $product->current_stock = $totalIncoming - $totalOutgoing;
+                        return $product;
+                    })
+                    ->where('current_stock', '>', 0);
             }
             else if(auth()->user()->roles == 'staff') {
-                $products = tb_incoming_goods::with('product', 'purchase')
-                                            ->whereHas('purchase', function($q) {
-                                                $q->where('store_id', auth()->user()->store_id);
-                                            })
-                                            ->when($request->search_term, function($q1) use($request) {
-                                                $q1->whereRelation('product', 'product_name', 'LIKE', '%'.$request->search_term.'%')
-                                                    ->orWhereRelation('product', 'product_code', 'LIKE','%'.$request->search_term.'%');
-                                            })
-                                            ->get();
+                // $products = tb_incoming_goods::with('product', 'purchase')
+                //                             ->whereHas('purchase', function($q) {
+                //                                 $q->where('store_id', auth()->user()->store_id);
+                //                             })
+                //                             ->when($request->search_term, function($q1) use($request) {
+                //                                 $q1->whereRelation('product', 'product_name', 'LIKE', '%'.$request->search_term.'%')
+                //                                     ->orWhereRelation('product', 'product_code', 'LIKE','%'.$request->search_term.'%');
+                //                             })
+                //                             ->get();
+
+
+                $products = tb_products::with(['incomingGoods' => function($query) {
+                    $query->whereHas('purchase', function($q) {
+                        $q->where('store_id', auth()->user()->store_id);
+                    });
+                    }
+                    ])
+                    ->with(['outgoingGoods' => function($query) {
+                        $query->whereHas('sell', function($q) {
+                            $q->where('store_id', auth()->user()->store_id);
+                        });
+                    }])
+                    ->when($request->search_term, function($query) use($request) {
+                        $query->where(function($q) use($request) {
+                            $q->where('product_name', 'LIKE', '%'.$request->search_term.'%')
+                                ->orWhere('product_code', 'LIKE','%'.$request->search_term.'%');
+                        });
+                    })
+                    ->get()
+                    ->map(function($product) {
+                        $totalIncoming = $product->incomingGoods->sum('stock');
+                        $totalOutgoing = $product->outgoingGoods->sum('quantity_out');
+                        $product->current_stock = $totalIncoming - $totalOutgoing;
+                        return $product;
+                    })
+                    ->where('current_stock', '>', 0);
+
             }
 
             $options = [];
             foreach($products as $product) {
                 $options[] = [
-                    'id' => $product->product->id,
-                    'text' => $product->product->product_code.' - '.$product->product->product_name,
-                    'selling_price' => $product->product->selling_price,
-                    'product_code' => $product->product->product_code
+                    'id' => $product->id,
+                    'text' => $product->product_code.' - '.$product->product_name,
+                    'selling_price' => $product->selling_price,
+                    'product_code' => $product->product_code,
+                    'current_stock' => $product->current_stock
                 ];
             }
 

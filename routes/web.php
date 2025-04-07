@@ -122,6 +122,7 @@ Route::group(['middleware' => ['auth']], function () {
 
     Route::prefix('sales')->group(function() {
         Route::get('/', [TbSalesController::class, 'index'])->name('sales.index');
+        Route::post('/', [TbSalesController::class, 'store'])->name('sales.store');
     });
 
     Route::prefix('options')->group(function() {

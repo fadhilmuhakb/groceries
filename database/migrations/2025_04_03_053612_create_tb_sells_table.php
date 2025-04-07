@@ -11,15 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('tb_outgoing_goods', function (Blueprint $table) {
+        Schema::create('tb_sells', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('product_id');
-            $table->unsignedBigInteger('sell_id');
+            $table->string('no_invoice');
+            $table->unsignedBigInteger('store_id')->nullable();
             $table->date('date');
-            $table->integer('quantity_out');
-            $table->decimal('discount')->nullable();
-            $table->string('recorded_by');
-            $table->text('description')->nullable();
+            $table->decimal('total_price',12, 2);
+            $table->decimal('payment_amount', 12,2);
             $table->timestamps();
         });
     }
@@ -29,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('tb_outgoing_goods');
+        Schema::dropIfExists('tb_sells');
     }
 };
