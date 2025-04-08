@@ -482,7 +482,7 @@
         // Moving barcode to ui
         const processBarcode = (barcode) => {
 
-            let existingProductIndex = formData.findIndex(item => item.product_code == barcode);
+            let existingProductIndex = formData.products.findIndex(item => item.product_code == barcode);
             if (existingProductIndex !== -1) {
                 let qtyField = $(`input[name="products[${existingProductIndex}][qty]"]`);
                 qtyField.val(parseInt(qtyField.val()) + 1);
