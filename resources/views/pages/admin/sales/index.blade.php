@@ -1,4 +1,230 @@
 @extends('layouts.app')
+
+@section('css')
+    <link href="{{ asset('assets/plugins/datatable/css/dataTables.bootstrap5.min.css') }}" rel="stylesheet" />
+    <link href="{{ asset('assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
+    <link href="{{ asset('assets/plugins/select2/css/select2-bootstrap-5-theme.min.css') }}" rel="stylesheet" />
+@endsection
+
+@section('content')
+<!--breadcrumb-->
+<div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
+    <div class="breadcrumb-title pe-3">Sales</div>
+    <div class="ps-3">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0 p-0">
+                <li class="breadcrumb-item"><a href="{{ route('master-unit.index') }}"><i
+                            class="bx bx-home-alt"></i></a>
+                </li>
+                <li class="breadcrumb-item active" aria-current="page">Index</li>
+            </ol>
+        </nav>
+    </div>
+    <div class="ms-auto">
+    </div>
+</div>
+
+<h6 class="mb-0 text-uppercase">Sales</h6>
+<hr />
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-lg-5 col-md-8">
+                            <div class="row mb-3">
+                                <label for="transaction_number" class="col-md-4 col-lg-3 col-form-label">No. Transaksi:</label>
+                                <div class="col-md-5 col-lg-6">
+                                    <input type="text" class="form-control form-control-sm" id="invoice-number" value="{{$invoice_number}}">
+                                    
+                                </div>
+                                <div class="col-md-3 col-lg-3">
+                                    <div class="form-control form-control-sm">{{Auth::user()->name}}</div>
+                                    
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <label for="date" class="col-md-4 col-lg-3 col-form-label">Tanggal:</label>
+                                <div class="col-md-8 col-lg-9">
+                                    <input type="date" class="form-control form-control-sm" id="invoice-number" value="">
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <label for="date" class="col-md-4 col-lg-3 col-form-label">Pelanggan:</label>
+                                <div class="col-md-8 col-lg-9">
+                                    {{-- <input type="date" class="form-control" id="invoice-number" value=""> --}}
+                                    <select class="form-select form-select-sm">
+                                        <option value="">Pilih Pelanggan</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-7 col-md-4">
+                            <div style="width: 100%; height:90%; border:1px solid #ced4da; border-radius:10px; text-align:right; display:flex; align-items:center; justify-content:flex-end; padding:0 14px">
+                                <p style="font-size: 50px;" class="fw-bold">50.0000.000</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="row mb-3">
+                                <div class="col-4">
+                                    <div class="row">
+                                        <label for="transaction_number" class="col-md-4 col-lg-2 col-form-label">Jumlah: </label>
+                                        <div class="col-md-8 col-lg-10">
+                                            <input type="number" class="form-control form-control-sm" id="qty" value="1">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="row">
+                                        <label for="transaction_number" class="col-md-4 col-lg-2 col-form-label">Kode Item: </label>
+                                        <div class="col-md-8 col-lg-10">
+                                            <input type="text" class="form-control form-control-sm" name="item_code" id="item-code">
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                                
+
+                                
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="table-responsive mb-4" style="height: 400px;">
+                                <table class="table mb-0">
+                                    <thead class="table-dark sticky-top">
+                                        <tr>
+                                            <th>No</th>
+                                            <th>Kode Item</th>
+                                            <th>Nama Item</th>
+                                            <th>Jumlah</th>
+                                            <th>Harga</th>
+                                            <th>Potongan</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="7" class="text-center"><i class="bx bx-message-alt-error"></i> Data Kosong</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-2">
+                            <button class="btn btn-primary w-100"><i class="bx bx-save"></i>Simpan</button>
+                        </div>
+                        <div class="col-2">
+                            <button class="btn btn-danger w-100"><i class="bx bx-x"></i>Batal</button>
+                        </div>
+                        <div class="col-2">
+                            <button class="btn btn-success w-100"><i class="bx bx-wallet"></i>Bayar</button>
+                        </div>
+                        
+                        
+                        
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Modal --}}
+    <div class="modal fade" id="myModal" tabindex="-1" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="myModalLabel">Modal Judul</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+        </div>
+        <div class="modal-body">
+            <div class="row">
+                <div class="col-6">
+                    <div class="row mb-3">
+                        <label for="text" class="col-md-3 col-lg-4 col-form-label">Kata Kunci 1:</label>
+                        <div class="col-md-7 col-lg-8">
+                            <input type="date" class="form-control form-control-sm" id="search_term" value="">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-6">
+                    <div class="row mb-3">
+                        <label for="text" class="col-md-3 col-lg-4 col-form-label">Kata Kunci 2:</label>
+                        <div class="col-md-7 col-lg-8">
+                            <input type="date" class="form-control form-control-sm" id="search_type" value="">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-form-label">
+                    <label for="">Jenis / Satuan</label>
+                    
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="table-responsive mb-4" style="height: 300px;">
+                        <table class="table mb-0">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th>Kode Item</th>
+                                    <th>Nama Item</th>
+                                    <th>Stock</th>
+                                    <th>Satuan</th>
+                                    <th>Jenis</th>
+                                    <th>Harga Jual</th>
+                                    <th>Merek</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="7" class="text-center"><i class="bx bx-message-alt-error"></i> Data Kosong</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+        </div>
+        </div>
+    </div>
+    </div>
+@endsection
+
+@section('scripts')
+    <script src="{{ asset('assets/plugins/datatable/js/jquery.dataTables.min.js') }}"></script>
+    <script src="{{ asset('assets/plugins/datatable/js/dataTables.bootstrap5.min.js') }}"></script>
+    <script src="{{ asset('assets/plugins/select2/js/select2.min.js') }}"></script>
+
+    <script>
+        document.getElementById('item-code').addEventListener("keydown", function(event) {
+            if(event.key === "Enter") {
+                event.preventDefault();
+                var myModal = new bootstrap.Modal(document.getElementById('myModal'));
+                myModal.show();
+            }
+        })
+    </script>
+@endsection
+
+{{-- @extends('layouts.app')
 @section('css')
     <link href="{{ asset('assets/plugins/datatable/css/dataTables.bootstrap5.min.css') }}" rel="stylesheet" />
     <link href="{{ asset('assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
@@ -548,4 +774,4 @@
             });
         @endif
     </script>
-@endsection
+@endsection --}}
