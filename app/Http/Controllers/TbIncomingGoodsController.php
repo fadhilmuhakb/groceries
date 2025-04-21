@@ -21,7 +21,7 @@ class TbIncomingGoodsController extends Controller
             $user = User::where('id', $user_id)->with('store')->first();
             if(auth()->user()->roles == 'superadmin') {
 
-                $products = tb_products::with(['incomingGoods', 'outgoingGoods'])
+                $products = tb_products::with(['incomingGoods', 'outgoingGoods','unit', 'type','brand'])
                     ->when($request->search_term, function($query) use($request) {
                         $query->where(function($q) use($request) {
                             $q->where('product_name', 'LIKE', '%'.$request->search_term.'%')
@@ -77,21 +77,44 @@ class TbIncomingGoodsController extends Controller
 
             }
 
-            $options = [];
-            foreach($products as $product) {
-                $options[] = [
-                    'id' => $product->id,
-                    'text' => $product->product_code.' - '.$product->product_name,
-                    'selling_price' => $product->selling_price,
-                    'product_code' => $product->product_code,
-                    'current_stock' => $product->current_stock
-                ];
-            }
+            // Pagination parameter dari DataTables
+            $draw = intval($request->input('draw'));
+            $start = intval($request->input('start'));
+            $length = intval($request->input('length'));
+
+            $total = $products->count();
+            $pagedData = $products->slice($start, $length)->values();
+
+            // $options = [];
+            // foreach($products as $product) {
+            //     $options[] = [
+            //         'id' => $product->id,
+            //         'product_code' => $product->product_code,
+            //         'product_name' => $product->product_name,
+            //         'current_stock' => $product->current_stock,
+            //         'unit_name' => $product->unit->unit_name,
+            //         'type_name' => $product->type->type_name,
+            //         'selling_price' => $product->selling_price,
+            //         'brand_name' => $product->brand->brand_name,
+            //     ];
+            // }
 
             return response()->json([
-                'success' => true,
-                'message' => 'Data berhasil diambil',
-                'data' => $options
+                'draw' => $draw,
+                'recordsTotal' => $total,
+                'recordsFiltered' => $total,
+                'data' => $pagedData->map(function($product) {
+                    return [
+                        'id' => $product->id,
+                        'product_code' => $product->product_code,
+                        'product_name' => $product->product_name,
+                        'current_stock' => $product->current_stock,
+                        'unit_name' => $product->unit->unit_name ?? '-',
+                        'type_name' => $product->type->type_name ?? '-',
+                        'selling_price' => $product->selling_price,
+                        'brand_name' => $product->brand->brand_name ?? '-',
+                    ];
+                }),
             ]);
 
         }catch(\Exception $e) {

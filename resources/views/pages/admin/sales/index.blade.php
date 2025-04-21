@@ -4,6 +4,16 @@
     <link href="{{ asset('assets/plugins/datatable/css/dataTables.bootstrap5.min.css') }}" rel="stylesheet" />
     <link href="{{ asset('assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
     <link href="{{ asset('assets/plugins/select2/css/select2-bootstrap-5-theme.min.css') }}" rel="stylesheet" />
+
+    <style>
+        #table-item tbody tr {
+            cursor: pointer;
+        }
+
+        #table-item tbody tr:hover {
+            background-color: #f1f1f1;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -35,18 +45,18 @@
                             <div class="row mb-3">
                                 <label for="transaction_number" class="col-md-4 col-lg-3 col-form-label">No. Transaksi:</label>
                                 <div class="col-md-5 col-lg-6">
-                                    <input type="text" class="form-control form-control-sm" id="invoice-number" value="{{$invoice_number}}">
-                                    
+                                    <input type="text" class="form-control form-control-sm form-transaction" id="invoice-number" value="{{$invoice_number}}">
+
                                 </div>
                                 <div class="col-md-3 col-lg-3">
                                     <div class="form-control form-control-sm">{{Auth::user()->name}}</div>
-                                    
+
                                 </div>
                             </div>
                             <div class="row mb-3">
                                 <label for="date" class="col-md-4 col-lg-3 col-form-label">Tanggal:</label>
                                 <div class="col-md-8 col-lg-9">
-                                    <input type="date" class="form-control form-control-sm" id="invoice-number" value="">
+                                    <input type="date" class="form-control form-control-sm form-transaction" id="transaction-date" onchange="onChangeDate()">
                                 </div>
                             </div>
 
@@ -54,7 +64,7 @@
                                 <label for="date" class="col-md-4 col-lg-3 col-form-label">Pelanggan:</label>
                                 <div class="col-md-8 col-lg-9">
                                     {{-- <input type="date" class="form-control" id="invoice-number" value=""> --}}
-                                    <select class="form-select form-select-sm">
+                                    <select class="form-select form-select-sm form-transaction">
                                         <option value="">Pilih Pelanggan</option>
                                     </select>
                                 </div>
@@ -63,7 +73,7 @@
 
                         <div class="col-lg-7 col-md-4">
                             <div style="width: 100%; height:90%; border:1px solid #ced4da; border-radius:10px; text-align:right; display:flex; align-items:center; justify-content:flex-end; padding:0 14px">
-                                <p style="font-size: 50px;" class="fw-bold">50.0000.000</p>
+                                <p style="font-size: 50px;" class="fw-bold" id="total-price">0</p>
                             </div>
                         </div>
                     </div>
@@ -75,7 +85,7 @@
                                     <div class="row">
                                         <label for="transaction_number" class="col-md-4 col-lg-2 col-form-label">Jumlah: </label>
                                         <div class="col-md-8 col-lg-10">
-                                            <input type="number" class="form-control form-control-sm" id="qty" value="1">
+                                            <input type="number" class="form-control form-control-sm form-transaction" id="qty" value="1">
                                         </div>
                                     </div>
                                 </div>
@@ -83,14 +93,11 @@
                                     <div class="row">
                                         <label for="transaction_number" class="col-md-4 col-lg-2 col-form-label">Kode Item: </label>
                                         <div class="col-md-8 col-lg-10">
-                                            <input type="text" class="form-control form-control-sm" name="item_code" id="item-code">
+                                            <input type="text" class="form-control form-control-sm form-transaction" name="item_code" id="item-code">
                                         </div>
                                     </div>
-                                    
                                 </div>
-                                
 
-                                
                             </div>
                         </div>
                     </div>
@@ -102,14 +109,14 @@
                                         <tr>
                                             <th>No</th>
                                             <th>Kode Item</th>
-                                            <th>Nama Item</th>
+                                            <th width="30%">Nama Item</th>
                                             <th>Jumlah</th>
                                             <th>Harga</th>
                                             <th>Potongan</th>
                                             <th>Total</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody id="product-list">
                                         <tr>
                                             <td colspan="7" class="text-center"><i class="bx bx-message-alt-error"></i> Data Kosong</td>
                                         </tr>
@@ -128,9 +135,9 @@
                         <div class="col-2">
                             <button class="btn btn-success w-100"><i class="bx bx-wallet"></i>Bayar</button>
                         </div>
-                        
-                        
-                        
+
+
+
                     </div>
 
                 </div>
@@ -139,7 +146,7 @@
     </div>
 
     {{-- Modal --}}
-    <div class="modal fade" id="myModal" tabindex="-1" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal fade" id="item-modal" tabindex="-1" aria-labelledby="myModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
         <div class="modal-header">
@@ -150,35 +157,36 @@
             <div class="row">
                 <div class="col-6">
                     <div class="row mb-3">
-                        <label for="text" class="col-md-3 col-lg-4 col-form-label">Kata Kunci 1:</label>
+                        <label for="search_term" class="col-md-3 col-lg-4 col-form-label">Kata Kunci 1:</label>
                         <div class="col-md-7 col-lg-8">
-                            <input type="date" class="form-control form-control-sm" id="search_term" value="">
+                            <input type="text" class="form-control form-control-sm" id="search_term" value="" onkeydown="handleKeyDownItemSearch(event)">
                         </div>
                     </div>
                 </div>
             </div>
-            
+
             <div class="row">
                 <div class="col-6">
                     <div class="row mb-3">
-                        <label for="text" class="col-md-3 col-lg-4 col-form-label">Kata Kunci 2:</label>
+                        <label for="search_type" class="col-md-3 col-lg-4 col-form-label">Kata Kunci 2:</label>
                         <div class="col-md-7 col-lg-8">
-                            <input type="date" class="form-control form-control-sm" id="search_type" value="">
+                            <input type="text" class="form-control form-control-sm" id="search_type" value="">
                         </div>
                     </div>
                 </div>
                 <div class="col-6 col-form-label">
                     <label for="">Jenis / Satuan</label>
-                    
+
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-12">
-                    <div class="table-responsive mb-4" style="height: 300px;">
-                        <table class="table mb-0">
-                            <thead class="table-dark sticky-top">
+                    <div class=" mb-4">
+                        <table class="table mb-0 w-100" id="table-item">
+                            <thead class="table-dark">
                                 <tr>
+                                    <th>ID</th>
                                     <th>Kode Item</th>
                                     <th>Nama Item</th>
                                     <th>Stock</th>
@@ -189,16 +197,13 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td colspan="7" class="text-center"><i class="bx bx-message-alt-error"></i> Data Kosong</td>
-                                </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
-            
-            
+
+
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
@@ -214,13 +219,194 @@
     <script src="{{ asset('assets/plugins/select2/js/select2.min.js') }}"></script>
 
     <script>
-        document.getElementById('item-code').addEventListener("keydown", function(event) {
-            if(event.key === "Enter") {
-                event.preventDefault();
-                var myModal = new bootstrap.Modal(document.getElementById('myModal'));
-                myModal.show();
+        let search_term = '';
+        const selectedRowData = [];
+        let formData = {};
+
+        $(document).on('keydown', function(e) {
+            const formTransaction = $('.form-transaction');
+            const currentFormTransaction = formTransaction.filter(':focus');
+            const index = formTransaction.index(currentFormTransaction);
+
+            if(e.key === 'PageDown') {
+                e.preventDefault();
+                const next = formTransaction.eq(index + 1);
+                if(next.length) next.focus();
+            }
+
+            if(e.key === 'PageUp') {
+                e.preventDefault();
+                const prev = formTransaction.eq(index - 1);
+                if(prev.length) prev.focus();
             }
         })
+
+        const debounce = (callback, wait) => {
+            let timeoutId = null;
+            return (...args) => {
+                window.clearTimeout(timeoutId);
+                timeoutId = window.setTimeout(() => {
+                    callback(...args);
+                }, wait);
+            };
+        }
+
+        $('#item-modal').on('hidden.bs.modal', function (e) {
+            $('#table-item').DataTable().destroy();
+        })
+
+        $('#item-modal').on('shown.bs.modal', function (e) {
+            $('#search_term').focus();
+            $(document).on('keydown', function(e) {
+                if(e.key === 'Escape') {
+                    $('#item-modal').modal('hide');
+                }
+            })
+        })
+
+        $('#item-code').keydown(function(event) {
+            if(event.key === "Enter") {
+                search_term = $(this).val();
+                event.preventDefault();
+                datatableItem();
+                var myModal = new bootstrap.Modal(document.getElementById('item-modal'));
+                myModal.show();
+            }
+        });
+
+        handleKeyDownItemSearch = (event) => {
+            if(event.key === "Enter") {
+                event.preventDefault();
+                search_term = $('#search_term').val();
+                $('#table-item').DataTable().destroy();
+                datatableItem();
+
+            }
+        }
+
+
+        const datatableItem = () => {
+            $('#table-item').DataTable({
+                    "processing": true,
+                    "serverSide": true,
+                    "ajax": {
+                        "url": "{{ route('options.incoming_goods') }}",
+                        "data": function(d) {
+                            d.search_term = search_term;
+                            d.sear_type = $('#search_type').val();
+                        }
+                    },
+                    "columnDefs": [{ visible: false, targets: 0 }, {targets: 6, className: 'dt-right'}],
+                    "columns": [
+                        { "data": "id"},
+                        { "data": "product_code" },
+                        { "data": "product_name" },
+                        { "data": "current_stock" },
+                        { "data": "unit_name" },
+                        { "data": "type_name" },
+                        { "data": "selling_price",
+                            render: function(data) {
+                                return formatRupiah(data);
+                            }
+                        },
+                        { "data": "brand_name" }
+                    ],
+                    "scrollY": "300px",
+                    "scrollCollapse": true,
+                    "searching": false,
+                    "info": false,
+                    "ordering": false,
+                    "dom": 'rtip'
+                });
+        };
+
+        $('#table-item').on('click', 'tbody tr', function() {
+            let data = $('#table-item').DataTable().row(this).data();
+            const qty = $('#qty').val();
+            if(data.current_stock <= qty) {
+                alert('Stok Tidak Cukup');
+                return;
+            }
+            data = {...data, qty: $('#qty').val(), discount: 0, total:0};
+            let findIndex = selectedRowData.findIndex(item => data.id == item.id);
+            if(findIndex !== -1) {
+                selectedRowData[findIndex].qty = parseInt(selectedRowData[findIndex].qty) + 1;
+            } else {
+                selectedRowData.push(data);
+            }
+
+            var itemModal = bootstrap.Modal.getInstance(document.getElementById('item-modal'));
+            itemModal.hide();
+
+            handleData();
+        });
+
+        const onQtyChange = debounce((index, value)=> {
+            selectedRowData[index].qty = value;
+            handleData();
+        }, 500);
+
+        const onDiscountChange = debounce((index, value)=> {
+            selectedRowData[index].discount = value;
+            handleData();
+        }, 500);
+
+        const onChangeDate = () => {
+            formData.transaction_date = $('#transaction-date').val();
+            handleData();
+        }
+
+
+        const handleData = () => {
+            $('#product-list').empty();
+
+            // console.log(formData.total_price)
+            let productList = $('#product-list');
+            if(selectedRowData.length > 0) {
+                selectedRowData.forEach((item, index) => {
+                    item.total = ((item.selling_price * item.qty) - item.discount);
+                    productList.append(`
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${item.product_code}</td>
+                            <td>${item.product_name}</td>
+                            <td><input type="number" name="products[${index}][qty]" style="width:50px ;text-align:right; border:1px solid #ced4da" value="${item.qty}" oninput="onQtyChange(${index}, this.value)"></td>
+                            <td style="text-align:right">${formatRupiah(item.selling_price)}</td>
+                            <td><input type="number" name="products[${index}][discount]" style="text-align:right; border:1px solid #ced4da" value="${item.discount}" oninput="onDiscountChange(${index}, this.value)"></td>
+                            <td style="text-align:right">${formatRupiah(item.total)}</td>
+                        </tr>
+                    `);
+                });
+
+                formData = {
+                    'transaction_date': $('#transaction-date').val(),
+                    'no_invoice': $('#invoice-number').val(),
+                    'customer_money': 0,
+                    'total_price': selectedRowData.reduce((acc, item) => acc + ((item.selling_price * item.qty) - item.discount), 0),
+                    'products': selectedRowData
+                }
+
+                const elTotalPrice = $('#total-price');
+                elTotalPrice.html(formatRupiah(formData.total_price));
+
+                console.log(formData);
+
+            } else {
+                productList.append(`
+                    <tr>
+                        <td colspan="7" class="text-center"><i class="bx bx-message-alt-error"></i> Data Kosong</td>
+                    </tr>
+                `);
+            }
+        };
+
+        // Helper
+        const formatRupiah = (number) => {
+            return new Intl.NumberFormat('id-ID', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }).format(number);
+        };
     </script>
 @endsection
 
@@ -424,13 +610,13 @@
                         })
                     }
                 })
-                
+
             })
         })
 
         const saveProduct = (type) => {
             let token = $("meta[name='csrf-token']").attr("content");
-            
+
 
             $.ajax({
                     url: '{{route('sales.store')}}',
@@ -455,7 +641,7 @@
                             text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali'
                         });
                         }
-                        
+
                         btnProcesses.removeAttr("disabled");
                     }
                 })
@@ -661,7 +847,7 @@
             let stockField = $(`input[name="products[${idx}][current_stock]"]`);
             if(value > parseInt(stockField.val())) {
                 $(`input[name="products[${idx}][qty]"]`).val(stockField.val());
-                
+
             } else {
                 $(`input[name="products[${idx}][qty]"]`).val(value);
             }
