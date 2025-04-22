@@ -13,6 +13,10 @@
         #table-item tbody tr:hover {
             background-color: #f1f1f1;
         }
+
+        #table-item tbody tr.selected {
+            background-color: #d3e0f5;
+        }
     </style>
 @endsection
 
@@ -85,7 +89,7 @@
                                     <div class="row">
                                         <label for="transaction_number" class="col-md-4 col-lg-2 col-form-label">Jumlah: </label>
                                         <div class="col-md-8 col-lg-10">
-                                            <input type="number" class="form-control form-control-sm form-transaction" id="qty" value="1">
+                                            <input type="number" class="form-control form-control-sm form-transaction" id="qty" value="">
                                         </div>
                                     </div>
                                 </div>
@@ -130,10 +134,10 @@
                             <button class="btn btn-primary w-100"><i class="bx bx-save"></i>Simpan</button>
                         </div>
                         <div class="col-2">
-                            <button class="btn btn-danger w-100"><i class="bx bx-x"></i>Batal</button>
+                            <button class="btn btn-danger w-100" onclick="onCancel(event)"><i class="bx bx-x"></i>Batal</button>
                         </div>
                         <div class="col-2">
-                            <button class="btn btn-success w-100"><i class="bx bx-wallet"></i>Bayar</button>
+                            <button class="btn btn-success w-100" onclick="onClickModalPayment(event)"><i class="bx bx-wallet"></i>Bayar</button>
                         </div>
 
 
@@ -146,11 +150,11 @@
     </div>
 
     {{-- Modal --}}
-    <div class="modal fade" id="item-modal" tabindex="-1" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal fade" id="item-modal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
         <div class="modal-header">
-            <h5 class="modal-title" id="myModalLabel">Modal Judul</h5>
+            <h5 class="modal-title" id="paymentModalLabel">Barang</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
         </div>
         <div class="modal-body">
@@ -205,9 +209,48 @@
 
 
         </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+
         </div>
+    </div>
+    </div>
+
+    <div class="modal fade" id="payment-modal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="paymentModalLabel">Pembayaran</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+        </div>
+        <div class="modal-body">
+            <div class="d-flex justify-content-between mb-3 align-items-center">
+                <div style="width: 20%; font-size:1.8rem" class="fw-bold">Total:</div>
+                <div id="total-price2" style="width: 80%; height: 80px; padding: 0 14px; border: 1px solid #ced4da; text-align: right; font-size: 3rem; display: flex; align-items: center; justify-content: flex-end;">
+                    0
+                </div>
+            </div>
+            <div class="d-flex mb-5 align-items-center">
+                <div style="width: 20%">Tunai:</div>
+                <div style="width: 40%">
+                    <input type="text" class="form-control form-control-sm" style="text-align: right" id="customer-money" value="" oninput="customerMoney(this.value)">
+                </div>
+            </div>
+
+            <div class="d-flex mb-2 align-items-center">
+                <div style="width: 20%">Total Bayar:</div>
+                <div id="total-payment" style="width: 60%; height: 40px; padding: 0 14px; border: 1px solid #ced4da; text-align: right; font-size: 2rem; display: flex; align-items: center; justify-content: flex-end;">
+                    0
+                </div>
+            </div>
+            <div class="d-flex mb-2 align-items-center">
+                <div style="width: 20%">Kekurangan:</div>
+                <div id="lack" style="width: 60%; height: 40px; padding: 0 14px; border: 1px solid #ced4da; text-align: right; font-size: 2rem; display: flex; align-items: center; justify-content: flex-end;">
+                    0
+                </div>
+            </div>
+
+
+        </div>
+
         </div>
     </div>
     </div>
@@ -220,25 +263,64 @@
 
     <script>
         let search_term = '';
-        const selectedRowData = [];
+        let selectedRowData = [];
         let formData = {};
+        let isItemModalOpen = false;
+        let selectedRow = 0;
+
+
+        function highlightRow(index) {
+            const rows = $('#table-item tbody tr');
+            rows.removeClass('selected');
+            if (rows.eq(index).length) {
+                rows.eq(index).addClass('selected');
+            }
+        }
+
 
         $(document).on('keydown', function(e) {
             const formTransaction = $('.form-transaction');
             const currentFormTransaction = formTransaction.filter(':focus');
             const index = formTransaction.index(currentFormTransaction);
 
-            if(e.key === 'PageDown') {
+
+            if(isItemModalOpen) {
+
+                const rows = $('#table-item tbody tr');
+                if(!rows.length) return;
+
+                if(e.key === 'PageDown') {
+                    e.preventDefault();
+                    $('#search_term').blur();
+
+                    selectedRow = (selectedRow  + 1) % rows.length;
+                    highlightRow(selectedRow);
+                } else if(e.key ==='PageUp') {
+                    e.preventDefault();
+                    $('#search_term').blur();
+
+                    selectedRow = (selectedRow - 1 + rows.length) % rows.length;
+                    highlightRow(selectedRow);
+                } else if(e.key === 'Enter') {
+                    e.preventDefault();
+                    rows.eq(selectedRow).trigger('click');
+
+                }
+
+            } else {
+                if(e.key === 'PageDown') {
                 e.preventDefault();
                 const next = formTransaction.eq(index + 1);
                 if(next.length) next.focus();
             }
 
-            if(e.key === 'PageUp') {
-                e.preventDefault();
-                const prev = formTransaction.eq(index - 1);
-                if(prev.length) prev.focus();
+                if(e.key === 'PageUp') {
+                    e.preventDefault();
+                    const prev = formTransaction.eq(index - 1);
+                    if(prev.length) prev.focus();
+                }
             }
+
         })
 
         const debounce = (callback, wait) => {
@@ -253,9 +335,14 @@
 
         $('#item-modal').on('hidden.bs.modal', function (e) {
             $('#table-item').DataTable().destroy();
+            $('#qty').val(null);
+            isItemModalOpen = false;
         })
 
         $('#item-modal').on('shown.bs.modal', function (e) {
+            isItemModalOpen = true;
+            selectedRow = 0;
+            highlightRow(selectedRow);
             $('#search_term').focus();
             $(document).on('keydown', function(e) {
                 if(e.key === 'Escape') {
@@ -268,11 +355,35 @@
             if(event.key === "Enter") {
                 search_term = $(this).val();
                 event.preventDefault();
-                datatableItem();
-                var myModal = new bootstrap.Modal(document.getElementById('item-modal'));
-                myModal.show();
+                if($('#qty').val() < 0 || $('#qty').val() == '') {
+                    $('#qty').focus()
+                    return;
+                } else {
+                    datatableItem();
+                    var myModal = new bootstrap.Modal(document.getElementById('item-modal'));
+                    isItemModalOpen = true;
+                    myModal.show();
+                }
+
             }
         });
+
+        // Modal payment open
+        const onClickModalPayment = () => {
+            let elTotalPrice2 = $('#total-price2');
+            elTotalPrice2.html(formatRupiah(formData.total_price));
+            var myModal = new bootstrap.Modal(document.getElementById('payment-modal'));
+            myModal.show();
+        }
+
+        const customerMoney = (value) => {
+            formData.customer_money = value;
+            let elTotalPayment = $('#total-payment');
+            elTotalPayment.html(formatRupiah(value));
+            let elLack = $('#lack');
+            elLack.html(formatRupiah(value - formData.total_price));
+            formData.customer_money = value;
+        }
 
         handleKeyDownItemSearch = (event) => {
             if(event.key === "Enter") {
@@ -322,7 +433,8 @@
 
         $('#table-item').on('click', 'tbody tr', function() {
             let data = $('#table-item').DataTable().row(this).data();
-            const qty = $('#qty').val();
+
+            let qty = $('#qty').val();
             if(data.current_stock <= qty) {
                 alert('Stok Tidak Cukup');
                 return;
@@ -336,8 +448,8 @@
             }
 
             var itemModal = bootstrap.Modal.getInstance(document.getElementById('item-modal'));
+            $('#qty').val(null);
             itemModal.hide();
-
             handleData();
         });
 
@@ -356,11 +468,16 @@
             handleData();
         }
 
+        const onCancel = (e) => {
+            e.preventDefault();
+            selectedRowData = [];
+            formData = {'transaction_date': '', 'no_invoice': $('#invoice-number').val(), 'customer_money': 0, 'total_price':0, 'products': []};
+            handleData();
+        }
 
         const handleData = () => {
             $('#product-list').empty();
 
-            // console.log(formData.total_price)
             let productList = $('#product-list');
             if(selectedRowData.length > 0) {
                 selectedRowData.forEach((item, index) => {
@@ -389,8 +506,6 @@
                 const elTotalPrice = $('#total-price');
                 elTotalPrice.html(formatRupiah(formData.total_price));
 
-                console.log(formData);
-
             } else {
                 productList.append(`
                     <tr>
@@ -399,6 +514,7 @@
                 `);
             }
         };
+
 
         // Helper
         const formatRupiah = (number) => {
