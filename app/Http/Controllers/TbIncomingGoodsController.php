@@ -77,13 +77,53 @@ class TbIncomingGoodsController extends Controller
 
             }
 
-            // Pagination parameter dari DataTables
-            $draw = intval($request->input('draw'));
-            $start = intval($request->input('start'));
-            $length = intval($request->input('length'));
+            if($request->type === 'barcode') {
+                $products = $products->map(function($product) {
+                    return [
+                        'id' => $product->id,
+                        'product_code' => $product->product_code,
+                        'product_name' => $product->product_name,
+                        'current_stock' => $product->current_stock,
+                        'unit_name' => $product->unit->unit_name ?? '-',
+                        'type_name' => $product->type->type_name ?? '-',
+                        'selling_price' => $product->selling_price,
+                        'brand_name' => $product->brand->brand_name ?? '-',
+                    ];
+                });
 
-            $total = $products->count();
-            $pagedData = $products->slice($start, $length)->values();
+                return response()->json([
+                    'success' => true,
+                    'data' => $products
+                ]);
+                
+            } else {
+                $draw = intval($request->input('draw'));
+                $start = intval($request->input('start'));
+                $length = intval($request->input('length'));
+
+                $total = $products->count();
+                $pagedData = $products->slice($start, $length)->values();
+
+                return response()->json([
+                    'draw' => $draw,
+                    'recordsTotal' => $total,
+                    'recordsFiltered' => $total,
+                    'data' => $pagedData->map(function($product) {
+                        return [
+                            'id' => $product->id,
+                            'product_code' => $product->product_code,
+                            'product_name' => $product->product_name,
+                            'current_stock' => $product->current_stock,
+                            'unit_name' => $product->unit->unit_name ?? '-',
+                            'type_name' => $product->type->type_name ?? '-',
+                            'selling_price' => $product->selling_price,
+                            'brand_name' => $product->brand->brand_name ?? '-',
+                        ];
+                    }),
+                ]);
+            }
+            // Pagination parameter dari DataTables
+            
 
             // $options = [];
             // foreach($products as $product) {
@@ -99,23 +139,7 @@ class TbIncomingGoodsController extends Controller
             //     ];
             // }
 
-            return response()->json([
-                'draw' => $draw,
-                'recordsTotal' => $total,
-                'recordsFiltered' => $total,
-                'data' => $pagedData->map(function($product) {
-                    return [
-                        'id' => $product->id,
-                        'product_code' => $product->product_code,
-                        'product_name' => $product->product_name,
-                        'current_stock' => $product->current_stock,
-                        'unit_name' => $product->unit->unit_name ?? '-',
-                        'type_name' => $product->type->type_name ?? '-',
-                        'selling_price' => $product->selling_price,
-                        'brand_name' => $product->brand->brand_name ?? '-',
-                    ];
-                }),
-            ]);
+            
 
         }catch(\Exception $e) {
             return response()->json([

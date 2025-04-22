@@ -85,21 +85,17 @@
                     <div class="row">
                         <div class="col-12">
                             <div class="row mb-3">
-                                <div class="col-4">
-                                    <div class="row">
-                                        <label for="transaction_number" class="col-md-4 col-lg-2 col-form-label">Jumlah: </label>
-                                        <div class="col-md-8 col-lg-10">
-                                            <input type="number" class="form-control form-control-sm form-transaction" id="qty" value="">
-                                        </div>
-                                    </div>
+                                <div class="col-3">
+                                    <label for="transaction_number" class="form-label">Jumlah: </label>
+                                    <input type="number" class="form-control form-control-sm form-transaction" id="qty" value="1">
                                 </div>
-                                <div class="col-6">
-                                    <div class="row">
-                                        <label for="transaction_number" class="col-md-4 col-lg-2 col-form-label">Kode Item: </label>
-                                        <div class="col-md-8 col-lg-10">
-                                            <input type="text" class="form-control form-control-sm form-transaction" name="item_code" id="item-code">
-                                        </div>
-                                    </div>
+                                <div class="col-4">
+                                    <label for="transaction_number" class="form-label">Kode Item: </label>
+                                    <input type="text" class="form-control form-control-sm form-transaction" name="item_code" id="item-code">
+                                </div>
+                                <div class="col-4">
+                                    <label for="transaction_number" class="form-label">Scan Barcode: </label>
+                                    <input type="text" class="form-control form-control-sm form-transaction" name="scan_barcode" id="scan-barcode">
                                 </div>
 
                             </div>
@@ -335,7 +331,7 @@
 
         $('#item-modal').on('hidden.bs.modal', function (e) {
             $('#table-item').DataTable().destroy();
-            $('#qty').val(null);
+            $('#qty').val(1);
             isItemModalOpen = false;
         })
 
@@ -367,6 +363,73 @@
 
             }
         });
+        
+
+        $('#scan-barcode').keydown(function(event) {
+
+             // handle barcode
+            let lastKeyTime = 0;
+            let barcode = ""
+
+            if($('#qty').val() < 0 || $('#qty').val() == '') {
+                $('#qty').focus()
+                return;
+                
+            } else {
+                $(document).keypress(function(e) {
+                const currentTime = new Date().getTime();
+                if (currentTime - lastKeyTime > 100) {
+                    barcode = "";
+                }
+
+                if (e.key === "Enter") {
+                    if (barcode.length > 3) {
+                        processBarcode(barcode);
+                    }
+
+                    barcode = ""
+                } else {
+                    barcode += e.key;
+                }
+
+                lastKeyTime = currentTime;
+                
+            })
+            }
+        });
+
+        const processBarcode = debounce((barcode) => {
+            let scanBarcodeVal = $('#scan-barcode').val();
+            console.log(scanBarcodeVal);
+            $.ajax({
+                url:`{{ route('options.incoming_goods') }}`,
+                method:'GET',
+                data: {'search_term': scanBarcodeVal, 'type': 'barcode'},
+                success: function(response) {
+                    let qty = $('#qty').val();
+                    let data = response.data[0];
+                    console.log(data.current_stock);
+                    if(data.current_stock < qty) {
+                        alert('Stok Tidak Cukup');
+                        return;
+                    }
+
+                    data = {...data, qty: qty, discount: 0, total:0};
+                    let findIndex = selectedRowData.findIndex(item => data.id == item.id);
+                    if(findIndex !== -1) {
+                        selectedRowData[findIndex].qty = parseInt(selectedRowData[findIndex].qty) + 1;
+                    } else {
+                        selectedRowData.push(data);
+                    }
+
+                    $('#qty').val(1);
+                    handleData();
+                    $('#scan-barcode').val(null);
+                }, error: function(err) {
+                    console.log(err)
+                }
+            })
+        }, 500)
 
         // Modal payment open
         const onClickModalPayment = () => {
@@ -405,6 +468,7 @@
                         "data": function(d) {
                             d.search_term = search_term;
                             d.sear_type = $('#search_type').val();
+                            d.type = 'table';
                         }
                     },
                     "columnDefs": [{ visible: false, targets: 0 }, {targets: 6, className: 'dt-right'}],
@@ -435,7 +499,7 @@
             let data = $('#table-item').DataTable().row(this).data();
 
             let qty = $('#qty').val();
-            if(data.current_stock <= qty) {
+            if(data.current_stock < qty) {
                 alert('Stok Tidak Cukup');
                 return;
             }
@@ -448,7 +512,7 @@
             }
 
             var itemModal = bootstrap.Modal.getInstance(document.getElementById('item-modal'));
-            $('#qty').val(null);
+            $('#qty').val(1);
             itemModal.hide();
             handleData();
         });
