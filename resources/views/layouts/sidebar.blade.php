@@ -52,6 +52,14 @@
             </a>
         </li>
         @endif
+        
+        <li>
+            <a href="{{route('customer.index')}}" >
+                <div class="parent-icon"><i class="lni lni-customer"></i>
+                </div>
+                <div class="menu-title">Kelola Customer</div>
+            </a>
+        </li>
 
         @if(Auth::user()->roles == 'superadmin' || Auth::user()->roles == 'admin')
         <li>

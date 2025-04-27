@@ -4,6 +4,7 @@ use App\Http\Controllers\TbBrandsController;
 use App\Http\Controllers\TbIncomingGoodsController;
 use App\Http\Controllers\TbProductsController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\TbCustomersController;
 use App\Http\Controllers\TbStoresController;
 use App\Http\Controllers\TbSuppliersController;
 use App\Http\Controllers\TbTypesController;
@@ -119,6 +120,15 @@ Route::group(['middleware' => ['auth']], function () {
         Route::post('/store', [TbStoresController::class, 'store'])->name('store.store');
         Route::put('/update/{id}', [TbStoresController::class, 'update'])->name('store.update');
         Route::delete('/delete/{id}', [TbStoresController::class, 'delete'])->name('store.delete');
+    });
+
+    Route::prefix('customer')->group(function() {
+        Route::get('/', [TbCustomersController::class, 'index'])->name('customer.index');
+        Route::get('/create', [TbCustomersController::class, 'create'])->name('customer.create');
+        Route::get('/edit/{id}', [TbCustomersController::class, 'edit'])->name('customer.edit');
+        Route::post('/store', [TbCustomersController::class, 'store'])->name('customer.store');
+        Route::put('/udpate/{id}', [TbCustomersController::class, 'update'])->name('customer.update');
+        Route::delete('/delete/{id}', [TbCustomersController::class, 'destroy'])->name('customer.delete');
     });
 
     Route::prefix('inventory')->group(function () {
