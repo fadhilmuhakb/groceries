@@ -70,6 +70,9 @@
                                     {{-- <input type="date" class="form-control" id="invoice-number" value=""> --}}
                                     <select class="form-select form-select-sm form-transaction">
                                         <option value="">Pilih Pelanggan</option>
+                                        @foreach ($customers as $customer)
+                                            <option value="{{$customer->id}}">{{$customer->customer_name}}</option>
+                                        @endforeach
                                     </select>
                                 </div>
                             </div>

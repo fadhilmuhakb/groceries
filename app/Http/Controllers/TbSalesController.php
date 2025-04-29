@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\tb_customers;
 use App\Models\tb_incoming_goods;
 use App\Models\tb_outgoing_goods;
 use App\Models\tb_products;
@@ -24,13 +25,18 @@ class TbSalesController extends Controller
                                     ->whereMonth('date', $current_month)
                                     ->whereYear('date', $current_year)
                         ->count();
-        $invoce_number = 'INV-'.$current_year.$current_month.str_pad($count_invoice+1, 4, '0', STR_PAD_LEFT);;
+        $invoce_number = 'INV-'.$current_year.$current_month.str_pad($count_invoice+1, 4, '0', STR_PAD_LEFT);
+        
         // dd($invoce_number);
         $user = User::where('id', $user_id)->with('store')->first();
         if(auth()->user()->roles == 'superadmin') {
+            $customers = tb_customers::all();
+
             $product = tb_incoming_goods::with('product', 'purchase')->get();
         }
         else if(auth()->user()->roles == 'staff' || auth()->user()->roles == 'admin') {
+            $customers = tb_customers::where('store_id', auth()->user()->store_id)->get();
+
             $product = tb_incoming_goods::with('product', 'purchase')
                                         ->whereHas('purchase', function($q) {
                                             $q->where('store_id', auth()->user()->store_id);
@@ -50,7 +56,7 @@ class TbSalesController extends Controller
                         ->make(true);
         };
         
-        return view('pages.admin.sales.index', ['user' => $user, 'invoice_number' => $invoce_number]);
+        return view('pages.admin.sales.index', ['user' => $user, 'invoice_number' => $invoce_number, 'customers'=> $customers]);
     }
 
     public function store(Request $request)
