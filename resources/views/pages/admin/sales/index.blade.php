@@ -46,35 +46,45 @@
                 <div class="card-body">
                     <div class="row mb-3">
                         <div class="col-lg-5 col-md-8">
-                            <div class="row mb-3">
-                                <label for="transaction_number" class="col-md-4 col-lg-3 col-form-label">No. Transaksi:</label>
-                                <div class="col-md-5 col-lg-6">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <label for="transaction_number" style="width:24%">
+                                    No. Transaksi:
+                                </label>
+
+                                <div>
                                     <input type="text" class="form-control form-control-sm form-transaction" id="invoice-number" value="{{$invoice_number}}">
 
                                 </div>
-                                <div class="col-md-3 col-lg-3">
-                                    <div class="form-control form-control-sm">{{Auth::user()->name}}</div>
+                
+                                <div class="form-control form-control-sm" style="width: 30%">{{Auth::user()->name}}
 
                                 </div>
+
                             </div>
-                            <div class="row mb-3">
-                                <label for="date" class="col-md-4 col-lg-3 col-form-label">Tanggal:</label>
-                                <div class="col-md-8 col-lg-9">
-                                    <input type="date" class="form-control form-control-sm form-transaction" id="transaction-date" onchange="onChangeDate()">
+                            <div class="row mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="date" style="width:24%">Tanggal:</label>
+                                    <div style="width: 76%">
+                                        <input type="date" class="form-control form-control-sm form-transaction" id="transaction-date" onchange="onChangeDate()">
+                                    </div>
                                 </div>
+                               
                             </div>
 
-                            <div class="row mb-3">
-                                <label for="date" class="col-md-4 col-lg-3 col-form-label">Pelanggan:</label>
-                                <div class="col-md-8 col-lg-9">
-                                    {{-- <input type="date" class="form-control" id="invoice-number" value=""> --}}
-                                    <select class="form-select form-select-sm form-transaction">
-                                        <option value="">Pilih Pelanggan</option>
-                                        @foreach ($customers as $customer)
-                                            <option value="{{$customer->id}}">{{$customer->customer_name}}</option>
-                                        @endforeach
-                                    </select>
+                            <div class="row mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="date" style="width:24%">Pelanggan:</label>
+                                    <div style="width: 76%">
+                                        {{-- <input type="date" class="form-control" id="invoice-number" value=""> --}}
+                                        <select class="form-select form-select-sm form-transaction">
+                                            <option value="">Pilih Pelanggan</option>
+                                            @foreach ($customers as $customer)
+                                                <option value="{{$customer->id}}">{{$customer->customer_name}}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
                                 </div>
+                                
                             </div>
                         </div>
 
@@ -248,6 +258,11 @@
             </div>
 
 
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-primary">Bayar + Print</button>
+            <button type="button" class="btn btn-primary" onclick="onPayment()">Bayar </button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>
 
         </div>
@@ -437,10 +452,11 @@
         // Modal payment open
         const onClickModalPayment = () => {
             let elTotalPrice2 = $('#total-price2');
-            elTotalPrice2.html(formatRupiah(formData.total_price));
+            elTotalPrice2.html(formatRupiah(formData.total_price ?? 0));
             var myModal = new bootstrap.Modal(document.getElementById('payment-modal'));
             myModal.show();
         }
+        
 
         const customerMoney = (value) => {
             formData.customer_money = value;
@@ -500,7 +516,6 @@
 
         $('#table-item').on('click', 'tbody tr', function() {
             let data = $('#table-item').DataTable().row(this).data();
-
             let qty = $('#qty').val();
             if(data.current_stock < qty) {
                 alert('Stok Tidak Cukup');
@@ -509,7 +524,7 @@
             data = {...data, qty: $('#qty').val(), discount: 0, total:0};
             let findIndex = selectedRowData.findIndex(item => data.id == item.id);
             if(findIndex !== -1) {
-                selectedRowData[findIndex].qty = parseInt(selectedRowData[findIndex].qty) + 1;
+                selectedRowData[findIndex].qty = parseInt(selectedRowData[findIndex].qty) + parseInt(qty);
             } else {
                 selectedRowData.push(data);
             }
@@ -581,6 +596,45 @@
                 `);
             }
         };
+
+        // API
+        const onPayment = () => {
+            // console.log(formData);
+            let token = $("meta[name='csrf-token']").attr("content");
+
+
+            $.ajax({
+                    url: '{{route('sales.store')}}',
+                    type: 'POST',
+                    data: {
+                        _token: token,
+                        data: formData
+                    },
+                    success: function(response) {
+                        // btnProcesses.removeAttr("disabled");
+                        Swal.fire({
+                            'icon': 'success',
+                            'title': 'Sukses',
+                            'text': response.message
+                        })
+                    },
+                    error: function(err) {
+                        if(err.responseJSON) {
+                            Swal.fire({
+                            icon:'error',
+                            title: 'error',
+                            text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali'
+                        });
+                        }
+
+                        // btnProcesses.removeAttr("disabled");
+                    }
+                })
+        }
+
+        const onPaymentPrint = () => {
+            console.log(formData);
+        }
 
 
         // Helper

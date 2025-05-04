@@ -66,7 +66,7 @@ class TbSalesController extends Controller
             'transaction_date' => 'required',
             'customer_money' => 'required',
             'products' => 'required|array|min:1',
-            'products.*.product_id' => 'required|integer',
+            'products.*.id' => 'required|integer',
             'products.*.qty' => 'required|integer|min:1',
         ]);
 
@@ -88,13 +88,13 @@ class TbSalesController extends Controller
 
             foreach($request->data['products'] as $product) {
                 tb_outgoing_goods::create([
-                    'product_id' => $product['product_id'],
+                    'product_id' => $product['id'],
                     'sell_id' => $sell->id,
                     'date' => $request->data['transaction_date'],
                     'quantity_out' => $product['qty'],
                     'discount' => $product['discount'],
                     'recorded_by' => $user->name,
-                    'description' => $product['description']
+                    // 'description' => $product['description']
                 ]);
             }
             DB::commit();
