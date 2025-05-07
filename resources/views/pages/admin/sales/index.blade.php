@@ -602,7 +602,7 @@
             // console.log(formData);
             let token = $("meta[name='csrf-token']").attr("content");
 
-
+            console.log(formData)
             $.ajax({
                     url: '{{route('sales.store')}}',
                     type: 'POST',
@@ -616,6 +616,47 @@
                             'icon': 'success',
                             'title': 'Sukses',
                             'text': response.message
+                        }).then(() => {
+                            // Buat HTML struk di dalam div tersembunyi
+                            let receiptHtml = `
+                                <div id="print-area" style="display: none;">
+                                    <div style="width: 58mm; font-family: monospace; font-size: 12px;">
+                                        <div style="text-align: center;">
+                                            <strong>TOKO MAJU JAYA</strong><br>
+                                            Jl. Contoh No.123<br>
+                                            Telp: 0812-3456-7890 <br>
+                                            No Invoice: ${formData.no_invoice}
+                                        </div>
+                                        <hr>
+                                        <div>
+                                            Tanggal: ${formData.transaction_date}<br>
+                                            Kasir: 
+                                        </div>
+                                        <hr>
+                                        ${formData.products.map(item => `
+                                        <div>${item.product_name} (${item.qty} x ${formatRupiah(item.selling_price)})</div>
+                                        <div style="text-align:right;">${formatRupiah(item.total)}</div>
+                                    `).join('')}
+                                        <hr>
+                                        <div>Total: ${formatRupiah(formData.total_price)}</div>
+                                        <div>Bayar: ${formatRupiah(formData.customer_money)}</div>
+                                        <div>Kembali: ${formatRupiah(parseInt(formData.customer_money) - parseInt(formData.total_price))}</div>
+                                        <hr>
+                                        <div style="text-align: center;">Terima kasih!</div>
+                                    </div>
+                                </div>
+                            `;
+
+                            $('body').append(receiptHtml);
+
+                            // Cetak hanya area tersebut
+                            let printContents = document.getElementById('print-area').innerHTML;
+                            let originalContents = document.body.innerHTML;
+                            document.body.innerHTML = printContents;
+                            window.print();
+                            document.body.innerHTML = originalContents;
+                            location.reload(); // refresh agar tampilan balik lagi
+
                         })
                     },
                     error: function(err) {
