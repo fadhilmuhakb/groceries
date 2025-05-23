@@ -47,9 +47,7 @@ class TbPurchaseController extends Controller
         $products = tb_products::all();
         $stores = tb_stores::all(); 
     
-        if ($products->isEmpty() || $stores->isEmpty()) {
-            return redirect()->route('purchase.index')->with('error', 'Data produk atau toko masih kosong!');
-        }
+     
     
         return view('pages.admin.purchase.create', compact('suppliers', 'products', 'stores'));
     }
