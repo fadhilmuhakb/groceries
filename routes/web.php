@@ -37,6 +37,7 @@ Auth::routes();
 
 Route::group(['middleware' => ['auth']], function () {
     Route::get('/', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+    Route::get('/export-penjualan', [App\Http\Controllers\HomeController::class, 'exportPenjualan'])->name('home.export.penjualan');
 
 
     Route::prefix('master-type')->group(function () {
