@@ -14,29 +14,46 @@ class TbSellController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        if($user->roles == 'superadmin') {
+        if ($user->roles == 'superadmin') {
             $sells = tb_sell::with('store')->get();
         } else {
             $sells = tb_sell::with('store')
-                            ->where('store_id', $user->store_id)
-                            ->get();
+                ->where('store_id', $user->store_id)
+                ->get();
         }
 
-        if($request->ajax()) {
+        if ($request->ajax()) {
             return DataTables::of($sells)
-            ->addColumn('action', function ($sells) {
-                return '
+                ->addColumn('action', function ($sells) {
+                    return '
                 <div class="d-flex justify-content-center">
-                    <a href="/purchase/edit/'.$sells->id.'" class="btn btn-sm btn-success me-1">
-                       Edit <i class="bx bx-right-arrow-alt"></i> 
+                    <a href="/sell/detail/' . $sells->id . '" class="btn btn-sm btn-success me-1">
+                       Detail Penjualan <i class="bx bx-right-arrow-alt"></i> 
                     </a>
                 </div>';
-            })
-            ->rawColumns(['action'])
-            ->make(true);
+                })
+                ->rawColumns(['action'])
+                ->make(true);
         }
 
         return view('pages.admin.sell.index');
+    }
+
+    public function detail($id)
+    {
+        $user = auth()->user();
+
+        $sell = tb_sell::with('store')
+            ->when($user->roles != 'superadmin', function ($query) use ($user) {
+                $query->where('store_id', $user->store_id);
+            })
+            ->findOrFail($id);
+
+        $outgoingGoods = \App\Models\tb_outgoing_goods::with('product')
+            ->where('sell_id', $sell->id)
+            ->get();
+
+        return view('pages.admin.sell.detail', compact('sell', 'outgoingGoods'));
     }
 
     /**

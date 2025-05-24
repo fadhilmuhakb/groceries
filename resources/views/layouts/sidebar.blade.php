@@ -43,7 +43,6 @@
             </a>
         </li>
         @endif
-        @if(Auth::user()->roles == 'superadmin')
         <li>
             <a href="{{route('user.index')}}" >
                 <div class="parent-icon"><i class='bx bx-user'></i>
@@ -51,7 +50,6 @@
                 <div class="menu-title">Kelola User</div>
             </a>
         </li>
-        @endif
         
         <li>
             <a href="{{route('customer.index')}}" >

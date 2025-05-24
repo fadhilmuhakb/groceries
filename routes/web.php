@@ -112,6 +112,7 @@ Route::group(['middleware' => ['auth']], function () {
 
     Route::prefix('sell')->group(function() {
         Route::get('/', [TbSellController::class, 'index'])->name('sell.index');
+        Route::get('/detail/{id}', [TbSellController::class, 'detail'])->name('sell.detail');
     });
     
     Route::prefix('store')->group(function () {
@@ -140,6 +141,7 @@ Route::group(['middleware' => ['auth']], function () {
     Route::prefix('sales')->group(function() {
         Route::get('/', [TbSalesController::class, 'index'])->name('sales.index');
         Route::post('/', [TbSalesController::class, 'store'])->name('sales.store');
+        
     });
 
     Route::prefix('options')->group(function() {

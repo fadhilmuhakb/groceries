@@ -14,29 +14,45 @@ class TbUserController extends Controller
 
     public function index(Request $request)
     {
-        $users = User::with('store')->get();
-        if($request->ajax()) {
+        $user = auth()->user();
+        $getRoles = $user->roles;
+
+        $users = \App\Models\User::with('store')
+            ->when($getRoles !== 'superadmin' && $user->store_id, function ($query) use ($user) {
+                $query->where('store_id', $user->store_id);
+            })
+            ->get();
+
+
+        if ($request->ajax()) {
             return DataTables::of($users)
-                    ->addColumn('action', function ($user) {
-                        if(auth()->user()->roles == 'superadmin') {
-                            return '<a href="/user/edit/'.$user->id.'" class="btn btn-sm btn-success"><i class="bx bx-pencil me-0"></i>
+                ->addColumn('action', function ($user) {
+                    return '<a href="/user/edit/' . $user->id . '" class="btn btn-sm btn-success">
+                                <i class="bx bx-pencil me-0"></i>
                             </a>
-                            <a href="javascript:void(0)" onClick="confirmDelete(\''.$user->id.'\')" class="btn btn-sm btn-danger"><i class="bx bx-trash me-0"></i>
-                            </a>
-                            ';
-                        }
-                    })
-                    ->rawColumns(['action'])
-                    ->make(true);
+                            <a href="javascript:void(0)" onClick="confirmDelete(\'' . $user->id . '\')" class="btn btn-sm btn-danger">
+                                <i class="bx bx-trash me-0"></i>
+                            </a>';
+                })
+                ->rawColumns(['action'])
+                ->make(true);
         }
 
         return view('pages.admin.manage_user.index');
     }
 
+
     public function create()
     {
-        $stores = tb_stores::all();
-        return view('pages.admin.manage_user.create',['stores' =>  $stores]);
+        $user = auth()->user();
+        $getRoles = $user->roles;
+
+        if ($getRoles === 'superadmin') {
+            $stores = tb_stores::all();
+        } else {
+            $stores = tb_stores::where('id', $user->store_id)->get();
+        }
+        return view('pages.admin.manage_user.create', ['stores' => $stores]);
     }
 
     /**
@@ -57,7 +73,7 @@ class TbUserController extends Controller
             User::create($data);
             DB::commit();
             return redirect()->route('user.index')->with('success', 'User berahasil dibuat');
-        }catch(\Exception $e) {
+        } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', $e->getMessage());
         }
@@ -67,7 +83,7 @@ class TbUserController extends Controller
     {
         $stores = tb_stores::all();
         $user = User::where('id', $id)->first();
-        return view('pages.admin.manage_user.create', ['user'=>$user, 'stores'=>$stores]);
+        return view('pages.admin.manage_user.create', ['user' => $user, 'stores' => $stores]);
     }
 
     /**
@@ -77,7 +93,7 @@ class TbUserController extends Controller
     {
         $data = $request->validate([
             'name' => 'required',
-            'email' => 'required|string|email|max:255|unique:users,email,'.$id,
+            'email' => 'required|string|email|max:255|unique:users,email,' . $id,
             'roles' => 'required',
             'store_id' => 'nullable',
         ]);
@@ -87,7 +103,7 @@ class TbUserController extends Controller
             $data = User::where('id', $id)->update($data);
             DB::commit();
             return redirect()->route('user.index')->with('success', 'User berahasil diperbaharui');
-        }catch(\Exception $e) {
+        } catch (\Exception $e) {
             dd($e->getMessage());
             DB::rollBack();
             return redirect()->back()->with('error', $e->getMessage());
@@ -107,7 +123,7 @@ class TbUserController extends Controller
             ]);
             DB::commit();
             return redirect()->route('user.index')->with('success', 'Password berhasil diperbaharui');
-        } catch(\Exception $e) {
+        } catch (\Exception $e) {
             DB::rollBack();
             dd('error');
 
@@ -125,7 +141,7 @@ class TbUserController extends Controller
             User::where('id', $id)->delete();
             DB::commit();
             return response()->json(['status' => 'success', 'message' => 'User berhasil dihapus']);
-        }catch(\Exception $e) {
+        } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
         }
