@@ -34,6 +34,7 @@
                         <tr>
                             <th>No.</th>
                             <th>Nama User</th>
+                            <th>Phone Number</th>
                             <th>Nama Toko</th>
                             <th>Aksi</th>
                         </tr>
@@ -102,6 +103,7 @@
                 },
                 {data:'customer_name', name:'customer_name'},
                 {data:'phone_number', name:'phone_number'},
+                {data:'store.store_name', name:'store.store_name'},
                 { data: 'action', name: 'action', orderable: false, searchable: false, className:'text-end' }
 
             ]
