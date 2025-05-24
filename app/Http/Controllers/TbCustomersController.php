@@ -15,7 +15,7 @@ class TbCustomersController extends Controller
      */
     public function index(Request $request)
     {
-        $customers = tb_customers::all();
+        $customers = tb_customers::with('store')->get();
         if($request->ajax()) {
             return DataTables::of($customers)
                     ->addColumn('action', function ($customers) {
