@@ -76,7 +76,7 @@
                                     <label for="date" style="width:24%">Pelanggan:</label>
                                     <div style="width: 76%">
                                         {{-- <input type="date" class="form-control" id="invoice-number" value=""> --}}
-                                        <select class="form-select form-select-sm form-transaction">
+                                        <select class="form-select form-select-sm form-transaction" id="customer-id">
                                             <option value="">Pilih Pelanggan</option>
                                             @foreach ($customers as $customer)
                                                 <option value="{{$customer->id}}">{{$customer->customer_name}}</option>
@@ -84,8 +84,25 @@
                                         </select>
                                     </div>
                                 </div>
-                                
+
                             </div>
+                            @if(Auth::user()->roles === "superadmin")
+                            <div class="row mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="date" style="width:24%">Toko</label>
+                                    <div style="width: 76%">
+                                        {{-- <input type="date" class="form-control" id="invoice-number" value=""> --}}
+                                        <select class="form-select form-select-sm form-transaction" id="store-id">
+                                            <option value="">Pilih Toko</option>
+                                            @foreach ($stores as $store)
+                                                <option value="{{$store->id}}">{{$store->store_name}}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+
+                            </div>
+                            @endif
                         </div>
 
                         <div class="col-lg-7 col-md-4">
@@ -139,9 +156,6 @@
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-2">
-                            <button class="btn btn-primary w-100"><i class="bx bx-save"></i>Simpan</button>
-                        </div>
                         <div class="col-2">
                             <button class="btn btn-danger w-100" onclick="onCancel(event)"><i class="bx bx-x"></i>Batal</button>
                         </div>
@@ -260,7 +274,7 @@
 
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-primary">Bayar + Print</button>
+            <button type="button" class="btn btn-primary" onclick="onPaymentPrint()">Bayar + Print</button>
             <button type="button" class="btn btn-primary" onclick="onPayment()">Bayar </button>
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>
@@ -579,6 +593,7 @@
 
                 formData = {
                     'transaction_date': $('#transaction-date').val(),
+                    'store_id': $('#store-id').val(),
                     'no_invoice': $('#invoice-number').val(),
                     'customer_money': 0,
                     'total_price': selectedRowData.reduce((acc, item) => acc + ((item.selling_price * item.qty) - item.discount), 0),
@@ -599,10 +614,44 @@
 
         // API
         const onPayment = () => {
-            // console.log(formData);
+            let token = $("meta[name='csrf-token']").attr("content");
+            console.log(formData);
+            $.ajax({
+                    url: '{{route('sales.store')}}',
+                    type: 'POST',
+                    data: {
+                        _token: token,
+                        data: formData
+                    },
+                    success: function(response) {
+                        // btnProcesses.removeAttr("disabled");
+                        Swal.fire({
+                            'icon': 'success',
+                            'title': 'Sukses',
+                            'text': response.message
+                        }).then(() => {
+                            location.reload();
+                        })
+
+                        // location.reload(); // refresh agar tampilan balik lagi
+                    },
+                    error: function(err) {
+                        if(err.responseJSON) {
+                            Swal.fire({
+                            icon:'error',
+                            title: 'error',
+                            text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali'
+                        });
+                        }
+
+                        // btnProcesses.removeAttr("disabled");
+                    }
+                })
+        }
+
+        const onPaymentPrint = () => {
             let token = $("meta[name='csrf-token']").attr("content");
 
-            console.log(formData)
             $.ajax({
                     url: '{{route('sales.store')}}',
                     type: 'POST',
@@ -671,10 +720,6 @@
                         // btnProcesses.removeAttr("disabled");
                     }
                 })
-        }
-
-        const onPaymentPrint = () => {
-            console.log(formData);
         }
 
 

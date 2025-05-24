@@ -7,6 +7,7 @@ use App\Models\tb_incoming_goods;
 use App\Models\tb_outgoing_goods;
 use App\Models\tb_products;
 use App\Models\tb_sell;
+use App\Models\tb_stores;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -31,7 +32,6 @@ class TbSalesController extends Controller
         $user = User::where('id', $user_id)->with('store')->first();
         if(auth()->user()->roles == 'superadmin') {
             $customers = tb_customers::all();
-
             $product = tb_incoming_goods::with('product', 'purchase')->get();
         }
         else if(auth()->user()->roles == 'staff' || auth()->user()->roles == 'admin') {
@@ -43,6 +43,8 @@ class TbSalesController extends Controller
                                         })->get();
 
         }
+
+        $stores = tb_stores::all();
         if($request->ajax()) {
             return DataTables::of($product)
                         ->addColumn('action', function($product) {
@@ -56,7 +58,7 @@ class TbSalesController extends Controller
                         ->make(true);
         };
         
-        return view('pages.admin.sales.index', ['user' => $user, 'invoice_number' => $invoce_number, 'customers'=> $customers]);
+        return view('pages.admin.sales.index', ['user' => $user, 'invoice_number' => $invoce_number, 'customers'=> $customers, 'stores' => $stores]);
     }
 
     public function store(Request $request)
@@ -77,9 +79,15 @@ class TbSalesController extends Controller
         DB::beginTransaction();
         try {
             $user = auth()->user();
+            if($user->roles === 'superadmin') {
+                $store_id = $request->data['store_id'];
+            } else {
+                $store_id = $user->store_id;
+            }
+
             $sell = tb_sell::create([
                 'no_invoice' => $request->data['no_invoice'],
-                'store_id' => $user->store_id,
+                'store_id' => $store_id,
                 'date' => $request->data['transaction_date'],
                 'total_price' => $request->data['total_price'],
                 'payment_amount' => $request->data['customer_money'],
