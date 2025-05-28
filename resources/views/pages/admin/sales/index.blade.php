@@ -594,6 +594,7 @@
                 formData = {
                     'transaction_date': $('#transaction-date').val(),
                     'store_id': $('#store-id').val(),
+                    'customer_id': $('#customer-id').val(),
                     'no_invoice': $('#invoice-number').val(),
                     'customer_money': 0,
                     'total_price': selectedRowData.reduce((acc, item) => acc + ((item.selling_price * item.qty) - item.discount), 0),

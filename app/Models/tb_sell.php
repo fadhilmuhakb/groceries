@@ -13,7 +13,8 @@ class tb_sell extends Model
         'date',
         'total_price',
         'store_id',
-        'payment_amount'  
+        'payment_amount',
+        'customer_id'
     ];
 
 
@@ -25,5 +26,10 @@ class tb_sell extends Model
     public function store()
     {
         return $this->belongsTo(tb_stores::class, 'store_id');
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(tb_customers::class, 'customer_id');
     }
 }

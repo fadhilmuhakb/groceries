@@ -63,10 +63,10 @@ class TbSalesController extends Controller
 
     public function store(Request $request)
     {
-        // dd($request->all());
         $validator = Validator::make($request->data, [
             'transaction_date' => 'required',
             'customer_money' => 'required',
+            'customer_id' => 'required',
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|integer',
             'products.*.qty' => 'required|integer|min:1',
@@ -91,6 +91,7 @@ class TbSalesController extends Controller
                 'date' => $request->data['transaction_date'],
                 'total_price' => $request->data['total_price'],
                 'payment_amount' => $request->data['customer_money'],
+                'customer_id' => $request->data['customer_id'] ?? 0
 
             ]);
 
