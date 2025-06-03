@@ -135,6 +135,10 @@ Route::group(['middleware' => ['auth']], function () {
 
     Route::prefix('inventory')->group(function () {
         Route::get('/', [InventoryController::class, 'index'])->name('inventory.index');
+        Route::post('/adjust-stock', [InventoryController::class, 'adjustStock'])->name('inventory.adjustStock');
+Route::post('/adjust-stock-bulk', [InventoryController::class, 'adjustStockBulk'])->name('inventory.adjustStockBulk');
+
+
     });
 
 

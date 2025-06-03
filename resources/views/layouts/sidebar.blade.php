@@ -15,7 +15,7 @@
         <a href="{{route('home')}}" >
                 <div class="parent-icon"><i class='bx bx-home-circle'></i>
                 </div>
-                <div class="menu-title">Dashboard</div>
+                <div class="menu-title">Laba</div>
             </a>
         </li>
         <li>
