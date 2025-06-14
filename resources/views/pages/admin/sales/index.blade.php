@@ -17,6 +17,22 @@
         #table-item tbody tr.selected {
             background-color: #d3e0f5;
         }
+        .select2-container {
+        width: 100% !important;
+        }
+
+        .select2-container .select2-selection--single {
+            height: 31px;
+            padding: 2px;
+        }
+
+        .select2-container .select2-selection__rendered {
+            line-height: 24px;
+        }
+
+        .select2-container .select2-selection__arrow {
+            height: 36px;
+        }
     </style>
 @endsection
 
@@ -115,13 +131,19 @@
                     <div class="row">
                         <div class="col-12">
                             <div class="row mb-3">
-                                <div class="col-3">
+                                {{-- <div class="col-3">
                                     <label for="transaction_number" class="form-label">Jumlah: </label>
                                     <input type="number" class="form-control form-control-sm form-transaction" id="qty" value="1">
-                                </div>
+                                </div> --}}
                                 <div class="col-4">
                                     <label for="transaction_number" class="form-label">Kode Item: </label>
                                     <input type="text" class="form-control form-control-sm form-transaction" name="item_code" id="item-code">
+                                </div>
+                                <div class="col-4">
+                                    <label for="select-product" class="form-label">Nama Item</label>
+                                    <select type="text" name="products[${productIndex}][product_id]" class="form-select product-select2" id="select-product">
+                                        <option value=""></option>
+                                    </select>
                                 </div>
                                 <div class="col-4">
                                     <label for="transaction_number" class="form-label">Scan Barcode: </label>
@@ -162,7 +184,9 @@
                         <div class="col-2">
                             <button class="btn btn-success w-100" onclick="onClickModalPayment(event)"><i class="bx bx-wallet"></i>Bayar</button>
                         </div>
-
+                        <div class="col-8" style="color: red">
+                            * Tekan tombol "End" untuk bayar
+                        </div>
 
 
                     </div>
@@ -254,7 +278,7 @@
             <div class="d-flex mb-5 align-items-center">
                 <div style="width: 20%">Tunai:</div>
                 <div style="width: 40%">
-                    <input type="text" class="form-control form-control-sm" style="text-align: right" id="customer-money" value="" oninput="customerMoney(this.value)">
+                    <input type="text" placeholder="Masukan uang tunai" class="form-control form-control-sm" style="text-align: right" id="customer-money" value="" oninput="customerMoney(this.value)">
                 </div>
             </div>
 
@@ -265,8 +289,8 @@
                 </div>
             </div>
             <div class="d-flex mb-2 align-items-center">
-                <div style="width: 20%">Kekurangan:</div>
-                <div id="lack" style="width: 60%; height: 40px; padding: 0 14px; border: 1px solid #ced4da; text-align: right; font-size: 2rem; display: flex; align-items: center; justify-content: flex-end;">
+                <div style="width: 20%; font-size:1.8rem; color:red" class="fw-bold">Kembalian:</div>
+                <div id="lack" style="width: 80%; height: 80px; padding: 0 14px; border: 1px solid #ced4da; text-align: right; font-size: 3rem; display: flex; align-items: center; justify-content: flex-end;">
                     0
                 </div>
             </div>
@@ -282,6 +306,31 @@
         </div>
     </div>
     </div>
+
+    {{-- qty modal --}}
+    <div class="modal fade" id="qty-modal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="paymentModalLabel">Jumlah Barang</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-12">
+                        <label for="search_term">Jumlah Barang</label>
+                        <input type="number" class="form-control form-control-sm" id="qty-item" value="">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="saveQty()">Simpan</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+    
+            </div>
+        </div>
+        </div>
 @endsection
 
 @section('scripts')
@@ -295,6 +344,7 @@
         let formData = {};
         let isItemModalOpen = false;
         let selectedRow = 0;
+        let temporaryItemSelect = {};
 
 
         function highlightRow(index) {
@@ -305,6 +355,87 @@
             }
         }
 
+        $(document).ready(function() {
+            $('#select-product').select2({
+                placeholder: 'Cari produk...',
+                minimumInputLength: 2,
+                delay: 250,
+                ajax: {
+                    url:`{{ route('options.incoming_goods') }}`,
+                    dataType: 'json',
+                    data: function(params) {
+                        return {
+                            search_term: params.term
+                        }
+                    },
+                    processResults: function(data) {
+                        let results = data.data.map((item) => {
+                                            return {
+                                                id: item.id,
+                                                text: `${item.product_code} - ${item.product_name}`,
+                                                product_name: item.product_name,
+                                                product_code: item.product_code,
+                                                selling_price: parseInt(item.selling_price),
+                                                current_stock: item.current_stock
+
+                                            }
+                                        })
+                        return {
+                            results : results             
+                        }
+                    
+                    },
+                },
+                
+                
+                // processResults: function(response) {
+                //         let filteredData;
+                //             filteredData = response.data.filter(item =>
+                //                 !formData.products.some(data => data.product_id == item.id)
+                //             );
+
+                //         return {
+                //             results: filteredData,
+                //         };
+                //     },
+                    cache: true
+
+            });
+
+            $('#select-product').on('select2:select', function(e) {
+                
+                temporaryItemSelect = e.params.data;
+                var myModal = new bootstrap.Modal(document.getElementById('qty-modal'));
+                myModal.show();
+                // $('#qty-item').focus();
+            });
+
+        });
+        
+        // For focusing while modal open
+        $('#qty-modal').on('shown.bs.modal', function() {
+            $('#qty-item').focus();
+        })
+
+        // Function after fill the quantity
+        const saveQty = () => {
+            const qtyValue = $('#qty-item').val();
+            temporaryItemSelect = {...temporaryItemSelect, qty:qtyValue, discount: 0, total:0}
+            if(temporaryItemSelect.current_stock < parseInt(qtyValue)) {
+                alert('stock tidak cukup');
+            }
+            // selectedRowData.push(temporaryItemSelect);
+            let findIndex = selectedRowData.findIndex(item => temporaryItemSelect.id == item.id);
+            if(findIndex !== -1) {
+                selectedRowData[findIndex].qty = parseInt(selectedRowData[findIndex].qty) + parseInt(qtyValue);
+            } else {
+                selectedRowData.push(temporaryItemSelect);
+            }
+            handleData();
+            $('#qty-item').val(null);
+            $('#select-product').val(null).trigger('change');
+            $('#qty-modal').modal('toggle');
+        }
 
         $(document).on('keydown', function(e) {
             const formTransaction = $('.form-transaction');

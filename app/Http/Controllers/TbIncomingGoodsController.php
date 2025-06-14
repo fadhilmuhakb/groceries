@@ -17,15 +17,21 @@ class TbIncomingGoodsController extends Controller
     public function options(Request $request)
     {
         try {
+
+            if($request->has('search_term')) {
+                $search = $request->search_term;
+            } else {
+                $search = $request->term;
+            }
             $user_id = auth()->user()->id;
             $user = User::where('id', $user_id)->with('store')->first();
             if(auth()->user()->roles == 'superadmin') {
 
                 $products = tb_products::with(['incomingGoods', 'outgoingGoods','unit', 'type','brand'])
-                    ->when($request->search_term, function($query) use($request) {
-                        $query->where(function($q) use($request) {
-                            $q->where('product_name', 'LIKE', '%'.$request->search_term.'%')
-                                ->orWhere('product_code', 'LIKE','%'.$request->search_term.'%');
+                    ->when($search, function($query) use($request, $search) {
+                        $query->where(function($q) use($request, $search) {
+                            $q->where('product_name', 'LIKE', '%'.$search.'%')
+                                ->orWhere('product_code', 'LIKE','%'.$search.'%');
                         });
                     })
                     ->get()
@@ -42,9 +48,9 @@ class TbIncomingGoodsController extends Controller
                 //                             ->whereHas('purchase', function($q) {
                 //                                 $q->where('store_id', auth()->user()->store_id);
                 //                             })
-                //                             ->when($request->search_term, function($q1) use($request) {
-                //                                 $q1->whereRelation('product', 'product_name', 'LIKE', '%'.$request->search_term.'%')
-                //                                     ->orWhereRelation('product', 'product_code', 'LIKE','%'.$request->search_term.'%');
+                //                             ->when($search, function($q1) use($request) {
+                //                                 $q1->whereRelation('product', 'product_name', 'LIKE', '%'.$search.'%')
+                //                                     ->orWhereRelation('product', 'product_code', 'LIKE','%'.$search.'%');
                 //                             })
                 //                             ->get();
 
@@ -60,10 +66,10 @@ class TbIncomingGoodsController extends Controller
                             $q->where('store_id', auth()->user()->store_id);
                         });
                     }])
-                    ->when($request->search_term, function($query) use($request) {
-                        $query->where(function($q) use($request) {
-                            $q->where('product_name', 'LIKE', '%'.$request->search_term.'%')
-                                ->orWhere('product_code', 'LIKE','%'.$request->search_term.'%');
+                    ->when($search, function($query) use($request, $search) {
+                        $query->where(function($q) use($request, $search) {
+                            $q->where('product_name', 'LIKE', '%'.$search.'%')
+                                ->orWhere('product_code', 'LIKE','%'.$search.'%');
                         });
                     })
                     ->get()
@@ -77,7 +83,9 @@ class TbIncomingGoodsController extends Controller
 
             }
 
-            if($request->type === 'barcode') {
+            // dd($products);
+
+            // if($request->type === 'barcode') {
                 $products = $products->map(function($product) {
                     return [
                         'id' => $product->id,
@@ -91,37 +99,39 @@ class TbIncomingGoodsController extends Controller
                     ];
                 });
 
+                // dd($products);
+
                 return response()->json([
                     'success' => true,
                     'data' => $products
                 ]);
                 
-            } else {
-                $draw = intval($request->input('draw'));
-                $start = intval($request->input('start'));
-                $length = intval($request->input('length'));
+            // } else {
+            //     $draw = intval($request->input('draw'));
+            //     $start = intval($request->input('start'));
+            //     $length = intval($request->input('length'));
 
-                $total = $products->count();
-                $pagedData = $products->slice($start, $length)->values();
+            //     $total = $products->count();
+            //     $pagedData = $products->slice($start, $length)->values();
 
-                return response()->json([
-                    'draw' => $draw,
-                    'recordsTotal' => $total,
-                    'recordsFiltered' => $total,
-                    'data' => $pagedData->map(function($product) {
-                        return [
-                            'id' => $product->id,
-                            'product_code' => $product->product_code,
-                            'product_name' => $product->product_name,
-                            'current_stock' => $product->current_stock,
-                            'unit_name' => $product->unit->unit_name ?? '-',
-                            'type_name' => $product->type->type_name ?? '-',
-                            'selling_price' => $product->selling_price,
-                            'brand_name' => $product->brand->brand_name ?? '-',
-                        ];
-                    }),
-                ]);
-            }
+            //     return response()->json([
+            //         'draw' => $draw,
+            //         'recordsTotal' => $total,
+            //         'recordsFiltered' => $total,
+            //         'data' => $pagedData->map(function($product) {
+            //             return [
+            //                 'id' => $product->id,
+            //                 'product_code' => $product->product_code,
+            //                 'product_name' => $product->product_name,
+            //                 'current_stock' => $product->current_stock,
+            //                 'unit_name' => $product->unit->unit_name ?? '-',
+            //                 'type_name' => $product->type->type_name ?? '-',
+            //                 'selling_price' => $product->selling_price,
+            //                 'brand_name' => $product->brand->brand_name ?? '-',
+            //             ];
+            //         }),
+            //     ]);
+            // }
             // Pagination parameter dari DataTables
             
 
