@@ -6,170 +6,116 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
-use Maatwebsite\Excel\Facades\Excel;
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Illuminate\Support\Collection;
 
 class HomeController extends Controller
 {
     public function index(Request $request)
     {
         $range = $request->get('range', 'monthly');
+        $selectedStoreId = $request->get('store', null);
+
         $user = Auth::user();
         $isSuperadmin = $user && $user->roles === 'superadmin';
-        $storeId = $user->store_id ?? null;
+        $storeId = $isSuperadmin ? $selectedStoreId : $user->store_id;
 
-        $sales = collect();
-        $expenses = collect();
-        $labels = collect();
+        $stores = $isSuperadmin ? DB::table('tb_stores')->get() : collect();
+
+        // Prepare labels & grouping keys based on range
+        switch ($range) {
+            case 'daily':
+                $labels = collect(range(6, 0))->map(fn($i) => Carbon::today()->subDays($i)->format('Y-m-d'));
+                $groupBySales = DB::raw("DATE(date) as group_val");
+                $groupByPurchases = DB::raw("DATE(created_at) as group_val");
+                break;
+
+            case 'weekly':
+                // Define last 4 full weeks labels: "Minggu 1" ... "Minggu 4"
+                $labels = collect(['Minggu 1', 'Minggu 2', 'Minggu 3', 'Minggu 4']);
+                break;
+
+            case 'yearly':
+                $startYear = now()->year - 4;
+                $labels = collect(range($startYear, now()->year))->map(fn($y) => (string) $y);
+                $groupBySales = DB::raw("YEAR(date) as group_val");
+                $groupByPurchases = DB::raw("YEAR(created_at) as group_val");
+                break;
+
+            case 'monthly':
+            default:
+                $labels = collect(range(5, 0))->map(fn($i) => now()->subMonths($i)->format('Y-m'));
+                $groupBySales = DB::raw("DATE_FORMAT(date, '%Y-%m') as group_val");
+                $groupByPurchases = DB::raw("DATE_FORMAT(created_at, '%Y-%m') as group_val");
+                break;
+        }
+
+        $salesQuery = DB::table('tb_sells');
+        $purchaseQuery = DB::table('tb_purchases');
+
+        if ($storeId) {
+            $salesQuery->where('store_id', $storeId);
+            $purchaseQuery->where('store_id', $storeId);
+        }
 
         if ($range === 'weekly') {
-            $labels = collect(['Minggu 1', 'Minggu 2', 'Minggu 3', 'Minggu 4']);
+            // For weekly, manually aggregate by week number relative to current date (last 28 days)
+            $salesRaw = $salesQuery
+                ->whereBetween('date', [now()->subDays(27)->startOfDay(), now()->endOfDay()])
+                ->get();
+
+            $purchaseRaw = $purchaseQuery
+                ->whereBetween('created_at', [now()->subDays(27)->startOfDay(), now()->endOfDay()])
+                ->get();
+
             $sales = collect([0, 0, 0, 0]);
-            $expenses = collect([0, 0, 0, 0]);
+            $hpp = collect([0, 0, 0, 0]);
 
-            $salesQuery = DB::table('tb_sells');
-            $purchaseQuery = DB::table('tb_purchases');
-
-            if (!$isSuperadmin && $storeId) {
-                $salesQuery->where('store_id', $storeId);
-                $purchaseQuery->where('store_id', $storeId);
-            }
-
-            foreach ($salesQuery->whereBetween('date', [now()->subDays(27), now()])->get() as $row) {
+            foreach ($salesRaw as $row) {
                 $diff = now()->diffInDays(Carbon::parse($row->date));
-                $index = floor($diff / 7);
-                if ($index < 4) $sales[3 - $index] += $row->total_price;
+                $index = intdiv($diff, 7);
+                if ($index < 4) {
+                    $sales[3 - $index] += $row->total_price;
+                }
             }
-
-            foreach ($purchaseQuery->whereBetween('created_at', [now()->subDays(27), now()])->get() as $row) {
+            foreach ($purchaseRaw as $row) {
                 $diff = now()->diffInDays(Carbon::parse($row->created_at));
-                $index = floor($diff / 7);
-                if ($index < 4) $expenses[3 - $index] += $row->total_price;
+                $index = intdiv($diff, 7);
+                if ($index < 4) {
+                    $hpp[3 - $index] += $row->total_price;
+                }
             }
         } else {
-            switch ($range) {
-                case 'daily':
-                    $labels = collect(range(0, 6))->map(fn($i) => Carbon::today()->subDays($i)->format('Y-m-d'))->reverse();
-                    $groupKeySales = DB::raw("DATE(date) as group_val");
-                    $groupKeyPurchases = DB::raw("DATE(created_at) as group_val");
-                    $groupBySales = DB::raw("DATE(date)");
-                    $groupByPurchases = DB::raw("DATE(created_at)");
-                    break;
-                case 'yearly':
-                    $labels = collect(range(now()->year - 4, now()->year))->map(fn($y) => (string) $y);
-                    $groupKeySales = DB::raw("YEAR(date) as group_val");
-                    $groupKeyPurchases = DB::raw("YEAR(created_at) as group_val");
-                    $groupBySales = DB::raw("YEAR(date)");
-                    $groupByPurchases = DB::raw("YEAR(created_at)");
-                    break;
-                case 'monthly':
-                default:
-                    $labels = collect(range(0, 5))->map(fn($i) => now()->subMonths($i)->format('m'))->reverse();
-                    $groupKeySales = DB::raw("MONTH(date) as group_val");
-                    $groupKeyPurchases = DB::raw("MONTH(created_at) as group_val");
-                    $groupBySales = DB::raw("MONTH(date)");
-                    $groupByPurchases = DB::raw("MONTH(created_at)");
-                    break;
-            }
-
-            $salesQuery = DB::table('tb_sells');
-            $purchaseQuery = DB::table('tb_purchases');
-
-            if (!$isSuperadmin && $storeId) {
-                $salesQuery->where('store_id', $storeId);
-                $purchaseQuery->where('store_id', $storeId);
-            }
-
+            // Other ranges: group by date key
             $salesData = $salesQuery
-                ->select($groupKeySales, DB::raw('SUM(total_price) as total'))
-                ->groupBy($groupBySales)
+                ->select($groupBySales, DB::raw('SUM(total_price) as total'))
+                ->groupBy('group_val')
                 ->pluck('total', 'group_val');
 
             $purchaseData = $purchaseQuery
-                ->select($groupKeyPurchases, DB::raw('SUM(total_price) as total'))
-                ->groupBy($groupByPurchases)
+                ->select($groupByPurchases, DB::raw('SUM(total_price) as total'))
+                ->groupBy('group_val')
                 ->pluck('total', 'group_val');
 
-            $sales = $labels->map(fn($label, $i) => (float) ($salesData[$this->getGroupKey($range, $label, $i)] ?? 0))->values();
-            $expenses = $labels->map(fn($label, $i) => (float) ($purchaseData[$this->getGroupKey($range, $label, $i)] ?? 0))->values();
+            $sales = $labels->map(fn($label) => (float) ($salesData[$label] ?? 0));
+            $hpp = $labels->map(fn($label) => (float) ($purchaseData[$label] ?? 0));
         }
 
-        $storeSales = [];
-        $storeExpenses = [];
+        $laba = $sales->map(fn($val, $key) => $val - $hpp[$key]);
 
-        if ($isSuperadmin) {
-            $stores = DB::table('tb_stores')->get();
-            foreach ($stores as $store) {
-                $storeSales[$store->store_name] = (float) DB::table('tb_sells')->where('store_id', $store->id)->sum('total_price');
-                $storeExpenses[$store->store_name] = (float) DB::table('tb_purchases')->where('store_id', $store->id)->sum('total_price');
-            }
-        }
+        $totalOmset = $sales->sum();
+        $totalHpp = $hpp->sum();
+        $totalLaba = $laba->sum();
 
         return view('home', [
-            'months' => $labels->values(),
-            'sales' => $sales,
-            'expenses' => $expenses,
-            'storeSales' => $storeSales,
-            'storeExpenses' => $storeExpenses,
+            'stores' => $stores,
+            'selectedStoreId' => $selectedStoreId,
+            'range' => $range,
+            'labels' => $labels->values(),
+            'omsetData' => $sales->values(),
+            'hppData' => $hpp->values(),
+            'labaData' => $laba->values(),
+            'totalOmset' => $totalOmset,
+            'totalHpp' => $totalHpp,
+            'totalLaba' => $totalLaba,
         ]);
-    }
-
-    private function getGroupKey($range, $label, $index)
-    {
-        return match ($range) {
-            'daily' => $label,
-            'weekly' => $index,
-            'monthly' => $index + 1,
-            'yearly' => (int) $label,
-            default => $index + 1,
-        };
-    }
-
-    public function exportPenjualan(Request $request)
-    {
-        $user = Auth::user();
-        $isSuperadmin = $user && $user->roles === 'superadmin';
-        $storeId = $user->store_id ?? null;
-
-        $query = DB::table('tb_outgoing_goods')
-            ->join('tb_products', 'tb_products.id', '=', 'tb_outgoing_goods.product_id')
-            ->join('tb_sells', 'tb_sells.id', '=', 'tb_outgoing_goods.sell_id')
-            ->leftJoin('tb_stores', 'tb_stores.id', '=', 'tb_sells.store_id')
-            ->select([
-                'tb_products.product_name',
-                'tb_stores.store_name',
-                'tb_sells.date',
-                'tb_products.purchase_price',
-                'tb_products.selling_price',
-                'tb_outgoing_goods.quantity_out',
-                DB::raw('tb_products.selling_price * tb_outgoing_goods.quantity_out as total_penjualan'),
-            ]);
-
-        if (!$isSuperadmin && $storeId) {
-            $query->where('tb_sells.store_id', $storeId);
-        }
-
-        $data = $query->get()->map(function ($item) {
-            return [
-                'Produk' => $item->product_name,
-                'Toko' => $item->store_name ?? '-',
-                'Tanggal' => $item->date,
-                'Harga Beli' => $item->purchase_price,
-                'Harga Jual' => $item->selling_price,
-                'Qty' => $item->quantity_out,
-                'Total Penjualan' => $item->total_penjualan,
-            ];
-        });
-
-        return Excel::download(new class($data) implements FromCollection, WithHeadings {
-            protected $rows;
-            public function __construct(Collection $rows) { $this->rows = $rows; }
-            public function collection() { return $this->rows; }
-            public function headings(): array {
-                return ['Produk', 'Toko', 'Tanggal', 'Harga Beli', 'Harga Jual', 'Qty', 'Total Penjualan'];
-            }
-        }, 'penjualan-detail.xlsx');
     }
 }
