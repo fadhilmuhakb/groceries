@@ -16,7 +16,7 @@ use App\Http\Controllers\TbSellController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
-
+use App\Http\Controllers\StaffController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -37,6 +37,15 @@ Auth::routes();
 
 Route::group(['middleware' => ['auth']], function () {
     Route::get('/', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+    Route::post('/staff/logout-revenue', [StaffController::class, 'submitRevenueAndLogout'])->name('staff.submitRevenueAndLogout');
+
+    Route::get('/check-daily-revenue', function (Request $request) {
+        return response()->json([
+            'exists' => tb_daily_revenue::where('user_id', auth()->id())
+                ->where('date', $request->get('date'))
+                ->exists()
+        ]);
+    });
     Route::get('/export-penjualan', [App\Http\Controllers\HomeController::class, 'exportPenjualan'])->name('home.export.penjualan');
 
 
@@ -110,11 +119,11 @@ Route::group(['middleware' => ['auth']], function () {
         Route::get('/delete/{id}', [TbPurchaseController::class, 'delete'])->name('purchase.delete');
     });
 
-    Route::prefix('sell')->group(function() {
+    Route::prefix('sell')->group(function () {
         Route::get('/', [TbSellController::class, 'index'])->name('sell.index');
         Route::get('/detail/{id}', [TbSellController::class, 'detail'])->name('sell.detail');
     });
-    
+
     Route::prefix('store')->group(function () {
         Route::get('/', [TbStoresController::class, 'index'])->name('store.index');
         Route::get('/create', [TbStoresController::class, 'create'])->name('store.create');
@@ -124,7 +133,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::delete('/delete/{id}', [TbStoresController::class, 'delete'])->name('store.delete');
     });
 
-    Route::prefix('customer')->group(function() {
+    Route::prefix('customer')->group(function () {
         Route::get('/', [TbCustomersController::class, 'index'])->name('customer.index');
         Route::get('/create', [TbCustomersController::class, 'create'])->name('customer.create');
         Route::get('/edit/{id}', [TbCustomersController::class, 'edit'])->name('customer.edit');
@@ -136,19 +145,20 @@ Route::group(['middleware' => ['auth']], function () {
     Route::prefix('inventory')->group(function () {
         Route::get('/', [InventoryController::class, 'index'])->name('inventory.index');
         Route::post('/adjust-stock', [InventoryController::class, 'adjustStock'])->name('inventory.adjustStock');
-Route::post('/adjust-stock-bulk', [InventoryController::class, 'adjustStockBulk'])->name('inventory.adjustStockBulk');
+        Route::post('/adjust-stock-bulk', [InventoryController::class, 'adjustStockBulk'])->name('inventory.adjustStockBulk');
 
 
     });
 
 
-    Route::prefix('sales')->group(function() {
+    Route::prefix('sales')->group(function () {
         Route::get('/', [TbSalesController::class, 'index'])->name('sales.index');
         Route::post('/', [TbSalesController::class, 'store'])->name('sales.store');
-        
+
     });
 
-    Route::prefix('options')->group(function() {
+    Route::prefix('options')->group(function () {
         Route::get('/incoming-goods', [TbIncomingGoodsController::class, 'options'])->name('options.incoming_goods');
     });
+
 });

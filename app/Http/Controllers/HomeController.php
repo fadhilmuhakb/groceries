@@ -20,7 +20,6 @@ class HomeController extends Controller
 
         $stores = $isSuperadmin ? DB::table('tb_stores')->get() : collect();
 
-        // Prepare labels & grouping keys based on range
         switch ($range) {
             case 'daily':
                 $labels = collect(range(6, 0))->map(fn($i) => Carbon::today()->subDays($i)->format('Y-m-d'));
@@ -29,7 +28,6 @@ class HomeController extends Controller
                 break;
 
             case 'weekly':
-                // Define last 4 full weeks labels: "Minggu 1" ... "Minggu 4"
                 $labels = collect(['Minggu 1', 'Minggu 2', 'Minggu 3', 'Minggu 4']);
                 break;
 
@@ -57,7 +55,6 @@ class HomeController extends Controller
         }
 
         if ($range === 'weekly') {
-            // For weekly, manually aggregate by week number relative to current date (last 28 days)
             $salesRaw = $salesQuery
                 ->whereBetween('date', [now()->subDays(27)->startOfDay(), now()->endOfDay()])
                 ->get();
@@ -76,6 +73,7 @@ class HomeController extends Controller
                     $sales[3 - $index] += $row->total_price;
                 }
             }
+
             foreach ($purchaseRaw as $row) {
                 $diff = now()->diffInDays(Carbon::parse($row->created_at));
                 $index = intdiv($diff, 7);
@@ -84,7 +82,6 @@ class HomeController extends Controller
                 }
             }
         } else {
-            // Other ranges: group by date key
             $salesData = $salesQuery
                 ->select($groupBySales, DB::raw('SUM(total_price) as total'))
                 ->groupBy('group_val')
@@ -105,6 +102,23 @@ class HomeController extends Controller
         $totalHpp = $hpp->sum();
         $totalLaba = $laba->sum();
 
+        $topProductsQuery = DB::table('tb_outgoing_goods')
+        ->join('tb_products', 'tb_outgoing_goods.product_id', '=', 'tb_products.id')
+        ->join('tb_sells', 'tb_outgoing_goods.sell_id', '=', 'tb_sells.id')
+        ->select('tb_products.product_name', DB::raw('SUM(tb_outgoing_goods.quantity_out) as total_sold'))
+        ->groupBy('tb_products.product_name')
+        ->orderByDesc('total_sold')
+        ->limit(5);
+    
+    if ($storeId) {
+        $topProductsQuery->where('tb_sells.store_id', $storeId);
+    }
+    
+    $topProducts = $topProductsQuery->get();
+    
+
+        $topProducts = $topProductsQuery->get();
+
         return view('home', [
             'stores' => $stores,
             'selectedStoreId' => $selectedStoreId,
@@ -116,6 +130,7 @@ class HomeController extends Controller
             'totalOmset' => $totalOmset,
             'totalHpp' => $totalHpp,
             'totalLaba' => $totalLaba,
+            'topProducts' => $topProducts,
         ]);
     }
 }
