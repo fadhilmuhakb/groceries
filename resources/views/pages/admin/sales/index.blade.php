@@ -135,17 +135,17 @@
                                     <label for="transaction_number" class="form-label">Jumlah: </label>
                                     <input type="number" class="form-control form-control-sm form-transaction" id="qty" value="1">
                                 </div> --}}
-                                <div class="col-4">
+                                {{-- <div class="col-4">
                                     <label for="transaction_number" class="form-label">Kode Item: </label>
                                     <input type="text" class="form-control form-control-sm form-transaction" name="item_code" id="item-code">
-                                </div>
-                                <div class="col-4">
-                                    <label for="select-product" class="form-label">Nama Item</label>
-                                    <select type="text" name="products[${productIndex}][product_id]" class="form-select product-select2" id="select-product">
+                                </div> --}}
+                                <div class="col-6">
+                                    <label for="select-product" class="form-label">Kode Item</label>
+                                    <select type="text" name="products[${productIndex}][product_id] " class="form-select product-select2 form-transaction" id="select-product">
                                         <option value=""></option>
                                     </select>
                                 </div>
-                                <div class="col-4">
+                                <div class="col-6">
                                     <label for="transaction_number" class="form-label">Scan Barcode: </label>
                                     <input type="text" class="form-control form-control-sm form-transaction" name="scan_barcode" id="scan-barcode">
                                 </div>
@@ -412,14 +412,22 @@
 
         });
         
+        $('#qty-modal').on('keydown', function(e) {
+                
+                if(e.key === 'Enter') {
+                    e.preventDefault()
+                    saveQty();
+                }
+            })
         // For focusing while modal open
         $('#qty-modal').on('shown.bs.modal', function() {
             $('#qty-item').focus();
+            
         })
 
         // Function after fill the quantity
         const saveQty = () => {
-            const qtyValue = $('#qty-item').val();
+            let qtyValue = $('#qty-item').val();
             temporaryItemSelect = {...temporaryItemSelect, qty:qtyValue, discount: 0, total:0}
             if(temporaryItemSelect.current_stock < parseInt(qtyValue)) {
                 alert('stock tidak cukup');
@@ -439,8 +447,13 @@
 
         $(document).on('keydown', function(e) {
             const formTransaction = $('.form-transaction');
-            const currentFormTransaction = formTransaction.filter(':focus');
+            const currentFormTransaction = $(':focus').closest('.form-transaction');
             const index = formTransaction.index(currentFormTransaction);
+
+            if(e.key === 'End') {
+                e.preventDefault();
+                onClickModalPayment(event)
+            }
 
 
             if(isItemModalOpen) {
@@ -469,14 +482,35 @@
             } else {
                 if(e.key === 'PageDown') {
                 e.preventDefault();
+                 const currentSelect2 = currentFormTransaction.filter('.select2-hidden-accessible');
+                    if (currentSelect2.length) {
+                        currentSelect2.select2('close');
+                    }
                 const next = formTransaction.eq(index + 1);
-                if(next.length) next.focus();
+                
+                if(next.length) {
+                    next.focus();
+                    if (next.hasClass('select2-hidden-accessible')) {
+                    next.select2('open');
+                    }
+                }
+                
             }
 
                 if(e.key === 'PageUp') {
                     e.preventDefault();
+                    const currentSelect2 = currentFormTransaction.filter('.select2-hidden-accessible');
+                    if (currentSelect2.length) {
+                        currentSelect2.select2('close');
+                    }
                     const prev = formTransaction.eq(index - 1);
-                    if(prev.length) prev.focus();
+                    if(prev.length) {
+                        prev.focus();
+                        next.select2('close');
+                        if (next.hasClass('select2-hidden-accessible')) {
+                            next.select2('open');
+                        }
+                    }
                 }
             }
 
