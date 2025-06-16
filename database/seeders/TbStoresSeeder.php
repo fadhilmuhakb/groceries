@@ -12,7 +12,7 @@ class TbStoresSeeder extends Seeder
     {
         $now = Carbon::now();
 
-        DB::table('stores')->insert([
+        DB::table('tb_stores')->insert([
             [
                 'store_name' => 'Toko Sembako Makmur',
                 'store_address' => 'Jl. Merdeka No.10, Jakarta Pusat',
