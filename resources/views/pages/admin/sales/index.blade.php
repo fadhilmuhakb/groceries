@@ -908,6 +908,7 @@
                         })
                     },
                     error: function(err) {
+                        console.log(err)
                         if(err.responseJSON) {
                             Swal.fire({
                             icon:'error',

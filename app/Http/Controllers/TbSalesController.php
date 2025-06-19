@@ -66,7 +66,7 @@ class TbSalesController extends Controller
         $validator = Validator::make($request->data, [
             'transaction_date' => 'required',
             'customer_money' => 'required',
-            'customer_id' => 'required',
+            'customer_id' => 'nullable',
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|integer',
             'products.*.qty' => 'required|integer|min:1',
