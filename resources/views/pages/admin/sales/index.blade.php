@@ -71,7 +71,7 @@
                                     <input type="text" class="form-control form-control-sm form-transaction" id="invoice-number" value="{{$invoice_number}}">
 
                                 </div>
-                
+
                                 <div class="form-control form-control-sm" style="width: 30%">{{Auth::user()->name}}
 
                                 </div>
@@ -84,7 +84,7 @@
                                         <input type="date" class="form-control form-control-sm form-transaction" id="transaction-date" onchange="onChangeDate()">
                                     </div>
                                 </div>
-                               
+
                             </div>
 
                             <div class="row mb-2">
@@ -298,8 +298,8 @@
 
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-primary" onclick="onPaymentPrint()">Bayar + Print</button>
-            <button type="button" class="btn btn-primary" onclick="onPayment()">Bayar </button>
+            <button type="button" class="btn btn-primary" onclick="onPaymentPrint()" >Bayar + Print (F12)</button>
+            <button type="button" class="btn btn-primary" onclick="onPayment()" >Bayar (F11)</button>
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>
 
@@ -327,7 +327,7 @@
                 <button type="button" class="btn btn-primary" onclick="saveQty()">Simpan</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
-    
+
             </div>
         </div>
         </div>
@@ -356,6 +356,7 @@
         }
 
         $(document).ready(function() {
+            $('#scan-barcode').focus();
             $('#select-product').select2({
                 placeholder: 'Cari produk...',
                 minimumInputLength: 2,
@@ -381,13 +382,13 @@
                                             }
                                         })
                         return {
-                            results : results             
+                            results : results
                         }
-                    
+
                     },
                 },
-                
-                
+
+
                 // processResults: function(response) {
                 //         let filteredData;
                 //             filteredData = response.data.filter(item =>
@@ -403,7 +404,7 @@
             });
 
             $('#select-product').on('select2:select', function(e) {
-                
+
                 temporaryItemSelect = e.params.data;
                 var myModal = new bootstrap.Modal(document.getElementById('qty-modal'));
                 myModal.show();
@@ -411,9 +412,9 @@
             });
 
         });
-        
+
         $('#qty-modal').on('keydown', function(e) {
-                
+
                 if(e.key === 'Enter') {
                     e.preventDefault()
                     saveQty();
@@ -422,7 +423,7 @@
         // For focusing while modal open
         $('#qty-modal').on('shown.bs.modal', function() {
             $('#qty-item').focus();
-            
+
         })
 
         // Function after fill the quantity
@@ -442,6 +443,8 @@
             handleData();
             $('#qty-item').val(null);
             $('#select-product').val(null).trigger('change');
+            $('#select-product').focus();
+            $('#select-product').select2('open');
             $('#qty-modal').modal('toggle');
         }
 
@@ -480,21 +483,34 @@
                 }
 
             } else {
+                // if ($('.select2-container--open').length > 0) {
+                //     console.log('select2 open');
+                //     const currentSelect2 = currentFormTransaction.filter('.select2-hidden-accessible');
+                //     if (currentSelect2.length) {
+                //         currentSelect2.select2('close');
+                //     }
+                // }
                 if(e.key === 'PageDown') {
                 e.preventDefault();
+                let next =''
                  const currentSelect2 = currentFormTransaction.filter('.select2-hidden-accessible');
                     if (currentSelect2.length) {
+                        next = formTransaction.eq(index - 1);
+                        next = formTransaction.eq(index + 1);
                         currentSelect2.select2('close');
+
+                    } else {
+                        next = formTransaction.eq(index + 1);
                     }
-                const next = formTransaction.eq(index + 1);
-                
+
+
                 if(next.length) {
                     next.focus();
                     if (next.hasClass('select2-hidden-accessible')) {
                     next.select2('open');
                     }
                 }
-                
+
             }
 
                 if(e.key === 'PageUp') {
@@ -506,9 +522,9 @@
                     const prev = formTransaction.eq(index - 1);
                     if(prev.length) {
                         prev.focus();
-                        next.select2('close');
-                        if (next.hasClass('select2-hidden-accessible')) {
-                            next.select2('open');
+                        // next.select2('close');
+                        if (prev.hasClass('select2-hidden-accessible')) {
+                            prev.select2('open');
                         }
                     }
                 }
@@ -544,6 +560,23 @@
             })
         })
 
+        $('#payment-modal').on('shown.bs.modal', function(e) {
+            $('#customer-money').focus();
+
+        })
+
+        $('#payment-modal').on('keydown', function(e) {
+                if(e.key === 'F12') {
+                    e.preventDefault();
+                    onPaymentPrint();
+                }
+                if(e.key === 'F11') {
+                    e.preventDefault();
+                    onPayment();
+                }
+            })
+
+
         $('#item-code').keydown(function(event) {
             if(event.key === "Enter") {
                 search_term = $(this).val();
@@ -560,7 +593,7 @@
 
             }
         });
-        
+
 
         $('#scan-barcode').keydown(function(event) {
 
@@ -571,7 +604,7 @@
             if($('#qty').val() < 0 || $('#qty').val() == '') {
                 $('#qty').focus()
                 return;
-                
+
             } else {
                 $(document).keypress(function(e) {
                 const currentTime = new Date().getTime();
@@ -590,7 +623,7 @@
                 }
 
                 lastKeyTime = currentTime;
-                
+
             })
             }
         });
@@ -635,7 +668,7 @@
             var myModal = new bootstrap.Modal(document.getElementById('payment-modal'));
             myModal.show();
         }
-        
+
 
         const customerMoney = (value) => {
             formData.customer_money = value;
@@ -845,7 +878,7 @@
                                         <hr>
                                         <div>
                                             Tanggal: ${formData.transaction_date}<br>
-                                            Kasir: 
+                                            Kasir:
                                         </div>
                                         <hr>
                                         ${formData.products.map(item => `
