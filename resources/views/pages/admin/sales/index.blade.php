@@ -166,11 +166,12 @@
                                             <th>Harga</th>
                                             <th>Potongan</th>
                                             <th>Total</th>
+                                            <th>Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody id="product-list">
                                         <tr>
-                                            <td colspan="7" class="text-center"><i class="bx bx-message-alt-error"></i> Data Kosong</td>
+                                            <td colspan="8" class="text-center"><i class="bx bx-message-alt-error"></i> Data Kosong</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -785,6 +786,7 @@
                             <td style="text-align:right">${formatRupiah(item.selling_price)}</td>
                             <td><input type="number" name="products[${index}][discount]" style="text-align:right; border:1px solid #ced4da" value="${item.discount}" oninput="onDiscountChange(${index}, this.value)"></td>
                             <td style="text-align:right">${formatRupiah(item.total)}</td>
+                            <td><button class="btn btn-sm btn-danger" onclick="onDelete(${index})"><i class="bx bx-trash me-0"></i></button></td>
                         </tr>
                     `);
                 });
@@ -805,11 +807,19 @@
             } else {
                 productList.append(`
                     <tr>
-                        <td colspan="7" class="text-center"><i class="bx bx-message-alt-error"></i> Data Kosong</td>
+                        <td colspan="8" class="text-center"><i class="bx bx-message-alt-error"></i> Data Kosong</td>
                     </tr>
                 `);
             }
         };
+
+        const onDelete = (idx) => {
+            // console.log(idx)
+            // console.log(formData.products);
+            // console.log(selectedRowData)
+            selectedRowData.splice(idx)
+            handleData();
+        }
 
         // API
         const onPayment = () => {
