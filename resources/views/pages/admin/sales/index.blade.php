@@ -814,10 +814,7 @@
         };
 
         const onDelete = (idx) => {
-            // console.log(idx)
-            // console.log(formData.products);
-            // console.log(selectedRowData)
-            selectedRowData.splice(idx)
+            selectedRowData.splice(idx, 1)
             handleData();
         }
 
