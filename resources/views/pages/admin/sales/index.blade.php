@@ -131,15 +131,15 @@
                     <div class="row">
                         <div class="col-12">
                             <div class="row mb-3">
-                                {{-- <div class="col-3">
+                                <div class="col-3">
                                     <label for="transaction_number" class="form-label">Jumlah: </label>
-                                    <input type="number" class="form-control form-control-sm form-transaction" id="qty" value="1">
-                                </div> --}}
-                                {{-- <div class="col-4">
+                                    <input type="number" class="form-control form-control-sm form-transaction" id="qty" value="0">
+                                </div>
+                                <div class="col-4">
                                     <label for="transaction_number" class="form-label">Kode Item: </label>
                                     <input type="text" class="form-control form-control-sm form-transaction" name="item_code" id="item-code">
-                                </div> --}}
-                                <div class="col-6">
+                                </div>
+                                {{-- <div class="col-6">
                                     <label for="select-product" class="form-label">Kode Item</label>
                                     <select type="text" name="products[${productIndex}][product_id] " class="form-select product-select2 form-transaction" id="select-product">
                                         <option value=""></option>
@@ -148,7 +148,7 @@
                                 <div class="col-6">
                                     <label for="transaction_number" class="form-label">Scan Barcode: </label>
                                     <input type="text" class="form-control form-control-sm form-transaction" name="scan_barcode" id="scan-barcode">
-                                </div>
+                                </div> --}}
 
                             </div>
                         </div>
@@ -307,31 +307,6 @@
         </div>
     </div>
     </div>
-
-    {{-- qty modal --}}
-    <div class="modal fade" id="qty-modal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-sm">
-            <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="paymentModalLabel">Jumlah Barang</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row">
-                    <div class="col-12">
-                        <label for="search_term">Jumlah Barang</label>
-                        <input type="number" class="form-control form-control-sm" id="qty-item" value="">
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" onclick="saveQty()">Simpan</button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-
-            </div>
-        </div>
-        </div>
 @endsection
 
 @section('scripts')
@@ -346,6 +321,11 @@
         let isItemModalOpen = false;
         let selectedRow = 0;
         let temporaryItemSelect = {};
+        let inputTimer = null;
+        let inputString = '';
+        let lastKeyTime = Date.now();
+        let keyModal = Number(1);
+
 
 
         function highlightRow(index) {
@@ -355,64 +335,6 @@
                 rows.eq(index).addClass('selected');
             }
         }
-
-        $(document).ready(function() {
-            $('#scan-barcode').focus();
-            $('#select-product').select2({
-                placeholder: 'Cari produk...',
-                minimumInputLength: 2,
-                delay: 250,
-                ajax: {
-                    url:`{{ route('options.incoming_goods') }}`,
-                    dataType: 'json',
-                    data: function(params) {
-                        return {
-                            search_term: params.term
-                        }
-                    },
-                    processResults: function(data) {
-                        let results = data.data.map((item) => {
-                                            return {
-                                                id: item.id,
-                                                text: `${item.product_code} - ${item.product_name}`,
-                                                product_name: item.product_name,
-                                                product_code: item.product_code,
-                                                selling_price: parseInt(item.selling_price),
-                                                current_stock: item.current_stock
-
-                                            }
-                                        })
-                        return {
-                            results : results
-                        }
-
-                    },
-                },
-
-
-                // processResults: function(response) {
-                //         let filteredData;
-                //             filteredData = response.data.filter(item =>
-                //                 !formData.products.some(data => data.product_id == item.id)
-                //             );
-
-                //         return {
-                //             results: filteredData,
-                //         };
-                //     },
-                    cache: true
-
-            });
-
-            $('#select-product').on('select2:select', function(e) {
-
-                temporaryItemSelect = e.params.data;
-                var myModal = new bootstrap.Modal(document.getElementById('qty-modal'));
-                myModal.show();
-                // $('#qty-item').focus();
-            });
-
-        });
 
         $('#qty-modal').on('keydown', function(e) {
 
@@ -425,7 +347,17 @@
         $('#qty-modal').on('shown.bs.modal', function() {
             $('#qty-item').focus();
 
+        });
+
+        $('#item-modal').on('shown.bs.modal', function () {
+            $('#table-item').DataTable().columns.adjust();
+        });
+
+        $('#item-modal').on('hidden.bs.modal', function() {
+            $('#item-code').focus();
+
         })
+        
 
         // Function after fill the quantity
         const saveQty = () => {
@@ -464,19 +396,38 @@
 
                 const rows = $('#table-item tbody tr');
                 if(!rows.length) return;
-
                 if(e.key === 'PageDown') {
                     e.preventDefault();
-                    $('#search_term').blur();
+                    keyModal = Math.min(keyModal + 1, 3);
+                    if(keyModal === 2) {
+                        $('#search_term').blur();
 
-                    selectedRow = (selectedRow  + 1) % rows.length;
-                    highlightRow(selectedRow);
+                        $('#search_type').focus();
+                    } else if(keyModal === 3) {
+                        $('#search_type').blur();
+                        selectedRow = (selectedRow  + 1) % rows.length;
+                        highlightRow(selectedRow);    
+                    }
+
+                    
                 } else if(e.key ==='PageUp') {
                     e.preventDefault();
-                    $('#search_term').blur();
+                    keyModal = Math.max(keyModal - 1, 1);
+                    if(keyModal === 1) {
+                        $('#search_term').focus();
+                        $('#search_type').blur();
+                    }
+                    else if(keyModal === 2) {
+                        $('#search_type').focus();
+                        const rows = $('#table-item tbody tr');
+                        rows.removeClass('selected');
+                        
+                    } else if(keyModal === 3) {
+                        selectedRow = (selectedRow - 1 + rows.length) % rows.length;
+                        highlightRow(selectedRow);    
+                    }
 
-                    selectedRow = (selectedRow - 1 + rows.length) % rows.length;
-                    highlightRow(selectedRow);
+                    
                 } else if(e.key === 'Enter') {
                     e.preventDefault();
                     rows.eq(selectedRow).trigger('click');
@@ -484,49 +435,22 @@
                 }
 
             } else {
-                // if ($('.select2-container--open').length > 0) {
-                //     console.log('select2 open');
-                //     const currentSelect2 = currentFormTransaction.filter('.select2-hidden-accessible');
-                //     if (currentSelect2.length) {
-                //         currentSelect2.select2('close');
-                //     }
-                // }
                 if(e.key === 'PageDown') {
                 e.preventDefault();
                 let next =''
-                 const currentSelect2 = currentFormTransaction.filter('.select2-hidden-accessible');
-                    if (currentSelect2.length) {
-                        next = formTransaction.eq(index - 1);
-                        next = formTransaction.eq(index + 1);
-                        currentSelect2.select2('close');
-
-                    } else {
-                        next = formTransaction.eq(index + 1);
-                    }
-
+                next = formTransaction.eq(index + 1);
 
                 if(next.length) {
                     next.focus();
-                    if (next.hasClass('select2-hidden-accessible')) {
-                    next.select2('open');
-                    }
                 }
 
             }
 
                 if(e.key === 'PageUp') {
                     e.preventDefault();
-                    const currentSelect2 = currentFormTransaction.filter('.select2-hidden-accessible');
-                    if (currentSelect2.length) {
-                        currentSelect2.select2('close');
-                    }
                     const prev = formTransaction.eq(index - 1);
                     if(prev.length) {
                         prev.focus();
-                        // next.select2('close');
-                        if (prev.hasClass('select2-hidden-accessible')) {
-                            prev.select2('open');
-                        }
                     }
                 }
             }
@@ -545,7 +469,6 @@
 
         $('#item-modal').on('hidden.bs.modal', function (e) {
             $('#table-item').DataTable().destroy();
-            $('#qty').val(1);
             isItemModalOpen = false;
         })
 
@@ -579,72 +502,47 @@
 
 
         $('#item-code').keydown(function(event) {
+            const currentTime = Date.now();
+            const delta = currentTime - lastKeyTime;
+            lastKeyTime = currentTime;
+
             if(event.key === "Enter") {
                 search_term = $(this).val();
                 event.preventDefault();
-                if($('#qty').val() < 0 || $('#qty').val() == '') {
-                    $('#qty').focus()
-                    return;
+                if(delta < 50 || search_term.length > 5) {
+                    processBarcode(search_term);
+                    resetInput();
                 } else {
-                    datatableItem();
-                    var myModal = new bootstrap.Modal(document.getElementById('item-modal'));
-                    isItemModalOpen = true;
-                    myModal.show();
-                }
-
-            }
-        });
-
-
-        $('#scan-barcode').keydown(function(event) {
-
-             // handle barcode
-            let lastKeyTime = 0;
-            let barcode = ""
-
-            if($('#qty').val() < 0 || $('#qty').val() == '') {
-                $('#qty').focus()
-                return;
-
-            } else {
-                $(document).keypress(function(e) {
-                const currentTime = new Date().getTime();
-                if (currentTime - lastKeyTime > 100) {
-                    barcode = "";
-                }
-
-                if (e.key === "Enter") {
-                    if (barcode.length > 3) {
-                        processBarcode(barcode);
+                    if($('#qty').val() <= 0 || $('#qty').val() == '') {
+                        $('#qty').focus()
+                        return;
+                    } else {
+                        datatableItem();
+                        var myModal = new bootstrap.Modal(document.getElementById('item-modal'));
+                        isItemModalOpen = true;
+                        myModal.show();
                     }
-
-                    barcode = ""
-                } else {
-                    barcode += e.key;
                 }
-
-                lastKeyTime = currentTime;
-
-            })
+                inputString = '';
+                return;
             }
+            inputString += event.key
         });
+
 
         const processBarcode = debounce((barcode) => {
             let scanBarcodeVal = $('#scan-barcode').val();
-            console.log(scanBarcodeVal);
             $.ajax({
                 url:`{{ route('options.incoming_goods') }}`,
                 method:'GET',
-                data: {'search_term': scanBarcodeVal, 'type': 'barcode'},
+                data: {'search_term': barcode, 'type': 'barcode'},
                 success: function(response) {
-                    let qty = $('#qty').val();
+                    let qty = 1;
                     let data = response.data[0];
-                    console.log(data.current_stock);
                     if(data.current_stock < qty) {
                         alert('Stok Tidak Cukup');
                         return;
                     }
-
                     data = {...data, qty: qty, discount: 0, total:0};
                     let findIndex = selectedRowData.findIndex(item => data.id == item.id);
                     if(findIndex !== -1) {
@@ -653,14 +551,16 @@
                         selectedRowData.push(data);
                     }
 
-                    $('#qty').val(1);
+                    resetInput()
+
                     handleData();
-                    $('#scan-barcode').val(null);
                 }, error: function(err) {
                     console.log(err)
                 }
             })
         }, 500)
+
+        
 
         // Modal payment open
         const onClickModalPayment = () => {
@@ -730,23 +630,36 @@
         $('#table-item').on('click', 'tbody tr', function() {
             let data = $('#table-item').DataTable().row(this).data();
             let qty = $('#qty').val();
-            if(data.current_stock < qty) {
-                alert('Stok Tidak Cukup');
-                return;
-            }
-            data = {...data, qty: $('#qty').val(), discount: 0, total:0};
-            let findIndex = selectedRowData.findIndex(item => data.id == item.id);
-            if(findIndex !== -1) {
-                selectedRowData[findIndex].qty = parseInt(selectedRowData[findIndex].qty) + parseInt(qty);
-            } else {
-                selectedRowData.push(data);
-            }
+            if(data) {
+                if(data.current_stock < qty) {
+                    alert('Stok Tidak Cukup');
+                    return;
+                }
 
-            var itemModal = bootstrap.Modal.getInstance(document.getElementById('item-modal'));
-            $('#qty').val(1);
-            itemModal.hide();
-            handleData();
+                data = {...data, qty: $('#qty').val(), discount: 0, total:0};
+                let findIndex = selectedRowData.findIndex(item => data.id == item.id);
+                if(findIndex !== -1) {
+                    selectedRowData[findIndex].qty = parseInt(selectedRowData[findIndex].qty) + parseInt(qty);
+                } else {
+                    selectedRowData.push(data);
+                }
+
+                var itemModal = bootstrap.Modal.getInstance(document.getElementById('item-modal'));
+                handleData();
+                resetInput();
+                itemModal.hide();
+            } else {
+                return false; 
+            }
+            
+            
         });
+
+        const resetInput = () => {
+            $('#item-code').val('');
+            $('#qty').val(0);
+            $('#item-code').focus();
+        }
 
         const onQtyChange = debounce((index, value)=> {
             selectedRowData[index].qty = value;
@@ -821,7 +734,6 @@
         // API
         const onPayment = () => {
             let token = $("meta[name='csrf-token']").attr("content");
-            console.log(formData);
             $.ajax({
                     url: '{{route('sales.store')}}',
                     type: 'POST',
@@ -915,7 +827,6 @@
                         })
                     },
                     error: function(err) {
-                        console.log(err)
                         if(err.responseJSON) {
                             Swal.fire({
                             icon:'error',
