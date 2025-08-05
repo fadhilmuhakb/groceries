@@ -133,7 +133,7 @@
                             <div class="row mb-3">
                                 <div class="col-3">
                                     <label for="transaction_number" class="form-label">Jumlah: </label>
-                                    <input type="number" class="form-control form-control-sm form-transaction" id="qty" value="0">
+                                    <input type="number" class="form-control form-control-sm form-transaction" id="qty" value="1">
                                 </div>
                                 <div class="col-4">
                                     <label for="transaction_number" class="form-label">Kode Item: </label>
@@ -381,6 +381,9 @@
             $('#qty-modal').modal('toggle');
         }
 
+        $(document).on('focus', '#qty', function () {
+            $(this).select();
+        });
         $(document).on('keydown', function(e) {
             const formTransaction = $('.form-transaction');
             const currentFormTransaction = $(':focus').closest('.form-transaction');
@@ -567,11 +570,19 @@
             let elTotalPrice2 = $('#total-price2');
             elTotalPrice2.html(formatRupiah(formData.total_price ?? 0));
             var myModal = new bootstrap.Modal(document.getElementById('payment-modal'));
+            $('#customer-money').val(0);
+            let elTotalPayment = $('#total-payment');
+            elTotalPayment.html(formatRupiah(0));
+            let elLack = $('#lack');
+            elLack.html(formatRupiah(0));
+            $('#lack').val(0);
             myModal.show();
         }
 
 
         const customerMoney = (value) => {
+            formData.customer_money = 0
+
             formData.customer_money = value;
             let elTotalPayment = $('#total-payment');
             elTotalPayment.html(formatRupiah(value));
@@ -657,7 +668,7 @@
 
         const resetInput = () => {
             $('#item-code').val('');
-            $('#qty').val(0);
+            $('#qty').val(1);
             $('#item-code').focus();
         }
 
