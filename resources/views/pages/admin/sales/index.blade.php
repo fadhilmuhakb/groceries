@@ -399,7 +399,7 @@
 
                 const rows = $('#table-item tbody tr');
                 if(!rows.length) return;
-                if(e.key === 'PageDown') {
+                if(e.key === 'ArrowDown') {
                     e.preventDefault();
                     keyModal = Math.min(keyModal + 1, 3);
                     if(keyModal === 2) {
@@ -413,7 +413,7 @@
                     }
 
                     
-                } else if(e.key ==='PageUp') {
+                } else if(e.key ==='ArrowUp') {
                     e.preventDefault();
                     keyModal = Math.max(keyModal - 1, 1);
                     if(keyModal === 1) {
@@ -438,7 +438,7 @@
                 }
 
             } else {
-                if(e.key === 'PageDown') {
+                if(e.key === 'ArrowDown') {
                 e.preventDefault();
                 let next =''
                 next = formTransaction.eq(index + 1);
@@ -449,7 +449,7 @@
 
             }
 
-                if(e.key === 'PageUp') {
+                if(e.key === 'ArrowUp') {
                     e.preventDefault();
                     const prev = formTransaction.eq(index - 1);
                     if(prev.length) {
