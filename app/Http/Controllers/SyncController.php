@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\DB;
 use App\Models\SyncChange;
 use App\Services\SyncService;
 use Illuminate\Support\Facades\Artisan; 
-
 class SyncController extends Controller
 {
   // PULL: ambil perubahan sejak timestamp
@@ -121,10 +120,6 @@ class SyncController extends Controller
 
     return response()->json(['applied'=>$applied,'rejected'=>$rejected]);
   }
-  public function syncNow() {
-    \Artisan::call('sync:run');
-    return back()->with('status', 'Sinkronisasi selesai!');
-}
 public function manual(SyncService $sync) {
         $sync->run();
         return back()->with('status', 'Sinkronisasi berhasil dijalankan!');

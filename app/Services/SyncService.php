@@ -156,35 +156,20 @@ class SyncService
      *
      * @return string|null
      */
-    protected function getSince(): ?string
-    {
-        if (!Schema::hasTable('sync_meta')) {
-            return null;
-        }
+   protected function getSince(): ?string
+{
+    if (!Schema::hasTable('sync_meta')) return null;
 
-        // Skema lama: kolom last_successful_sync
-        if (Schema::hasColumn('sync_meta', 'last_successful_sync')) {
-            try {
-                $val = DB::table('sync_meta')->value('last_successful_sync');
-                return $val ?: null;
-            } catch (Throwable $e) {
-                Log::warning('[Sync] getSince (kolom) gagal: ' . $e->getMessage());
-            }
-        }
-
-        // Skema key/value
-        try {
-            if (Schema::hasColumn('sync_meta', 'key') && Schema::hasColumn('sync_meta', 'value')) {
-                $val = DB::table('sync_meta')->where('key', 'last_successful_sync')->value('value');
-                return $val ?: null;
-            }
-        } catch (Throwable $e) {
-            Log::warning('[Sync] getSince (key/value) gagal: ' . $e->getMessage());
-        }
-
-        return null;
+    if (Schema::hasColumn('sync_meta','last_successful_sync')) {
+        return DB::table('sync_meta')->value('last_successful_sync') ?: null;
     }
 
+    if (Schema::hasColumn('sync_meta','key') && Schema::hasColumn('sync_meta','value')) {
+        return DB::table('sync_meta')->where('key','last_successful_sync')->value('value') ?: null;
+    }
+
+    return null;
+}
     /**
      * Simpan penanda waktu sinkronisasi terakhir.
      * Mendukung 2 skema:
@@ -286,4 +271,5 @@ class SyncService
 
         return count($operations);
     }
+    
 }
