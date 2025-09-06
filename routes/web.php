@@ -17,6 +17,9 @@ use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\SyncController;
+use Illuminate\Http\Request;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -41,13 +44,13 @@ Route::group(['middleware' => ['auth']], function () {
 
     Route::get('/check-daily-revenue', function (Request $request) {
         return response()->json([
-            'exists' => tb_daily_revenue::where('user_id', auth()->id())
+            'exists' => 'daily_revenues'::where('user_id', auth()->id())
                 ->where('date', $request->get('date'))
                 ->exists()
         ]);
     });
     Route::get('/export-penjualan', [App\Http\Controllers\HomeController::class, 'exportPenjualan'])->name('home.export.penjualan');
-
+Route::get('/sync/manual', [SyncController::class, 'manual'])->name('sync.manual');
 
     Route::prefix('master-type')->group(function () {
         Route::get('/', [TbTypesController::class, 'index'])->name('master-types.index');
@@ -160,5 +163,7 @@ Route::group(['middleware' => ['auth']], function () {
     Route::prefix('options')->group(function () {
         Route::get('/incoming-goods', [TbIncomingGoodsController::class, 'options'])->name('options.incoming_goods');
     });
+// routes/web.php
+
 
 });
