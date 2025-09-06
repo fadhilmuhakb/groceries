@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use App\Models\Traits\Syncable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 class tb_outgoing_goods extends Model
 {
-    use HasFactory;
+    use HasFactory,Syncable,SoftDeletes;
 
     protected $fillable = [
         'product_id',
@@ -16,7 +17,8 @@ class tb_outgoing_goods extends Model
         'quantity_out',
         'discount',
         'recorded_by',
-        'description'
+        'description',
+        'uuid'
     ];
 
 

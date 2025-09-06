@@ -4,17 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use App\Models\Traits\Syncable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 class tb_sell extends Model
 {
-    use HasFactory;
+    use HasFactory,Syncable,SoftDeletes;
     protected $fillable = [
         'no_invoice',
         'date',
         'total_price',
         'store_id',
         'payment_amount',
-        'customer_id'
+        'customer_id',
+        'iiod'
     ];
 
 

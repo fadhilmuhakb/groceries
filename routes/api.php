@@ -1,9 +1,9 @@
 <?php
 
+use App\Http\Controllers\SyncController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Models\tb_daily_revenues; // Pastikan ini sesuai dengan nama model kamu
-
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -13,6 +13,6 @@ use App\Models\tb_daily_revenues; // Pastikan ini sesuai dengan nama model kamu
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
+
+Route::get('/sync/pull', [SyncController::class, 'pull']);
+Route::post('/sync/push', [SyncController::class, 'push']);

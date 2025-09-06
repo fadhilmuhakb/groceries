@@ -8,7 +8,12 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+<<<<<<< HEAD
 
+=======
+use App\Models\Traits\Syncable;
+use Illuminate\Database\Eloquent\SoftDeletes;
+>>>>>>> 6c7894a (test)
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable, HasUlids;
@@ -23,7 +28,12 @@ class User extends Authenticatable
         'email',
         'password',
         'roles',
+<<<<<<< HEAD
         'store_id'
+=======
+        'store_id',
+        'uuid'
+>>>>>>> 6c7894a (test)
     ];
 
     /**

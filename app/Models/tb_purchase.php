@@ -3,14 +3,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use App\Models\Traits\Syncable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 class tb_purchase extends Model
 {
-    use HasFactory;
+    use HasFactory,Syncable,SoftDeletes;
 
     protected $table = 'tb_purchases';
 
-    protected $fillable = ['supplier_id', 'store_id', 'total_price'];
+    protected $fillable = ['supplier_id', 'store_id', 'total_price','uuid'];
 
     /**
      * Relasi dengan tb_supplier

@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use App\Models\Traits\Syncable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 class tb_stock_opnames extends Model
 {
-    use HasFactory;
+    use HasFactory,Syncable,SoftDeletes;
 
     protected $table = 'tb_stock_opnames';
 
@@ -15,5 +16,6 @@ class tb_stock_opnames extends Model
         'product_id',
         'store_id',
         'physical_quantity',
+        'uuid'
     ];
 }
