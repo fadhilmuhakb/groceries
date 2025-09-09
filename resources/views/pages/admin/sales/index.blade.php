@@ -358,6 +358,14 @@
             $('#item-code').focus();
             onClickedItem = 0;
 
+        });
+
+        // Qty
+        $('#qty').on('keydown', function(e) {
+            if(e.key === 'Enter') {
+                e.preventDefault();
+                $('#item-code').focus();
+            }
         })
         
 
@@ -515,7 +523,7 @@
                 onClickedItem = onClickedItem+1;
                 search_term = $(this).val();
                 event.preventDefault();
-                if(delta < 50 || search_term.length > 5) {
+                if(delta < 50) {
                     processBarcode(search_term);
                     resetInput();
                 } else {
