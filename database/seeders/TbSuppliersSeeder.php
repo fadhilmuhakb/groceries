@@ -19,7 +19,7 @@ class TbSuppliersSeeder extends Seeder
                 'name' => 'Stock Opname Adjustment',
                 'address' => 'Di Bandung',
                 'city' => 'Bandung',
-                'province' => null,,
+                'province' => null,
                 'phone_number' => '021-12345678',
                 'created_at' => $now,
                 'updated_at' => $now,
