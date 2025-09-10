@@ -10,7 +10,7 @@ class tb_daily_revenues extends Model
 {
     use HasFactory,Syncable,SoftDeletes;
 
-    protected $table = 'tb_daily_revenues';
+    protected $table = 'daily_revenues';
 
     protected $fillable = [
         'user_id',

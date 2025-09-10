@@ -25,7 +25,8 @@
 
     <div id="alert-success" class="alert alert-success d-none"></div>
 
-    <form id="stock-form" action="{{ route('inventory.adjustStockBulk') }}" method="POST">
+    {{-- perhatikan: action ke V3 --}}
+    <form id="stock-form" action="{{ route('inventory.adjustStockBulkV3') }}" method="POST">
         @csrf
 
         <table class="table table-bordered table-striped" id="stock-table">
@@ -49,13 +50,20 @@
                     <td>{{ $index + 1 }}</td>
                     <td class="product-name">{{ $row->product_name }}</td>
                     <td>{{ $row->store_name }}</td>
-                    <td class="text-end system-stock">{{ number_format($row->system_stock) }}</td>
+
+                    {{-- GUNAKAN system_stock_raw untuk tampilan stok sistem --}}
+                    <td class="text-end system-stock">{{ number_format((int)$row->system_stock_raw) }}</td>
+
                     <td>
                         <input type="hidden" name="product_id[]" value="{{ $row->product_id }}">
                         <input type="hidden" name="store_id[]" value="{{ $row->store_id }}">
-                        <input type="number" name="physical_quantity[]" value="{{ $row->system_stock }}" min="0"
-                            class="form-control physical-qty" required>
+
+                        {{-- Prefill fisik = nilai SO jika ada; kalau null pakai stok sistem --}}
+                        <input type="number" name="physical_quantity[]"
+                               value="{{ is_null($row->physical_quantity) ? (int)$row->system_stock_raw : (int)$row->physical_quantity }}"
+                               min="0" class="form-control physical-qty" required>
                     </td>
+
                     <td class="text-end minus-qty">0</td>
                     <td class="text-end minus-qty">0</td>
                     <td class="text-end minus-value">Rp 0</td>
@@ -166,12 +174,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const systemStock = parseInt(tr.querySelector('.system-stock').textContent.replace(/[^\d]/g, '')) || 0;
             const physicalQty = parseInt(e.target.value) || 0;
             const purchasePrice = parseInt(tr.getAttribute('data-price')) || 0;
+
             const minusQty = Math.max(0, systemStock - physicalQty);
-            const plusQty = Math.max(0, physicalQty - systemStock);
+            const plusQty  = Math.max(0, physicalQty - systemStock);
+
             tr.querySelectorAll('.minus-qty').forEach(td => td.textContent = minusQty.toLocaleString('id-ID'));
             tr.querySelector('.minus-value').textContent = 'Rp ' + (minusQty * purchasePrice).toLocaleString('id-ID');
             tr.querySelector('.plus-qty').textContent = plusQty.toLocaleString('id-ID');
             tr.querySelector('.plus-value').textContent = 'Rp ' + (plusQty * purchasePrice).toLocaleString('id-ID');
+
             updateTotals();
         });
     });
@@ -187,52 +198,64 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function submitForm() {
-        const formData = new FormData(form);
+        // KIRIM JSON ke endpoint V3
+        const items = [];
+        table.querySelectorAll('tbody tr').forEach(tr => {
+            const productId = parseInt(tr.querySelector('input[name="product_id[]"]').value);
+            const storeId   = parseInt(tr.querySelector('input[name="store_id[]"]').value);
+            const physical  = parseInt(tr.querySelector('.physical-qty').value) || 0;
+            items.push({ product_id: productId, store_id: storeId, physical_quantity: physical });
+        });
+
         fetch(form.action, {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-            body: formData
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ items })
         }).then(async res => {
-            if (!res.ok) throw new Error(await res.text());
-            return res.json();
+            const ct = res.headers.get('content-type') || '';
+            const payload = ct.includes('application/json') ? await res.json().catch(() => ({})) : await res.text();
+            if (!res.ok) {
+                const msg = typeof payload === 'string' ? payload : (payload.message || JSON.stringify(payload));
+                throw new Error(msg || `HTTP ${res.status}`);
+            }
+            return payload;
         }).then(data => {
-            alertSuccess.textContent = data.message;
+            alertSuccess.textContent = data.message || 'Berhasil menyimpan.';
             alertSuccess.classList.remove('d-none');
-            table.querySelectorAll('tbody tr').forEach(tr => {
-                const physicalQty = parseInt(tr.querySelector('.physical-qty').value) || 0;
-                tr.querySelector('.system-stock').textContent = physicalQty.toLocaleString('id-ID');
-            });
-            updateTotals();
+
             downloadModal.show();
         }).catch(err => {
             alert('Gagal menyimpan stok opname.\n' + err.message);
         });
     }
 
-  document.getElementById('downloadExcelBtn').addEventListener('click', () => {
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.table_to_sheet(table);
-    XLSX.utils.book_append_sheet(wb, ws, 'Stock Opname');
-    XLSX.writeFile(wb, 'Stock_Opname_' + new Date().toISOString().slice(0,10) + '.xlsx');
+    document.getElementById('downloadExcelBtn').addEventListener('click', () => {
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.table_to_sheet(table);
+        XLSX.utils.book_append_sheet(wb, ws, 'Stock Opname');
+        XLSX.writeFile(wb, 'Stock_Opname_' + new Date().toISOString().slice(0,10) + '.xlsx');
 
-    setTimeout(() => {
+        setTimeout(() => { location.reload(); }, 800);
+    });
+
+    document.querySelector('#downloadModal .btn-secondary').addEventListener('click', () => {
         location.reload();
-    }, 1000);
-});
+    });
 
-document.querySelector('#downloadModal .btn-secondary').addEventListener('click', () => {
-    location.reload();
-});
-
-
-    // SEARCH LOGIC FIXED
+    // SEARCH
     const searchInput = document.getElementById('search-product');
     if (searchInput) {
         searchInput.addEventListener('input', () => {
-            const searchTerm = searchInput.value.toLowerCase();
+            const term = searchInput.value.toLowerCase();
             table.querySelectorAll('tbody tr').forEach(tr => {
-                const productName = tr.querySelector('.product-name').textContent.toLowerCase();
-                tr.style.display = productName.includes(searchTerm) ? '' : 'none';
+                const name = tr.querySelector('.product-name').textContent.toLowerCase();
+                tr.style.display = name.includes(term) ? '' : 'none';
             });
         });
     }

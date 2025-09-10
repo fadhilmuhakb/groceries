@@ -149,8 +149,8 @@ Route::get('/sync/manual', [SyncController::class, 'manual'])->name('sync.manual
         Route::get('/', [InventoryController::class, 'index'])->name('inventory.index');
         Route::post('/adjust-stock', [InventoryController::class, 'adjustStock'])->name('inventory.adjustStock');
         Route::post('/adjust-stock-bulk', [InventoryController::class, 'adjustStockBulk'])->name('inventory.adjustStockBulk');
-
-
+  Route::post('/adjust-stock-bulk-v3', [InventoryController::class, 'adjustStockBulkV3'])
+            ->name('inventory.adjustStockBulkV3');
     });
 
 
