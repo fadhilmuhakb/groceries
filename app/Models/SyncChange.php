@@ -9,10 +9,10 @@ class SyncChange extends Model
     protected $table = 'sync_changes';
     public $timestamps = false;
 
-    // pakai guarded agar fleksibel (kolom action/op bisa berbeda)
     protected $guarded = [];
 
     protected $casts = [
         'changed_at' => 'datetime',
+        'payload'    => 'array',   // ⬅️ saat dibaca jadi array (jika kolom ada & JSON)
     ];
 }

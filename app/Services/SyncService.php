@@ -35,59 +35,66 @@ class SyncService
     }
 
     /** Import semua baris via /api/sync/export (paginated) lalu apply ke DB lokal (upsert by uuid) */
-    public function importAllFromServer(array $tables, int $pageSize = 500): int
+    public function importAllFromServer(array $tables, int $pageSize = 1000): int
     {
         if (empty($tables)) return 0;
     
         $baseUrl  = rtrim((string) config('sync.base_url', ''), '/');
-        if ($baseUrl === '') throw new \RuntimeException('SYNC_BASE_URL belum diset');
         $deviceId = (string) config('sync.device_id', 'offline-device-001');
         $apiKey   = (string) config('sync.api_key', '');
+        $headers  = ['X-Device-Id'=>$deviceId] + ($apiKey ? ['X-Api-Key'=>$apiKey] : []);
     
-        $headers = ['X-Device-Id'=>$deviceId] + ($apiKey ? ['X-Api-Key'=>$apiKey] : []);
         $totalApplied = 0;
     
         foreach ($tables as $table) {
             $offset = 0;
+            $strike = 0; // hitungan berturut-turut 429
     
             do {
                 $resp = \Illuminate\Support\Facades\Http::withHeaders($headers)
                     ->acceptJson()
-                    ->retry(2, 250)
-                    ->timeout(120)
+                    ->timeout(60)
+                    ->connectTimeout(10)
                     ->get($baseUrl.'/api/sync/export', [
-                        'tables' => $table,     // satu tabel per request
-                        'limit'  => $pageSize,  // kecil
+                        'tables' => $table,     // SATU tabel per request
+                        'limit'  => $pageSize,  // 500–2000 sesuai RAM
                         'offset' => $offset,
                     ]);
-                $resp->throw();
+    
+                if ($resp->status() === 429) {
+                    $retry = (int) ($resp->header('Retry-After') ?? 1);
+                    $retry = max(1, min($retry, 5));
+                    sleep($retry);            // hormati server
+                    $strike++;
+                    if ($strike > 8) throw new \RuntimeException('Rate limited too long (export).');
+                    continue;                 // ulangi GET halaman yang sama
+                }
+    
+                $resp->throw();               // error lain: lempar
+                $strike = 0;                  // reset bila sukses
     
                 $body = $resp->json() ?? [];
                 $rows = $body['data'][$table]['rows'] ?? [];
                 $next = $body['next_offset'] ?? null;
     
                 \Illuminate\Support\Facades\DB::transaction(function () use ($table, $rows, &$totalApplied) {
-                    if (!\Illuminate\Support\Facades\Schema::hasTable($table) || !\Illuminate\Support\Facades\Schema::hasColumn($table, 'uuid')) return;
-    
+                    if (!\Illuminate\Support\Facades\Schema::hasTable($table) || !\Illuminate\Support\Facades\Schema::hasColumn($table,'uuid')) return;
                     foreach ($rows as $r) {
                         $row = (array) $r;
                         if (empty($row['uuid'])) continue;
-    
                         unset($row['id']);
                         foreach (['created_at','updated_at','deleted_at'] as $ts) {
                             if (!empty($row[$ts])) {
                                 try { $row[$ts] = \Illuminate\Support\Carbon::parse($row[$ts])->format('Y-m-d H:i:s'); } catch (\Throwable $e) {}
                             }
                         }
-                        \Illuminate\Support\Facades\DB::table($table)->updateOrInsert(['uuid' => $row['uuid']], $row);
+                        \Illuminate\Support\Facades\DB::table($table)->updateOrInsert(['uuid'=>$row['uuid']], $row);
                         $totalApplied++;
                     }
                 });
     
-                // Lepaskan memory batch
-                unset($body, $rows);
-                if (function_exists('gc_collect_cycles')) gc_collect_cycles();
-    
+                // jeda kecil supaya tidak menabrak limiter
+                usleep(150000); // 150ms
                 $offset = $next ?? null;
             } while ($offset !== null);
         }
@@ -130,65 +137,54 @@ class SyncService
 
     /** Kirim queue ke server; hapus hanya yang “applied” */
     protected function pushQueue(string $baseUrl, string $deviceId, string $apiKey = '', int $batchSize = 300): int
-    {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('sync_queue')) return 0;
-    
-        $total = 0;
-        $headers = ['X-Device-Id'=>$deviceId] + ($apiKey ? ['X-Api-Key'=>$apiKey] : []);
-    
-        while (true) {
-            // Ambil sedikit-sedikit
-            $batch = \Illuminate\Support\Facades\DB::table('sync_queue')
-                ->orderBy('id')
-                ->limit($batchSize)
-                ->get();
-    
-            if ($batch->isEmpty()) break;
-    
-            $ops = [];
-            foreach ($batch as $row) {
-                $payload = $row->row;
-                if (is_string($payload)) {
-                    $dec = json_decode($payload, true);
-                    $payload = is_array($dec) ? $dec : [];
-                } elseif (!is_array($payload)) {
-                    $payload = [];
-                }
-    
-                $ops[] = [
-                    'operation_id' => $row->operation_id,
-                    'table'        => $row->table,
-                    'op'           => $row->op,
-                    'row'          => $payload,
-                ];
-            }
-    
-            // Kirim batch kecil saja
-            $resp = \Illuminate\Support\Facades\Http::withHeaders($headers)
-                ->acceptJson()
-                ->retry(2, 250)
-                ->timeout(120)
-                ->post($baseUrl.'/api/sync/push', ['operations' => $ops]);
-    
-            $resp->throw();
-    
-            $body = $resp->json() ?? [];
-            $appliedOps = collect($body['applied'] ?? [])->pluck('operation_id')->filter()->values()->all();
-    
-            if (!empty($appliedOps)) {
-                \Illuminate\Support\Facades\DB::table('sync_queue')
-                    ->whereIn('operation_id', $appliedOps)
-                    ->delete();
-            }
-    
-            $total += count($ops);
-    
-            // Buang referensi agar GC bisa kerja
-            unset($ops, $batch, $body, $appliedOps);
-            if (function_exists('gc_collect_cycles')) gc_collect_cycles();
+{
+    if (!\Illuminate\Support\Facades\Schema::hasTable('sync_queue')) return 0;
+
+    $headers = ['X-Device-Id'=>$deviceId] + ($apiKey ? ['X-Api-Key'=>$apiKey] : []);
+    $total = 0;
+    $strike = 0;
+
+    while (true) {
+        $batch = \Illuminate\Support\Facades\DB::table('sync_queue')->orderBy('id')->limit($batchSize)->get();
+        if ($batch->isEmpty()) break;
+
+        $ops = [];
+        foreach ($batch as $row) {
+            $payload = $row->row;
+            if (is_string($payload)) { $dec=json_decode($payload, true); $payload=is_array($dec)?$dec:[]; }
+            elseif (!is_array($payload)) { $payload=[]; }
+            $ops[] = ['operation_id'=>$row->operation_id,'table'=>$row->table,'op'=>$row->op,'row'=>$payload];
         }
-    
-        return $total;
+
+        $resp = \Illuminate\Support\Facades\Http::withHeaders($headers)
+            ->acceptJson()
+            ->timeout(60)
+            ->connectTimeout(10)
+            ->post($baseUrl.'/api/sync/push', ['operations'=>$ops]);
+
+        if ($resp->status() === 429) {
+            $retry = (int) ($resp->header('Retry-After') ?? 1);
+            $retry = max(1, min($retry, 5));
+            sleep($retry);
+            $strike++;
+            if ($strike > 8) throw new \RuntimeException('Rate limited too long (push).');
+            continue; // kirim ulang batch yang sama
+        }
+
+        $resp->throw();
+        $strike = 0;
+
+        $body = $resp->json() ?? [];
+        $appliedOps = collect($body['applied'] ?? [])->pluck('operation_id')->filter()->values()->all();
+        if (!empty($appliedOps)) {
+            \Illuminate\Support\Facades\DB::table('sync_queue')->whereIn('operation_id', $appliedOps)->delete();
+        }
+
+        $total += count($ops);
+        usleep(150000); // 150ms antar batch
     }
-    
+
+    return $total;
+}
+
 }
