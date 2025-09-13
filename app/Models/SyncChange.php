@@ -10,7 +10,7 @@ class SyncChange extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'table',        // ganti ke 'table_name' jika skema kamu
+        'table',        // nama tabel domain
         'row_uuid',
         'action',       // 'upsert' | 'delete'
         'changed_at',

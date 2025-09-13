@@ -1,18 +1,8 @@
 <?php
 
 use App\Http\Controllers\SyncController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Models\tb_daily_revenues; // Pastikan ini sesuai dengan nama model kamu
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application.
-|
-*/
 
-
-Route::get('/sync/pull', [SyncController::class, 'pull']);
-Route::post('/sync/push', [SyncController::class, 'push']);
+Route::get('/sync/pull',   [SyncController::class, 'pull']);    // tetap ada (berbasis change log)
+Route::post('/sync/push',  [SyncController::class, 'push']);    // tetap ada (untuk menerima upsert/delete)
+Route::get('/sync/export', [SyncController::class, 'export']);  // ⬅️ BARU: full dump per tabel, paginated
