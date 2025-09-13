@@ -18,8 +18,8 @@ return new class extends Migration
             $table->unsignedBigInteger('type_id')->nullable();
             $table->unsignedBigInteger('brand_id')->nullable();
             $table->unsignedBigInteger('unit_id')->nullable();
-            $table->decimal('purchase_price', 15, 2)->default(0); 
-            $table->decimal('selling_price', 15, 2)->default(0);  
+            $table->float('purchase_price', 15, 2)->default(0); 
+            $table->float('selling_price', 15, 2)->default(0);  
             $table->text('description')->nullable(); // Bisa null
             $table->timestamps();
         });
