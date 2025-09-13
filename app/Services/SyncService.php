@@ -35,57 +35,66 @@ class SyncService
     }
 
     /** Import semua baris via /api/sync/export (paginated) lalu apply ke DB lokal (upsert by uuid) */
-    public function importAllFromServer(array $tables, int $pageSize = 5000): int
+    public function importAllFromServer(array $tables, int $pageSize = 500): int
     {
         if (empty($tables)) return 0;
-
-        $baseUrl = rtrim((string) config('sync.base_url', ''), '/');
+    
+        $baseUrl  = rtrim((string) config('sync.base_url', ''), '/');
         if ($baseUrl === '') throw new \RuntimeException('SYNC_BASE_URL belum diset');
         $deviceId = (string) config('sync.device_id', 'offline-device-001');
         $apiKey   = (string) config('sync.api_key', '');
-
+    
         $headers = ['X-Device-Id'=>$deviceId] + ($apiKey ? ['X-Api-Key'=>$apiKey] : []);
-        $offset  = 0;
         $totalApplied = 0;
-
-        do {
-            $resp = Http::withHeaders($headers)->acceptJson()->retry(2, 250)->get($baseUrl.'/api/sync/export', [
-                'tables' => implode(',', $tables),
-                'limit'  => $pageSize,
-                'offset' => $offset,
-            ]);
-            $resp->throw();
-
-            $body = $resp->json() ?? [];
-            $data = Arr::get($body, 'data', []);
-            $next = $body['next_offset'] ?? null;
-
-            DB::transaction(function () use ($data, &$totalApplied) {
-                foreach ($data as $table => $payload) {
-                    $rows = $payload['rows'] ?? [];
-                    if (!Schema::hasTable($table) || !Schema::hasColumn($table,'uuid')) continue;
-
+    
+        foreach ($tables as $table) {
+            $offset = 0;
+    
+            do {
+                $resp = \Illuminate\Support\Facades\Http::withHeaders($headers)
+                    ->acceptJson()
+                    ->retry(2, 250)
+                    ->timeout(120)
+                    ->get($baseUrl.'/api/sync/export', [
+                        'tables' => $table,     // satu tabel per request
+                        'limit'  => $pageSize,  // kecil
+                        'offset' => $offset,
+                    ]);
+                $resp->throw();
+    
+                $body = $resp->json() ?? [];
+                $rows = $body['data'][$table]['rows'] ?? [];
+                $next = $body['next_offset'] ?? null;
+    
+                \Illuminate\Support\Facades\DB::transaction(function () use ($table, $rows, &$totalApplied) {
+                    if (!\Illuminate\Support\Facades\Schema::hasTable($table) || !\Illuminate\Support\Facades\Schema::hasColumn($table, 'uuid')) return;
+    
                     foreach ($rows as $r) {
                         $row = (array) $r;
                         if (empty($row['uuid'])) continue;
-
+    
                         unset($row['id']);
                         foreach (['created_at','updated_at','deleted_at'] as $ts) {
                             if (!empty($row[$ts])) {
-                                try { $row[$ts] = Carbon::parse($row[$ts])->format('Y-m-d H:i:s'); } catch (\Throwable $e) {}
+                                try { $row[$ts] = \Illuminate\Support\Carbon::parse($row[$ts])->format('Y-m-d H:i:s'); } catch (\Throwable $e) {}
                             }
                         }
-                        DB::table($table)->updateOrInsert(['uuid'=>$row['uuid']], $row);
+                        \Illuminate\Support\Facades\DB::table($table)->updateOrInsert(['uuid' => $row['uuid']], $row);
                         $totalApplied++;
                     }
-                }
-            });
-
-            $offset = $next ?? null;
-        } while ($offset !== null);
-
+                });
+    
+                // Lepaskan memory batch
+                unset($body, $rows);
+                if (function_exists('gc_collect_cycles')) gc_collect_cycles();
+    
+                $offset = $next ?? null;
+            } while ($offset !== null);
+        }
+    
         return $totalApplied;
     }
+    
 
     protected function tablesFromEnv(): array
     {
@@ -120,31 +129,66 @@ class SyncService
     }
 
     /** Kirim queue ke server; hapus hanya yang “applied” */
-    protected function pushQueue(string $baseUrl, string $deviceId, string $apiKey = ''): int
+    protected function pushQueue(string $baseUrl, string $deviceId, string $apiKey = '', int $batchSize = 300): int
     {
-        if (!Schema::hasTable('sync_queue')) return 0;
-        $queued = DB::table('sync_queue')->orderBy('id')->get();
-        if ($queued->count() === 0) return 0;
-
-        $ops = [];
-        foreach ($queued as $row) {
-            $payload = $row->row;
-            if (is_string($payload)) { $dec=json_decode($payload,true); $payload=is_array($dec)?$dec:[]; }
-            elseif (!is_array($payload)) { $payload=[]; }
-            $ops[] = ['operation_id'=>$row->operation_id,'table'=>$row->table,'op'=>$row->op,'row'=>$payload];
-        }
-
+        if (!\Illuminate\Support\Facades\Schema::hasTable('sync_queue')) return 0;
+    
+        $total = 0;
         $headers = ['X-Device-Id'=>$deviceId] + ($apiKey ? ['X-Api-Key'=>$apiKey] : []);
-        $resp = Http::withHeaders($headers)->acceptJson()->retry(2, 250)->post($baseUrl.'/api/sync/push', ['operations'=>$ops]);
-        $resp->throw();
-
-        $body = $resp->json() ?? [];
-        $appliedOps = collect($body['applied'] ?? [])->pluck('operation_id')->filter()->all();
-        if (!empty($appliedOps)) DB::table('sync_queue')->whereIn('operation_id',$appliedOps)->delete();
-
-        $rejected = $body['rejected'] ?? [];
-        if (!empty($rejected)) Log::warning('[Sync] push rejected', $rejected);
-
-        return count($ops);
+    
+        while (true) {
+            // Ambil sedikit-sedikit
+            $batch = \Illuminate\Support\Facades\DB::table('sync_queue')
+                ->orderBy('id')
+                ->limit($batchSize)
+                ->get();
+    
+            if ($batch->isEmpty()) break;
+    
+            $ops = [];
+            foreach ($batch as $row) {
+                $payload = $row->row;
+                if (is_string($payload)) {
+                    $dec = json_decode($payload, true);
+                    $payload = is_array($dec) ? $dec : [];
+                } elseif (!is_array($payload)) {
+                    $payload = [];
+                }
+    
+                $ops[] = [
+                    'operation_id' => $row->operation_id,
+                    'table'        => $row->table,
+                    'op'           => $row->op,
+                    'row'          => $payload,
+                ];
+            }
+    
+            // Kirim batch kecil saja
+            $resp = \Illuminate\Support\Facades\Http::withHeaders($headers)
+                ->acceptJson()
+                ->retry(2, 250)
+                ->timeout(120)
+                ->post($baseUrl.'/api/sync/push', ['operations' => $ops]);
+    
+            $resp->throw();
+    
+            $body = $resp->json() ?? [];
+            $appliedOps = collect($body['applied'] ?? [])->pluck('operation_id')->filter()->values()->all();
+    
+            if (!empty($appliedOps)) {
+                \Illuminate\Support\Facades\DB::table('sync_queue')
+                    ->whereIn('operation_id', $appliedOps)
+                    ->delete();
+            }
+    
+            $total += count($ops);
+    
+            // Buang referensi agar GC bisa kerja
+            unset($ops, $batch, $body, $appliedOps);
+            if (function_exists('gc_collect_cycles')) gc_collect_cycles();
+        }
+    
+        return $total;
     }
+    
 }

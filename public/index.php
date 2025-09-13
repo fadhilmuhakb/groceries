@@ -51,5 +51,7 @@ $kernel = $app->make(Kernel::class);
 $response = $kernel->handle(
     $request = Request::capture()
 )->send();
+ini_set('memory_limit', '512M');
+set_time_limit(0); // optional, untuk proses la
 
 $kernel->terminate($request, $response);

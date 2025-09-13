@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-
+use App\Services\SyncService;
 class SyncController extends Controller
 {
     // ========= FULL EXPORT: dump semua baris per tabel (paginated) =========
@@ -215,5 +215,10 @@ class SyncController extends Controller
             'row_uuid'   => $rowUuid,
             'changed_at' => now(),
         ]);
+    }
+    public function manual(SyncService $sync)
+    {
+        $sum = $sync->runFullResync();
+        return back()->with('status', "Sinkronisasi selesai. Pulled: {$sum['pulled']}, Pushed: {$sum['pushed']}");
     }
 }
