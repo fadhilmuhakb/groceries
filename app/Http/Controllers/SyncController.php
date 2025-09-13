@@ -6,19 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Log;
-use App\Models\SyncChange;
-use App\Services\SyncService;
 
 class SyncController extends Controller
 {
-  
-    /** ============== FULL EXPORT (BARU) ============== 
-     * GET /api/sync/export?tables=tb_products,tb_purchases&limit=5000&offset=0
-     * - Mengembalikan SELURUH baris dari tabel yang diminta (bukan berdasarkan sync_changes)
-     * - Paginated dengan limit+offset
-     * - Hanya tabel yang memiliki kolom 'uuid'
-     */
+    // ========= FULL EXPORT: dump semua baris per tabel (paginated) =========
     public function export(Request $req)
     {
         $tables = array_values(array_filter(array_map('trim', explode(',', (string) $req->query('tables', '')))));
@@ -39,15 +30,16 @@ class SyncController extends Controller
             }
 
             $rows = DB::table($tbl)
-                ->orderBy('id')              // atau orderBy('uuid') kalau tidak ada id
+                ->orderBy('id') // atau orderBy('uuid') bila tak ada id
                 ->limit($limit)
                 ->offset($offset)
                 ->get()
                 ->map(fn($r)=>(array)$r)
                 ->all();
 
-            $data[$tbl] = ['count'=>count($rows), 'rows'=>$rows];
-            $total += count($rows);
+            $cnt = count($rows);
+            $total += $cnt;
+            $data[$tbl] = ['count'=>$cnt, 'rows'=>$rows];
         }
 
         return response()->json([
@@ -59,7 +51,7 @@ class SyncController extends Controller
         ]);
     }
 
-    /** ============== PULL BERDASARKAN CHANGE LOG (tetap) ============== */
+    // ========= PULL: baca change log; jika tak ada action/op → asumsikan upsert =========
     public function pull(Request $req)
     {
         $since  = $req->query('since');
@@ -69,29 +61,44 @@ class SyncController extends Controller
 
         $ts = $since ? Carbon::parse($since) : null;
 
-        $changes = SyncChange::query()
-            ->when($tables, fn($q) => $q->whereIn('table', array_map('trim', explode(',', $tables))))
-            ->when($ts, function ($q) use ($ts, $cursor) {
-                $q->where(fn($w) => $w
-                    ->where('changed_at','>',$ts)
-                    ->orWhere(fn($eq) => $eq->where('changed_at','=',$ts)->when($cursor>0, fn($e)=>$e->where('id','>',$cursor)))
-                );
+        $q = DB::table('sync_changes')
+            ->when($tables, fn($qq) => $qq->whereIn('table', array_map('trim', explode(',', $tables))))
+            ->when($ts, function ($qq) use ($ts, $cursor) {
+                $qq->where(function ($w) use ($ts, $cursor) {
+                    $w->where('changed_at','>',$ts)
+                      ->orWhere(function ($eq) use ($ts, $cursor) {
+                          $eq->where('changed_at','=',$ts);
+                          if ($cursor > 0) $eq->where('id','>', $cursor);
+                      });
+                });
             })
             ->orderBy('changed_at')->orderBy('id')
-            ->limit($limit)
-            ->get();
+            ->limit($limit);
+
+        $changes = $q->get();
+
+        // deteksi sekali: apakah ada kolom action/op?
+        $cols = [];
+        try { $cols = Schema::getColumnListing('sync_changes'); } catch (\Throwable $e) {}
+        $hasAction = in_array('action', $cols, true);
+        $hasOp     = in_array('op',     $cols, true);
 
         $out = [];
         foreach ($changes as $c) {
-            $tbl = $c->table;
+            $tbl  = $c->table;
             $uuid = $c->row_uuid;
-            $op = $c->action ?? 'upsert';
+
+            // kalau tak ada kolom aksi, default 'upsert'
+            $op = 'upsert';
+            if ($hasAction && isset($c->action) && $c->action) $op = $c->action;
+            elseif ($hasOp && isset($c->op) && $c->op)         $op = $c->op;
 
             $payload = [];
             if ($op !== 'delete' && Schema::hasTable($tbl) && Schema::hasColumn($tbl,'uuid')) {
                 $row = DB::table($tbl)->where('uuid', $uuid)->first();
                 if ($row) $payload = (array) $row;
             }
+
             $out[$tbl][] = [
                 'op'       => $op,
                 'row_uuid' => $uuid,
@@ -112,7 +119,7 @@ class SyncController extends Controller
         ]);
     }
 
-    /** ============== PUSH (tetap: Query Builder) ============== */
+    // ========= PUSH: upsert/delete; CATAT LOG TANPA kolom action/op =========
     public function push(Request $req)
     {
         $deviceId = $req->header('X-Device-Id');
@@ -134,7 +141,6 @@ class SyncController extends Controller
                     continue;
                 }
 
-                // idempotensi
                 if (DB::table('sync_operations')->where('operation_id',$operationId)->exists()) {
                     $applied[] = ['operation_id'=>$operationId,'status'=>'duplicate_ignored'];
                     continue;
@@ -156,26 +162,28 @@ class SyncController extends Controller
                 }
 
                 if ($verb === 'delete') {
-                    if (Schema::hasColumn($table,'deleted_at')) DB::table($table)->where('uuid',$uuid)->update(['deleted_at'=>now()]);
-                    else DB::table($table)->where('uuid',$uuid)->delete();
-
-                    $this->appendChange($table, $uuid, 'delete');
+                    if (Schema::hasColumn($table,'deleted_at')) {
+                        DB::table($table)->where('uuid',$uuid)->update(['deleted_at'=>now()]);
+                    } else {
+                        DB::table($table)->where('uuid',$uuid)->delete();
+                    }
+                    $this->appendChangeNoAction($table, $uuid);
                 } else {
-                    // sanitize sederhana
                     unset($row['id']);
                     foreach (['created_at','updated_at','deleted_at'] as $ts) {
-                        if (!empty($row[$ts])) { try { $row[$ts]=Carbon::parse($row[$ts])->format('Y-m-d H:i:s'); } catch (\Throwable $e) {} }
+                        if (!empty($row[$ts])) {
+                            try { $row[$ts]=Carbon::parse($row[$ts])->format('Y-m-d H:i:s'); } catch (\Throwable $e) {}
+                        }
                     }
-                    // keep only columns in table
                     try {
-                        $cols = Schema::getColumnListing($table);
-                        $row = array_intersect_key($row, array_flip($cols));
+                        $tcols = Schema::getColumnListing($table);
+                        $row = array_intersect_key($row, array_flip($tcols));
                     } catch (\Throwable $e) {}
 
                     $row['uuid'] = $uuid;
                     DB::table($table)->updateOrInsert(['uuid'=>$uuid], $row);
 
-                    $this->appendChange($table, $uuid, 'upsert');
+                    $this->appendChangeNoAction($table, $uuid);
                 }
 
                 DB::table('sync_operations')->insert([
@@ -189,29 +197,23 @@ class SyncController extends Controller
 
                 $applied[] = ['operation_id'=>$operationId,'status'=>'ok'];
             }
+
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('[Sync][push] error: '.$e->getMessage());
             return response()->json(['error'=>true,'message'=>$e->getMessage()], 500);
         }
 
-        if (!empty($rejected)) Log::warning('[Sync] push rejected', $rejected);
         return response()->json(['applied'=>$applied,'rejected'=>$rejected]);
     }
 
-    protected function appendChange(string $tableName, string $rowUuid, string $action = 'upsert'): void
+    // Catat change log TANPA kolom action/op (aman utk semua skema lama)
+    protected function appendChangeNoAction(string $tableName, string $rowUuid): void
     {
-        SyncChange::create([
+        DB::table('sync_changes')->insert([
             'table'      => $tableName,
             'row_uuid'   => $rowUuid,
-            'action'     => $action,
             'changed_at' => now(),
         ]);
-    }
-    public function manual(SyncService $sync)
-    {
-        $sum = $sync->runFullResync();
-        return back()->with('status', "Sinkronisasi selesai. Pulled: {$sum['pulled']}, Pushed: {$sum['pushed']}");
     }
 }

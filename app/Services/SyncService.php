@@ -12,37 +12,37 @@ use Illuminate\Support\Str;
 
 class SyncService
 {
-    /** Tabel mesin sync yang tidak dianggap domain */
-    protected array $denyTables = ['sync_changes','sync_meta','sync_operations','sync_queue','migrations','failed_jobs','jobs','job_batches'];
+    protected array $denyTables = [
+        'sync_changes','sync_meta','sync_operations','sync_queue',
+        'migrations','failed_jobs','jobs','job_batches',
+    ];
 
+    /** FULL RESYNC: 1) export full → apply  2) enqueue semua lokal  3) push ke server */
     public function runFullResync(): array
     {
-        $tables = $this->tablesFromEnv();
+        $tables   = $this->tablesFromEnv();
 
-        // 1) IMPORT FULL dari server
-        $pulled = $this->importAllFromServer($tables);
+        $pulled   = $this->importAllFromServer($tables);
+        $enqueued = $this->enqueueAllLocalRows($tables);
 
-        // 2) ENQUEUE SEMUA baris lokal
-        $enq = $this->enqueueAllLocalRows($tables);
-
-        // 3) PUSH ke server
         $baseUrl  = rtrim((string) config('sync.base_url', ''), '/');
         $deviceId = (string) config('sync.device_id', 'offline-device-001');
         $apiKey   = (string) config('sync.api_key', '');
         $pushed   = $this->pushQueue($baseUrl, $deviceId, $apiKey);
 
-        Log::info('[Sync][full] summary', compact('pulled','enq','pushed'));
-        return ['pulled'=>$pulled,'enqueued'=>$enq,'pushed'=>$pushed];
+        Log::info('[Sync][full] summary', compact('pulled','enqueued','pushed'));
+        return ['pulled'=>$pulled,'enqueued'=>$enqueued,'pushed'=>$pushed];
     }
 
-    /** Ambil semua data server via /api/sync/export (paginate) dan apply ke lokal */
+    /** Import semua baris via /api/sync/export (paginated) lalu apply ke DB lokal (upsert by uuid) */
     public function importAllFromServer(array $tables, int $pageSize = 5000): int
     {
         if (empty($tables)) return 0;
 
         $baseUrl = rtrim((string) config('sync.base_url', ''), '/');
-        $deviceId= (string) config('sync.device_id', 'offline-device-001');
-        $apiKey  = (string) config('sync.api_key', '');
+        if ($baseUrl === '') throw new \RuntimeException('SYNC_BASE_URL belum diset');
+        $deviceId = (string) config('sync.device_id', 'offline-device-001');
+        $apiKey   = (string) config('sync.api_key', '');
 
         $headers = ['X-Device-Id'=>$deviceId] + ($apiKey ? ['X-Api-Key'=>$apiKey] : []);
         $offset  = 0;
@@ -87,7 +87,6 @@ class SyncService
         return $totalApplied;
     }
 
-    /** Ambil daftar tabel domain dari .env (SYNC_TABLES) */
     protected function tablesFromEnv(): array
     {
         $cfg = trim((string) config('sync.tables',''));
@@ -95,15 +94,14 @@ class SyncService
         return array_values(array_filter($arr, fn($t)=>$t!=='' && !in_array($t,$this->denyTables,true)));
     }
 
-    /** Masukkan semua baris lokal (dari tabel domain) ke sync_queue untuk dikirim */
+    /** Enqueue seluruh baris lokal dari tabel domain (tanpa cek timestamp) */
     public function enqueueAllLocalRows(array $tables): int
     {
         if (!Schema::hasTable('sync_queue')) return 0;
-        $count = 0;
 
+        $count = 0;
         foreach ($tables as $tbl) {
             if (!Schema::hasTable($tbl) || !Schema::hasColumn($tbl,'uuid')) continue;
-
             $rows = DB::table($tbl)->get();
             foreach ($rows as $r) {
                 if (empty($r->uuid)) continue;
@@ -113,6 +111,7 @@ class SyncService
                     'op'           => 'upsert',
                     'row'          => json_encode((array)$r, JSON_UNESCAPED_UNICODE),
                     'created_at'   => now(),
+                    'updated_at'   => now(),
                 ]);
                 $count++;
             }
