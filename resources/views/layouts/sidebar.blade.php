@@ -49,6 +49,7 @@
         </li>
         @endif
 
+        @if(Auth::user()->roles == 'superadmin' || Auth::user()->roles == 'admin')
         {{-- User --}}
         <li>
             <a href="{{route('user.index')}}">
@@ -56,7 +57,9 @@
                 <div class="menu-title">Kelola User</div>
             </a>
         </li>
+        @endif
 
+        @if(Auth::user()->roles == 'superadmin' || Auth::user()->roles == 'admin')
         {{-- Customer --}}
         <li>
             <a href="{{route('customer.index')}}">
@@ -64,6 +67,7 @@
                 <div class="menu-title">Kelola Customer</div>
             </a>
         </li>
+        @endif
 
         {{-- Master Data --}}
         @if(Auth::user()->roles == 'superadmin' || Auth::user()->roles == 'admin')
@@ -80,7 +84,16 @@
             </ul>
         </li>
         @endif
+        @if(Auth::user()->roles =='staff' )
+ <li>
+            <a href="{{route('purchase.index')}}">
+                <div class="parent-icon"><i class="bx bx-right-arrow-alt"></i></div>
+                <div class="menu-title">Pembelian</div>
+            </a>
+        </li>
 
+        @endif
+        @if(Auth::user()->roles =='superadmin' || Auth::user()->roles == 'admin')
         {{-- Stock Opname --}}
         <li>
             <a href="javascript:void(0)" class="has-arrow">
@@ -88,13 +101,13 @@
                 <div class="menu-title">Stock Opname</div>
             </a>
             <ul>
-                @if(Auth::user()->roles =='superadmin' || Auth::user()->roles == 'admin')
                 <li><a href="{{route('purchase.index')}}"><i class="bx bx-right-arrow-alt"></i>Pembelian</a></li>
-                @endif
                 <li><a href="{{route('inventory.index')}}"><i class="bx bx-right-arrow-alt"></i>Inventory</a></li>
                 <li><a href="{{route('sell.index')}}"><i class="bx bx-right-arrow-alt"></i>Barang Keluar</a></li>
             </ul>
+
         </li>
+        @endif
 
         {{-- 🔄 Sinkronisasi (tampil untuk semua user yang login) --}}
         <li>

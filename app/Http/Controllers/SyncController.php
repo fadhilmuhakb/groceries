@@ -13,7 +13,7 @@ class SyncController extends Controller
   public function pull(Request $req) {
     $since = $req->query('since'); // ISO8601
     $tables = $req->query('tables'); // "tb_products,tb_suppliers" optional
-    $limit = min((int) $req->query('limit', 1000), 5000);
+    $limit = min((int) $req->query('limit', 10000), 50000);
 
     $q = SyncChange::query()
       ->when($since, fn($qq) => $qq->where('changed_at','>', Carbon::parse($since)))
