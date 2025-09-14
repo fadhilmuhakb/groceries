@@ -493,7 +493,7 @@
             isItemModalOpen = true;
             selectedRow = 0;
             highlightRow(selectedRow);
-            $('#search_term').focus();
+            // $('#search_term').focus();
             $(document).on('keydown', function(e) {
                 if(e.key === 'Escape') {
                     $('#item-modal').modal('hide');
