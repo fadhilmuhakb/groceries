@@ -299,8 +299,8 @@
 
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-primary" onclick="onPaymentPrint()" >Bayar + Print (F12)</button>
-            <button type="button" class="btn btn-primary" onclick="onPayment()" >Bayar (F11)</button>
+            <button type="button" id="btn-payment-print" class="btn btn-primary" onclick="onPaymentPrint()" >Bayar + Print (F12)</button>
+            <button type="button" id="btn-payment" class="btn btn-primary" onclick="onPayment()" >Bayar (F11)</button>
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>
 
@@ -336,6 +336,10 @@
                 rows.eq(index).addClass('selected');
             }
         }
+
+        $(document).ready(function() {
+            $('#transaction-date').val(getToday());
+        });
 
         $('#qty-modal').on('keydown', function(e) {
 
@@ -756,6 +760,8 @@
         // API
         const onPayment = () => {
             let token = $("meta[name='csrf-token']").attr("content");
+            $('#btn-payment-print').prop('disabled', true);
+            $('#btn-payment').prop('disabled', true);
             $.ajax({
                     url: '{{route('sales.store')}}',
                     type: 'POST',
@@ -765,32 +771,63 @@
                     },
                     success: function(response) {
                         // btnProcesses.removeAttr("disabled");
-                        Swal.fire({
-                            'icon': 'success',
-                            'title': 'Sukses',
-                            'text': response.message
+                        // btnProcesses.removeAttr("disabled");
+
+                         const Toast = Swal.mixin({
+                            toast: true,
+                            position: 'top-end', 
+                            showConfirmButton: false,
+                            timer: 1500,
+                            timerProgressBar: true,
+                        });
+
+                        Toast.fire({
+                            icon: 'success',
+                            title: 'Sukses',
+                            text: response.message,
+                            background: '#28a745',
+                            color: '#fff' 
                         }).then(() => {
                             location.reload();
-                        })
-
-                        // location.reload(); // refresh agar tampilan balik lagi
+                        });
                     },
                     error: function(err) {
                         if(err.responseJSON) {
-                            Swal.fire({
-                            icon:'error',
-                            title: 'error',
-                            text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali'
+                            const Toast = Swal.mixin({
+                            toast: true,
+                            position: 'top-end', 
+                            showConfirmButton: false,
+                            timer: 1500,
+                            timerProgressBar: true,
                         });
-                        }
 
-                        // btnProcesses.removeAttr("disabled");
+                        Toast.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali',
+                            background: '#f27474', 
+                            color: '#fff' 
+                        }).then(() => {
+                             $('#btn-payment-print').prop('disabled', false);
+                            $('#btn-payment').prop('disabled', false);
+                        });
+
+                        //     Swal.fire({
+                        //     icon:'error',
+                        //     title: 'error',
+                        //     text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali',
+                        //     confirmButtonText: 'OK',
+                        //     focusConfirm: true 
+                        // });
+                        }
                     }
                 })
         }
 
         const onPaymentPrint = () => {
             let token = $("meta[name='csrf-token']").attr("content");
+            $('#btn-payment-print').prop('disabled', true);
+            $('#btn-payment').prop('disabled', true);
 
             $.ajax({
                     url: '{{route('sales.store')}}',
@@ -801,10 +838,20 @@
                     },
                     success: function(response) {
                         // btnProcesses.removeAttr("disabled");
-                        Swal.fire({
-                            'icon': 'success',
-                            'title': 'Sukses',
-                            'text': response.message
+                        const Toast = Swal.mixin({
+                            toast: true,
+                            position: 'top-end', 
+                            showConfirmButton: false,
+                            timer: 1500,
+                            timerProgressBar: true,
+                        });
+
+                        Toast.fire({
+                            icon: 'success',
+                            title: 'Sukses',
+                            text: response.message,
+                            background: '#28a745',
+                            color: '#fff' 
                         }).then(() => {
                             // Buat HTML struk di dalam div tersembunyi
                             let receiptHtml = `
@@ -849,12 +896,25 @@
                         })
                     },
                     error: function(err) {
+                        
                         if(err.responseJSON) {
-                            Swal.fire({
+                            const Toast = Swal.mixin({
+                                toast: true,
+                                position: 'top-end', 
+                                showConfirmButton: false,
+                                timer: 1500,
+                                timerProgressBar: true,
+                            });
+                            Toast.fire({
                             icon:'error',
                             title: 'error',
-                            text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali'
-                        });
+                            text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali',
+                            background: '#f27474', 
+                            color: '#fff' 
+                            }).then(() => {
+                                $('#btn-payment-print').prop('disabled', false);
+                                $('#btn-payment').prop('disabled', false);
+                            });
                         }
 
                         // btnProcesses.removeAttr("disabled");
@@ -870,6 +930,14 @@
                 maximumFractionDigits: 2,
             }).format(number);
         };
+
+        function getToday() {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0'); // bulan 01-12
+            const dd = String(today.getDate()).padStart(2, '0');      // tanggal 01-31
+            return `${yyyy}-${mm}-${dd}`;
+        }
 
         
     </script>
