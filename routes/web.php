@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\SyncController;
 use Illuminate\Http\Request;
-
+use App\Http\Controllers\ReportController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -163,6 +163,23 @@ Route::get('/sync/manual', [SyncController::class, 'manual'])->name('sync.manual
     Route::prefix('options')->group(function () {
         Route::get('/incoming-goods', [TbIncomingGoodsController::class, 'options'])->name('options.incoming_goods');
     });
+
+
+Route::prefix('report')->name('report.')->group(function () {
+    // Halaman daftar report
+    Route::get('/', [ReportController::class, 'index'])->name('index');
+
+    // DataTables JSON untuk halaman daftar
+    Route::get('/data', [ReportController::class, 'indexData'])->name('index.data');
+
+    // Halaman detail
+    Route::get('/detail/{id}', [ReportController::class, 'detail'])->name('detail');
+
+    // DataTables JSON untuk halaman detail
+    Route::get('/detail/{id}/data', [ReportController::class, 'detailData'])->name('detail.data');
+});
+
+
 // routes/web.php
 
 

@@ -109,13 +109,26 @@
         </li>
         @endif
 
-        {{-- 🔄 Sinkronisasi (tampil untuk semua user yang login) --}}
+        @if(Auth::user()->roles =='superadmin' || Auth::user()->roles == 'admin')
+        {{-- Stock Opname --}}
         <li>
+            <a href="javascript:void(0)" class="has-arrow">
+                <div class="parent-icon"><i class="bx bx-building"></i></div>
+                <div class="menu-title">Laporan</div>
+            </a>
+            <ul>
+                <li><a href="{{route('report.index')}}"><i class="bx bx-right-arrow-alt"></i>Laporan Kasir</a></li>
+            </ul>
+
+        </li>
+        @endif
+        {{-- 🔄 Sinkronisasi (tampil untuk semua user yang login) --}}
+        <!-- <li>
             <a href="{{ route('sync.manual') }}">
                 <div class="parent-icon"><i class='bx bx-sync'></i></div>
                 <div class="menu-title">Sinkronkan Data</div>
             </a>
-        </li>
+        </li> -->
 
     </ul>
     <!--end navigation-->
