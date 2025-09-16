@@ -122,7 +122,6 @@ class TbProductsController extends Controller
 
             $purchasePrice = is_numeric($row[5] ?? null) ? (float) $row[5] : 0;
             $sellingPrice = is_numeric($row[6] ?? null) ? (float) $row[6] : 0;
-
             $importedProducts[] = [
                 'product_code' => $row[0] ?? '',
                 'product_name' => $row[1] ?? '',

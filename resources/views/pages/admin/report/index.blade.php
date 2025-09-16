@@ -21,6 +21,7 @@
             <th>Nama</th>
             <th>Total</th>
             <th>Tanggal</th>
+            <th>+/-</th>
             <th>Aksi</th>
           </tr>
         </thead>
@@ -31,6 +32,10 @@
 </div>
 @endsection
 
+@section('scripts')
+<script src="{{ asset('assets/plugins/datatable/js/jquery.dataTables.min.js') }}"></script>
+<script src="{{ asset('assets/plugins/datatable/js/dataTables.bootstrap5.min.js') }}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
 @section('scripts')
 <script src="{{ asset('assets/plugins/datatable/js/jquery.dataTables.min.js') }}"></script>
 <script src="{{ asset('assets/plugins/datatable/js/dataTables.bootstrap5.min.js') }}"></script>
@@ -57,12 +62,29 @@ $(function () {
             return 'Rp ' + Number(data ?? 0).toLocaleString('id-ID');
           }
           return data;
-        }
+        },
+        className: 'text-end'
       },
       {
         data: 'date', name: 'date',
         render: function (data) {
           return data ? moment(data).format('DD MMM YYYY') : '-';
+        }
+      },
+      {
+        data: 'status', name: 'status', className:'text-end',
+        render: function (data, type) {
+          const val = Number(data ?? 0);
+          if (type === 'display' || type === 'filter') {
+            const sign = val >= 0 ? '+' : '−';
+            const absVal = Math.abs(val);
+            const formatted = 'Rp ' + absVal.toLocaleString('id-ID');
+            const colorClass = val >= 0 ? 'text-success' : 'text-danger';
+            return `<span class="${colorClass}" title="${val >= 0 ? 'Surplus' : 'Defisit'}">
+                      ${sign} ${formatted}
+                    </span>`;
+          }
+          return val;
         }
       },
       { data: 'action', name: 'action', orderable:false, searchable:false, className:'text-center align-self-center' },
