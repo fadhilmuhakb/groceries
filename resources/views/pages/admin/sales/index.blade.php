@@ -245,6 +245,8 @@
                                     <th>Satuan</th>
                                     <th>Jenis</th>
                                     <th>Harga Jual</th>
+                                    <th>Diskon</th>
+                                    <th>Harga Jual + Diskon</th>
                                     <th>Merek</th>
                                 </tr>
                             </thead>
@@ -637,6 +639,16 @@
                         { "data": "current_stock" },
                         { "data": "unit_name" },
                         { "data": "type_name" },
+                        { "data": "price",
+                            render: function(data) {
+                                return formatRupiah(data);
+                            }
+                        },
+                        { "data": "product_discount",
+                            render: function(data) {
+                                return formatRupiah(data);
+                            }
+                        },
                         { "data": "selling_price",
                             render: function(data) {
                                 return formatRupiah(data);

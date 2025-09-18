@@ -75,6 +75,7 @@ class TbProductsController extends Controller
             'unit_id' => 'required|exists:tb_units,id',
             'purchase_price' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
+            'product_discount' => 'nullable',
             'description' => 'nullable'
         ]);
 
@@ -204,7 +205,8 @@ class TbProductsController extends Controller
             'unit_id' => 'required|exists:tb_units,id',
             'purchase_price' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
-            'description' => 'nullable'
+            'description' => 'nullable',
+            'product_discount' => 'nullable'
         ]);
 
         DB::beginTransaction();
@@ -212,7 +214,6 @@ class TbProductsController extends Controller
             $product = tb_products::findOrFail($id);
             $product->update($data);
             DB::commit();
-
             return redirect('/master-product')->with('success', 'Data berhasil diperbarui!');
         } catch (\Exception $e) {
             DB::rollBack();

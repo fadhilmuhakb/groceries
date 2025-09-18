@@ -94,7 +94,9 @@ class TbIncomingGoodsController extends Controller
                         'current_stock' => $product->current_stock,
                         'unit_name' => $product->unit->unit_name ?? '-',
                         'type_name' => $product->type->type_name ?? '-',
-                        'selling_price' => $product->selling_price,
+                        'price' => $product->selling_price,
+                        'product_discount' => $product->product_discount,
+                        'selling_price' => $product->selling_price - $product->product_discount,
                         'brand_name' => $product->brand->brand_name ?? '-',
                     ];
                 });

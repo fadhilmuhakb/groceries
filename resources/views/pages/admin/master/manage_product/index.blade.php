@@ -31,6 +31,7 @@
                             <th>Satuan</th>
                             <th>Harga Jual</th>
                             <th>Harga Beli</th>
+                            <th>Diskon</th>
                             <th>Keterangan</th>
                             <th>Aksi</th>
                         </tr>
@@ -121,6 +122,7 @@
                     { data: 'unit_name', name: 'unit_name' },
                     { data: 'purchase_price', name: 'purchase_price' },
                     { data: 'selling_price', name: 'selling_price' },
+                    { data: 'product_discount', name: 'product_discount' },
                     { data: 'description', name: 'description' },
                     { data: 'action', name: 'action', orderable: false, searchable: false }
                 ]

@@ -15,7 +15,7 @@ class tb_products extends Model
     protected $fillable = [
         'product_code', 'product_name', 'type_id', 
         'brand_id', 'unit_id', 'purchase_price', 
-        'selling_price', 'description','uuid'
+        'selling_price', 'description','uuid', 'product_discount'
     ];
 
     

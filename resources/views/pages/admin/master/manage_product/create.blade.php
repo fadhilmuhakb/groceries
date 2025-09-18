@@ -94,7 +94,7 @@
                 @enderror
               </div>
 
-              <div class="col-6 mb-3">
+              <div class="col-4 mb-3">
                 <label for="purchase_price">Harga Beli</label>
                 <input class="form-control" type="number" name="purchase_price" value="{{ isset($product) ? $product->purchase_price : old('purchase_price') }}">
                 @error('purchase_price')
@@ -102,10 +102,18 @@
                 @enderror
               </div>
 
-              <div class="col-6 mb-3">
+              <div class="col-4 mb-3">
                 <label for="selling_price">Harga Jual</label>
                 <input class="form-control" type="number" name="selling_price" value="{{ isset($product) ? $product->selling_price : old('selling_price') }}">
                 @error('selling_price')
+                  <div class="text-danger">{{ $message }}</div>
+                @enderror
+              </div>
+
+              <div class="col-4 mb-3">
+                <label for="product_discount">Discount</label>
+                <input class="form-control" type="number" name="product_discount" value="{{ isset($product) ? $product->product_discount : old('product_discount') }}">
+                @error('product_discount')
                   <div class="text-danger">{{ $message }}</div>
                 @enderror
               </div>
