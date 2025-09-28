@@ -47,7 +47,9 @@ class HomeController extends Controller
         }
 
         $salesQuery = DB::table('tb_sells');
-        $purchaseQuery = DB::table('tb_purchases');
+        $purchaseQuery = DB::table('tb_purchases')
+        ->where('supplier_id', '!=', 1);
+    
 
         if ($storeId) {
             $salesQuery->where('store_id', $storeId);
