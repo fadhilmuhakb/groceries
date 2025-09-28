@@ -1,95 +1,181 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\tb_products;
 use App\Models\tb_types;
 use App\Models\tb_brands;
 use App\Models\tb_units;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Imports\ProductImport;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Yajra\DataTables\Facades\DataTables;
-
+use Maatwebsite\Excel\Facades\Excel;
 class TbProductsController extends Controller
 {
     public function index(Request $request)
-    {
-        $user = auth()->user();
-        // dd($user->roles);
-        if($user->roles == 'superadmin') {
-            $products = tb_products::with(['type', 'brand', 'unit'])->get();
-            // dd($products);
-        } else {
-            $products = tb_products::with(['incomingGoods' => function($query) {
-                $query->whereHas('purchase', function($q) {
-                    $q->where('store_id', auth()->user()->store_id);
-                });
-            },
-            'outgoingGoods' => function($query) {
-                $query->whereHas('sell', function($q) {
-                    $q->where('store_id', auth()->user()->store_id);
-                });
-            },
-            'type', 'brand', 'unit'])
-            ->get()
-            ->map(function($product) {
-                $totalIncoming = $product->incomingGoods->sum('stock');
-                $totalOutgoing = $product->outgoingGoods->sum('quantity_out');
-                $product->current_stock = $totalIncoming - $totalOutgoing;
-                return $product;
-            })
-            ->where('current_stock', '>', 0);
-        }
+{
+    if ($request->ajax()) {
+        $rows = DB::table('tb_products as p')
+            ->leftJoin('tb_types  as t', 't.id',  '=', 'p.type_id')
+            ->leftJoin('tb_brands as b', 'b.id',  '=', 'p.brand_id')
+            ->leftJoin('tb_units  as u', 'u.id',  '=', 'p.unit_id')
+            ->selectRaw('
+                p.id,
+                p.product_code,
+                p.product_name,
+                COALESCE(t.type_name,  "-")  as type_name,
+                COALESCE(b.brand_name, "-")  as brand_name,
+                COALESCE(u.unit_name, "-")  as unit_name,
+                p.purchase_price,
+                p.selling_price,
+                p.tier_prices,
+                COALESCE(p.description, "-") as description
+            ')
+            ->orderByDesc('p.id')
+            ->get();
 
-        if ($request->ajax()) {
-            return DataTables::of($products)
-                ->addColumn('type_name', function ($product) {
-                    return $product->type->type_name ?? '-';
-                })
-                ->addColumn('brand_name', function ($product) {
-                    return $product->brand->brand_name ?? '-';
-                })
-                ->addColumn('unit_name', function ($product) {
-                    return $product->unit->unit_name ?? '-';
-                })
-                ->addColumn('action', function ($product) {
-                    return '<a href="/master-product/edit/' . $product->id . '" class="btn btn-sm btn-success"><i class="bx bx-pencil me-0"></i></a>
-                            <a href="javascript:void(0)" onClick="confirmDelete(' . $product->id . ')" class="btn btn-sm btn-danger"><i class="bx bx-trash me-0"></i></a>';
-                })
-                ->rawColumns(['action'])
-                ->make(true);
-        }
-
-        return view('pages.admin.master.manage_product.index');
-    }
-
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'product_code' => 'required',
-            'product_name' => 'required',
-            'type_id' => 'required|exists:tb_types,id',
-            'brand_id' => 'required|exists:tb_brands,id',
-            'unit_id' => 'required|exists:tb_units,id',
-            'purchase_price' => 'required|numeric|min:0',
-            'selling_price' => 'required|numeric|min:0',
-            'product_discount' => 'nullable',
-            'description' => 'nullable'
+        // format standard DataTables (simple) — tanpa paging server-side
+        return response()->json([
+            'data' => $rows,
         ]);
-
-        DB::beginTransaction();
-        try {
-            tb_products::create($data);
-            DB::commit();
-            return redirect('/master-product')->with('success', 'Data berhasil ditambahkan!');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', $e->getMessage());
-        }
     }
 
+    return view('pages.admin.master.manage_product.index');
+}
+
+    public function create()
+    {
+        return view('pages.admin.master.manage_product.create', [
+            'types'  => tb_types::all(),
+            'brands' => tb_brands::all(),
+            'units'  => tb_units::all(),
+        ]);
+    }
+
+  public function store(Request $request)
+{
+    // 1) Bersihkan baris tier kosong (qty & price dua-duanya kosong/null)
+    $tiers = collect($request->input('tier_prices', []))
+        ->filter(function ($row) {
+            return ($row['qty'] ?? '') !== '' || ($row['price'] ?? '') !== '';
+        })
+        ->values()
+        ->all();
+
+    // merge kembali hasil bersih
+    $request->merge(['tier_prices' => $tiers]);
+
+    // 2) Validasi — sekarang aman karena kalau kosong, array-nya [] (tidak memicu nested rules)
+    $data = $request->validate([
+        'product_code'     => 'required|string|max:255|unique:tb_products,product_code',
+        'product_name'     => 'required|string|max:255',
+        'type_id'          => 'required|exists:tb_types,id',
+        'brand_id'         => 'required|exists:tb_brands,id',
+        'unit_id'          => 'required|exists:tb_units,id',
+        'purchase_price'   => 'required|numeric|min:0',
+        'selling_price'    => 'required|numeric|min:0',
+        'product_discount' => 'nullable|numeric|min:0',
+        'description'      => 'nullable|string',
+        'tier_prices'          => 'nullable|array',
+        'tier_prices.*.qty'    => 'required|integer|min:1',
+        'tier_prices.*.price'  => 'required|numeric|min:0',
+    ]);
+
+    // 3) Normalisasi ke map qty=>price kalau ada isinya
+    if (!empty($data['tier_prices'])) {
+        $map = [];
+        foreach ($data['tier_prices'] as $row) {
+            $map[(int)$row['qty']] = (float)$row['price'];
+        }
+        ksort($map);
+        $data['tier_prices'] = $map;
+    }
+
+    DB::beginTransaction();
+    try {
+        tb_products::create($data);
+        DB::commit();
+        return redirect()->route('master-product.index')->with('success', 'Produk berhasil ditambahkan');
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        return back()->withInput()->with('error', $e->getMessage());
+    }
+}
+
+
+    public function edit($id)
+    {
+        return view('pages.admin.master.manage_product.create', [
+            'product' => tb_products::findOrFail($id),
+            'types'   => tb_types::all(),
+            'brands'  => tb_brands::all(),
+            'units'   => tb_units::all(),
+        ]);
+    }
+
+   public function update(Request $request, $id)
+{
+    $tiers = collect($request->input('tier_prices', []))
+        ->filter(function ($row) {
+            return ($row['qty'] ?? '') !== '' || ($row['price'] ?? '') !== '';
+        })
+        ->values()
+        ->all();
+
+    $request->merge(['tier_prices' => $tiers]);
+
+    $data = $request->validate([
+        'product_code'     => 'required|string|max:255|unique:tb_products,product_code,'.$id,
+        'product_name'     => 'required|string|max:255',
+        'type_id'          => 'required|exists:tb_types,id',
+        'brand_id'         => 'required|exists:tb_brands,id',
+        'unit_id'          => 'required|exists:tb_units,id',
+        'purchase_price'   => 'required|numeric|min:0',
+        'selling_price'    => 'required|numeric|min:0',
+        'product_discount' => 'nullable|numeric|min:0',
+        'description'      => 'nullable|string',
+        'tier_prices'          => 'nullable|array',
+        'tier_prices.*.qty'    => 'required|integer|min:1',
+        'tier_prices.*.price'  => 'required|numeric|min:0',
+    ]);
+
+    if (!empty($data['tier_prices'])) {
+        $map = [];
+        foreach ($data['tier_prices'] as $row) {
+            $map[(int)$row['qty']] = (float)$row['price'];
+        }
+        ksort($map);
+        $data['tier_prices'] = $map;
+    } else {
+        $data['tier_prices'] = null; // benar-benar kosong
+    }
+
+    DB::beginTransaction();
+    try {
+        tb_products::findOrFail($id)->update($data);
+        DB::commit();
+        return redirect()->route('master-product.index')->with('success', 'Produk berhasil diperbarui');
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        return back()->withInput()->with('error', $e->getMessage());
+    }
+}
+
+    public function show($id)
+    {
+        $product = tb_products::find($id);
+        abort_if(!$product, 404);
+        return view('pages.admin.master.manage_product.preview', compact('product'));
+    }
+
+    public function destroy($id)
+    {
+        try {
+            tb_products::findOrFail($id)->delete();
+            return response()->json(['message' => 'Produk dihapus']);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
     public function import(Request $request)
     {
         $request->validate([
@@ -174,74 +260,6 @@ class TbProductsController extends Controller
         }
 
         return redirect()->route('master-product.index')->with('success', 'Produk berhasil diimpor!');
-    }
-
-
-    public function create()
-    {
-        return view('pages.admin.master.manage_product.create', [
-            'types' => tb_types::all(),
-            'brands' => tb_brands::all(),
-            'units' => tb_units::all()
-        ]);
-    }
-    public function edit($id)
-    {
-        $product = tb_products::findOrFail($id);
-        return view('pages.admin.master.manage_product.create', [
-            'product' => $product,
-            'types' => tb_types::all(),
-            'brands' => tb_brands::all(),
-            'units' => tb_units::all()
-        ]);
-    }
-    public function update(Request $request, $id)
-    {
-        $data = $request->validate([
-            'product_code' => 'required',
-            'product_name' => 'required',
-            'type_id' => 'required|exists:tb_types,id',
-            'brand_id' => 'required|exists:tb_brands,id',
-            'unit_id' => 'required|exists:tb_units,id',
-            'purchase_price' => 'required|numeric|min:0',
-            'selling_price' => 'required|numeric|min:0',
-            'description' => 'nullable',
-            'product_discount' => 'nullable'
-        ]);
-
-        DB::beginTransaction();
-        try {
-            $product = tb_products::findOrFail($id);
-            $product->update($data);
-            DB::commit();
-            return redirect('/master-product')->with('success', 'Data berhasil diperbarui!');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', $e->getMessage());
-        }
-    }
-    public function destroy($id)
-    {
-        $product = tb_products::find($id);
-
-        if (!$product) {
-            return response()->json(['error' => 'Data tidak ditemukan'], 404);
-        }
-
-        try {
-            $product->delete();
-            return response()->json(['message' => 'Produk berhasil dihapus']);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-    public function show($id)
-    {
-        $product = tb_products::find($id);
-        if (!$product) {
-            abort(404, "Product not found");
-        }
-        return response()->json($product);
     }
 
 }
