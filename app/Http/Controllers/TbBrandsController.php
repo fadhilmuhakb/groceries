@@ -1,0 +1,115 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\tb_brands;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\Facades\DataTables;
+
+class TbBrandsController extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     */
+    public function index(Request $request)
+    {
+        $brands = tb_brands::all();
+        if($request->ajax()) {
+            return DataTables::of($brands)
+                    ->addColumn('action', function ($brand) {
+                        return '<a href="/master-brand/edit/'.$brand->id.'" class="btn btn-sm btn-success"><i class="bx bx-pencil me-0"></i>
+                        </a>
+                        <a href="javascript:void(0)" onClick="confirmDelete('.$brand->id.')" class="btn btn-sm btn-danger"><i class="bx bx-trash me-0"></i>
+                        </a>
+                        ';
+                    })
+                    ->rawColumns(['action'])
+                    ->make(true);
+        }
+        return view('pages.admin.master.manage_brand.index');
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     */
+    public function create()
+    {
+        return view('pages.admin.master.manage_brand.create');
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'brand_name' => 'required',
+            'description' => 'nullable'
+        ]);
+
+        DB::beginTransaction();
+        try {
+            
+            tb_brands::create($validated);
+            DB::commit();
+            return redirect('/master-brand')->with('success', 'Data berhasil dikirim!');
+        } catch(\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit($id)
+    {
+        $brand = tb_brands::where('id', $id)->first();
+        return view('pages.admin.master.manage_brand.create', ['brand'=>$brand]);
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, $id)
+    {
+        $data = $request->validate([
+            'brand_name' => 'required',
+            'description' => 'nullable',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            tb_brands::where('id', $id)->update($data);
+            DB::commit();
+            return redirect('/master-brand')->with('success', 'Data berhasil diperbaharui!');
+        } catch(\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy($id)
+    {
+        DB::beginTransaction();
+        try {
+            tb_brands::where('id', $id)->delete();
+            DB::commit();
+            return response()->json([
+                'success'=>true,
+                'message'=>'Personel berhasil di hapus',
+            ]);
+        }catch(\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success'=>false,
+                'message'=>'Personel berhasil di hapus',
+            ]);
+        }
+    
+    }
+}
