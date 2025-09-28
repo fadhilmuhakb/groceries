@@ -43,6 +43,7 @@ class TbIncomingGoodsController extends Controller
                     })
                     ->where('current_stock', '>', 0);
             }
+
             else if(auth()->user()->roles == 'staff' || auth()->user()->roles == 'admin') {
                 // $products = tb_incoming_goods::with('product', 'purchase')
                 //                             ->whereHas('purchase', function($q) {

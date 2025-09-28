@@ -29,10 +29,8 @@ class tb_products extends Model
         'tier_prices' => 'array',
     ];
 
-    // ===== RELATIONSHIPS (tambahkan ini) =====
     public function type()
     {
-        // ganti class & foreign key sesuai model/kolom kamu
         return $this->belongsTo(tb_types::class, 'type_id');
     }
 
@@ -46,7 +44,15 @@ class tb_products extends Model
         return $this->belongsTo(tb_units::class, 'unit_id');
     }
 
-    // ===== Helper harga tier (opsional kalau belum ada) =====
+    public function incomingGoods()
+    {
+        return $this->hasMany(tb_incoming_goods::class, 'product_id');
+    }
+
+    public function outgoingGoods()
+    {
+        return $this->hasMany(tb_outgoing_goods::class, 'product_id');
+    }
     public function unitPriceForQty(int $qty): float
     {
         $base = (float) $this->selling_price;
