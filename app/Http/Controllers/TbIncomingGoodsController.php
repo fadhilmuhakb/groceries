@@ -17,7 +17,6 @@ class TbIncomingGoodsController extends Controller
     public function options(Request $request)
     {
         try {
-
             if($request->has('search_term')) {
                 $search = $request->search_term;
             } else {
@@ -45,15 +44,6 @@ class TbIncomingGoodsController extends Controller
             }
 
             else if(auth()->user()->roles == 'staff' || auth()->user()->roles == 'admin') {
-                // $products = tb_incoming_goods::with('product', 'purchase')
-                //                             ->whereHas('purchase', function($q) {
-                //                                 $q->where('store_id', auth()->user()->store_id);
-                //                             })
-                //                             ->when($search, function($q1) use($request) {
-                //                                 $q1->whereRelation('product', 'product_name', 'LIKE', '%'.$search.'%')
-                //                                     ->orWhereRelation('product', 'product_code', 'LIKE','%'.$search.'%');
-                //                             })
-                //                             ->get();
 
 
                 $products = tb_products::with(['incomingGoods' => function($query) {
@@ -98,60 +88,16 @@ class TbIncomingGoodsController extends Controller
                         'price' => $product->selling_price,
                         'product_discount' => $product->product_discount,
                         'selling_price' => $product->selling_price - $product->product_discount,
+                        'tier_prices' => $product->tier_prices,
                         'brand_name' => $product->brand->brand_name ?? '-',
                     ];
                 });
-
-                // dd($products);
 
                 return response()->json([
                     'success' => true,
                     'data' => $products
                 ]);
                 
-            // } else {
-            //     $draw = intval($request->input('draw'));
-            //     $start = intval($request->input('start'));
-            //     $length = intval($request->input('length'));
-
-            //     $total = $products->count();
-            //     $pagedData = $products->slice($start, $length)->values();
-
-            //     return response()->json([
-            //         'draw' => $draw,
-            //         'recordsTotal' => $total,
-            //         'recordsFiltered' => $total,
-            //         'data' => $pagedData->map(function($product) {
-            //             return [
-            //                 'id' => $product->id,
-            //                 'product_code' => $product->product_code,
-            //                 'product_name' => $product->product_name,
-            //                 'current_stock' => $product->current_stock,
-            //                 'unit_name' => $product->unit->unit_name ?? '-',
-            //                 'type_name' => $product->type->type_name ?? '-',
-            //                 'selling_price' => $product->selling_price,
-            //                 'brand_name' => $product->brand->brand_name ?? '-',
-            //             ];
-            //         }),
-            //     ]);
-            // }
-            // Pagination parameter dari DataTables
-            
-
-            // $options = [];
-            // foreach($products as $product) {
-            //     $options[] = [
-            //         'id' => $product->id,
-            //         'product_code' => $product->product_code,
-            //         'product_name' => $product->product_name,
-            //         'current_stock' => $product->current_stock,
-            //         'unit_name' => $product->unit->unit_name,
-            //         'type_name' => $product->type->type_name,
-            //         'selling_price' => $product->selling_price,
-            //         'brand_name' => $product->brand->brand_name,
-            //     ];
-            // }
-
             
 
         }catch(\Exception $e) {

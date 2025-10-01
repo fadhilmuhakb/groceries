@@ -228,7 +228,6 @@
                 </div>
                 <div class="col-6 col-form-label">
                     <label for="">Jenis / Satuan</label>
-
                 </div>
             </div>
 
@@ -675,6 +674,19 @@
                 }
 
                 data = {...data, qty: $('#qty').val(), discount: 0, total:0};
+                
+                // const tiers = data.tier_prices || {}; 
+                // const thresholds = Object.keys(tiers).map(Number).sort((a, b) => b - a);
+
+                // let unitPrice = Number(data.selling_price ?? data.price ?? 0);
+
+                // // ambil harga pertama yang memenuhi qty >= threshold
+                // for (const t of thresholds) {
+                // if (Number(data.qty) >= t) {
+                //     unitPrice = Number(tiers[t]);
+                //     break;
+                // }
+                // }
                 let findIndex = selectedRowData.findIndex(item => data.id == item.id);
                 if(findIndex !== -1) {
                     selectedRowData[findIndex].qty = parseInt(selectedRowData[findIndex].qty) + parseInt(qty);
@@ -727,7 +739,22 @@
             let productList = $('#product-list');
             if(selectedRowData.length > 0) {
                 selectedRowData.forEach((item, index) => {
+                    const tiers = item.tier_prices || {};
+                    if(item.tier_prices !== null) {
+                        const thresholds = Object.keys(item.tier_prices).map(Number).sort((a, b) => b - a);
+                        let unitPrice = 0;
+                        for (const t of thresholds) {
+                            if (item.qty >= t) {
+                                item.selling_price = Number(tiers[t]);
+                                break;
+                            }
+                        }
+
+                    }
                     item.total = ((item.selling_price * item.qty) - item.discount);
+
+                    
+
                     productList.append(`
                         <tr>
                             <td>${index + 1}</td>
