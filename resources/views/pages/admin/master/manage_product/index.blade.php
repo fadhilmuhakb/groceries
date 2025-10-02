@@ -105,65 +105,50 @@
     };
 
     $(document).ready(function () {
-      $('#table-brand').DataTable({
-        processing: true,
-        serverSide: true,
-        ajax: "{{ url('/master-product') }}",
-        columns: [
-          { data: null, render: (data, type, row, meta) => meta.row + meta.settings._iDisplayStart + 1 },
+  $('#table-brand').DataTable({
+    processing: true,
+    serverSide: false,        // <— ganti ke false
+    ajax: {
+      url: "{{ url('/master-product') }}",
+      type: 'GET',
+      dataSrc: 'data'      // <— pakai ini jika respons { data: [...] }
+    },
+    columns: [
+      { data: null, render: (d,t,r,m) => m.row + m.settings._iDisplayStart + 1 },
+      { data: 'product_code' },
+      { data: 'product_name' },
+      { data: 'type_name' },
+      { data: 'brand_name' },
+      { data: 'unit_name' },
+      { data: 'purchase_price', render: v => v!=null ? idr.format(v) : '-' },
+      { data: 'selling_price',  render: v => v!=null ? idr.format(v) : '-' },
+      {
+        data: 'tier_prices', orderable:false, searchable:false,
+        render: function (value) {
+          if (!value) return '<em>-</em>';
+          let tiers = typeof value === 'string' ? (()=>{try{return JSON.parse(value)}catch(e){return null}})() : value;
+          if (!tiers || typeof tiers !== 'object') return '<em>-</em>';
+          const keys = Object.keys(tiers).map(k=>parseInt(k,10)).sort((a,b)=>a-b);
+          if (!keys.length) return '<em>-</em>';
+          return keys.map(q => `&ge; ${q} : ${idr.format(tiers[q])}`).join('<br>');
+        }
+      },
+      { data: 'product_discount', render: v => v!=null ? idr.format(v) : '-' },
+      {
+        data: 'action', orderable:false, searchable:false,
+        render: function (html, type, row) {
+          if (html) return html;
+          return `
+            <div class="btn-group">
+              <a href="/master-product/edit/${row.id}" class="btn btn-sm btn-warning">Edit</a>
+              <button onclick="confirmDelete(${row.id})" class="btn btn-sm btn-danger">Hapus</button>
+            </div>
+          `;
+        }
+      }
+    ]
+  });
+});
 
-          { data: 'product_code',  name: 'product_code' },
-          { data: 'product_name',  name: 'product_name' },
-          { data: 'type_name',     name: 'type_name' },
-          { data: 'brand_name',    name: 'brand_name' },
-          { data: 'unit_name',     name: 'unit_name' },
-
-          // Harga Beli
-          { data: 'purchase_price', name: 'purchase_price', render: (v) => v != null ? idr.format(v) : '-' },
-
-          // Harga Jual
-          { data: 'selling_price',  name: 'selling_price',  render: (v) => v != null ? idr.format(v) : '-' },
-
-          // Harga Tier (baru) - render dari JSON tier_prices yang dikirim server
-          {
-            data: 'tier_prices',
-            name: 'tier_prices',
-            orderable: false,
-            searchable: false,
-            render: function (value, type, row) {
-              if (!value) return '<em>-</em>';
-              let tiers = typeof value === 'string' ? (() => {
-                try { return JSON.parse(value); } catch(e) { return null; }
-              })() : value;
-
-              if (!tiers || typeof tiers !== 'object') return '<em>-</em>';
-
-              const keys = Object.keys(tiers).map(k => parseInt(k, 10)).sort((a,b)=>a-b);
-              if (!keys.length) return '<em>-</em>';
-
-              return keys.map(q => `&ge; ${q} : ${idr.format(tiers[q])}`).join('<br>');
-            }
-          },
-
-          { data: 'product_discount', name: 'product_discount', render: (v)=> v != null ? idr.format(v) : '-' },
-
-          {
-            data: 'action',
-            name: 'action',
-            orderable: false,
-            searchable: false,
-            render: function (html, type, row) {
-              if (html) return html;
-              return `
-                <div class="btn-group">
-                  <a href="/master-product/edit/${row.id}" class="btn btn-sm btn-warning">Edit</a>
-                  <button onclick="confirmDelete(${row.id})" class="btn btn-sm btn-danger">Hapus</button>
-                </div>
-              `;
-            }
-          }
-        ]
-      });
-    });
   </script>
 @endsection

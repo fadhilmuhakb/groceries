@@ -47,9 +47,12 @@ class HomeController extends Controller
         }
 
         $salesQuery = DB::table('tb_sells');
-        $purchaseQuery = DB::table('tb_purchases')
-        ->where('supplier_id', '!=', 1);
-    
+$purchaseQuery = DB::table('tb_purchases')
+    ->where(function ($q) {
+        $q->where('supplier_id', '!=', 1)
+          ->orWhereNull('supplier_id');
+    });
+
 
         if ($storeId) {
             $salesQuery->where('store_id', $storeId);
@@ -57,7 +60,7 @@ class HomeController extends Controller
         }
 
         if ($range === 'weekly') {
-            $salesRaw = $salesQuery
+            $salesRaw = $salesQuery 
                 ->whereBetween('date', [now()->subDays(27)->startOfDay(), now()->endOfDay()])
                 ->get();
 
