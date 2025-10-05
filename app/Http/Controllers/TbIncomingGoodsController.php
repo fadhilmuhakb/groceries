@@ -22,6 +22,9 @@ class TbIncomingGoodsController extends Controller
             } else {
                 $search = $request->term;
             }
+            $draw = $request->get('draw');
+            $start = $request->get('start');
+            $rowperpage = $request->get('length');
             $user_id = auth()->user()->id;
             $user = User::where('id', $user_id)->with('store')->first();
             if(auth()->user()->roles == 'superadmin') {
@@ -95,7 +98,7 @@ class TbIncomingGoodsController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'data' => $products
+                    "data" => array_values($products->toArray())
                 ]);
                 
             

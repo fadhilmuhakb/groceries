@@ -356,13 +356,23 @@
         });
 
         $('#item-modal').on('shown.bs.modal', function () {
+            isItemModalOpen = true;
+            selectedRow = 0;
+            highlightRow(selectedRow);
+            // $('#search_term').focus();
+            $(document).on('keydown', function(e) {
+                if(e.key === 'Escape') {
+                    $('#item-modal').modal('hide');
+                }
+            })
             $('#table-item').DataTable().columns.adjust();
         });
 
         $('#item-modal').on('hidden.bs.modal', function() {
             $('#item-code').focus();
             onClickedItem = 0;
-
+            $('#table-item').DataTable().destroy();
+            isItemModalOpen = false;
         });
 
         // Qty
@@ -485,22 +495,7 @@
             };
         }
 
-        $('#item-modal').on('hidden.bs.modal', function (e) {
-            $('#table-item').DataTable().destroy();
-            isItemModalOpen = false;
-        })
-
-        $('#item-modal').on('shown.bs.modal', function (e) {
-            isItemModalOpen = true;
-            selectedRow = 0;
-            highlightRow(selectedRow);
-            // $('#search_term').focus();
-            $(document).on('keydown', function(e) {
-                if(e.key === 'Escape') {
-                    $('#item-modal').modal('hide');
-                }
-            })
-        })
+        
 
         $('#payment-modal').on('shown.bs.modal', function(e) {
             $('#customer-money').focus();
@@ -620,6 +615,7 @@
 
         const datatableItem = () => {
             $('#table-item').DataTable({
+                    "paging": false,
                     "processing": true,
                     "serverSide": true,
                     "ajax": {
@@ -674,19 +670,7 @@
                 }
 
                 data = {...data, qty: $('#qty').val(), discount: 0, total:0};
-                
-                // const tiers = data.tier_prices || {}; 
-                // const thresholds = Object.keys(tiers).map(Number).sort((a, b) => b - a);
-
-                // let unitPrice = Number(data.selling_price ?? data.price ?? 0);
-
-                // // ambil harga pertama yang memenuhi qty >= threshold
-                // for (const t of thresholds) {
-                // if (Number(data.qty) >= t) {
-                //     unitPrice = Number(tiers[t]);
-                //     break;
-                // }
-                // }
+            
                 let findIndex = selectedRowData.findIndex(item => data.id == item.id);
                 if(findIndex !== -1) {
                     selectedRowData[findIndex].qty = parseInt(selectedRowData[findIndex].qty) + parseInt(qty);
