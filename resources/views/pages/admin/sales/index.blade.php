@@ -329,15 +329,6 @@
         let onClickedItem = Number(0);
 
 
-
-        function highlightRow(index) {
-            const rows = $('#table-item tbody tr');
-            rows.removeClass('selected');
-            if (rows.eq(index).length) {
-                rows.eq(index).addClass('selected');
-            }
-        }
-
         $(document).ready(function() {
             $('#transaction-date').val(getToday());
         });
@@ -409,6 +400,43 @@
         $(document).on('focus', '#qty', function () {
             $(this).select();
         });
+
+        function highlightRow(index) {
+            const $rows = $('#table-item tbody tr');
+            $rows.removeClass('selected');
+
+            const $row = $rows.eq(index);
+            if (!$row.length) return;
+
+            $row.addClass('selected');
+
+            // pakai kontainer scroll terdekat untuk tabel ini
+            const $body = $row.closest('.dataTables_scrollBody');
+            if ($body.length) {
+                const bodyEl = $body.get(0);
+                const bodyHeight = $body.height();
+                const rowEl = $row.get(0);
+
+                // posisi absolut baris terhadap konten scroll (bukan relatif seperti .position())
+                const rowTop = rowEl.offsetTop;          // jarak dari atas konten
+                const rowHeight = $row.outerHeight();
+                const curScroll = bodyEl.scrollTop;
+                const viewBottom = curScroll + bodyHeight;
+
+                // Jika baris di atas viewport -> scroll ke rowTop
+                if (rowTop < curScroll) {
+                bodyEl.scrollTop = rowTop;
+                }
+                // Jika baris di bawah viewport -> scroll hingga baris pas terlihat di bawah
+                else if (rowTop + rowHeight > viewBottom) {
+                bodyEl.scrollTop = rowTop - bodyHeight + rowHeight;
+                }
+            } else {
+                // fallback kalau tidak pakai DataTables scroll
+                $row.get(0).scrollIntoView({ block: 'nearest' });
+            }
+        }
+
         $(document).on('keydown', function(e) {
             const formTransaction = $('.form-transaction');
             const currentFormTransaction = $(':focus').closest('.form-transaction');
@@ -427,35 +455,34 @@
                 if(e.key === 'ArrowDown') {
                     e.preventDefault();
                     keyModal = Math.min(keyModal + 1, 3);
-                    if(keyModal === 2) {
-                        $('#search_term').blur();
+                    // if(keyModal === 2) {
+                    //     // $('#search_term').blur();
 
-                        $('#search_type').focus();
-                    } else if(keyModal === 3) {
-                        $('#search_type').blur();
+                    //     // $('#search_type').focus();
+                    // } else if(keyModal === 3) {
+                    //     // $('#search_type').blur();
                         selectedRow = (selectedRow  + 1) % rows.length;
                         highlightRow(selectedRow);    
-                    }
-
+                    // }
                     
                 } else if(e.key ==='ArrowUp') {
                     e.preventDefault();
-                    keyModal = Math.max(keyModal - 1, 1);
-                    if(keyModal === 1) {
-                        $('#search_term').focus();
-                        $('#search_type').blur();
-                    }
-                    else if(keyModal === 2) {
-                        $('#search_type').focus();
-                        const rows = $('#table-item tbody tr');
-                        rows.removeClass('selected');
+                    keyModal = Math.max(keyModal - 1, 3);
+                    // if(keyModal === 1) {
+                    //     // $('#search_term').focus();
+                    //     // $('#search_type').blur();
+                    // }
+                    // else if(keyModal === 2) {
+                    //     // $('#search_type').focus();
+                    //     const rows = $('#table-item tbody tr');
+                    //     // rows.removeClass('selected');
                         
-                    } else if(keyModal === 3) {
+                    // } else if(keyModal === 3) {
                         selectedRow = (selectedRow - 1 + rows.length) % rows.length;
                         highlightRow(selectedRow);    
-                    }
+                    // }
 
-                    
+                    console.log(keyModal);
                 } else if(e.key === 'Enter') {
                     e.preventDefault();
                     rows.eq(selectedRow).trigger('click');
@@ -471,7 +498,6 @@
                 if(next.length) {
                     next.focus();
                 }
-
             }
 
                 if(e.key === 'ArrowUp') {
