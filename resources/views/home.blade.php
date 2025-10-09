@@ -6,25 +6,26 @@
             <div class="col-md-10">
 
                 <!-- Filter Form -->
-                <form method="GET" action="{{ route('home') }}" class="d-flex gap-2 mb-4 align-items-center">
-                    @if(Auth::user()->roles == 'superadmin')
-                        <select name="store" class="form-select" onchange="this.form.submit()">
-                            <option value="">-- Semua Toko --</option>
-                            @foreach($stores as $store)
-                                <option value="{{ $store->id }}" {{ $selectedStoreId == $store->id ? 'selected' : '' }}>
-                                    {{ $store->store_name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    @endif
+             <form method="GET" action="{{ route('home') }}" class="d-flex gap-2 mb-4 align-items-center">
+    @if(Auth::user()->roles == 'superadmin')
+        <select name="store" class="form-select" onchange="this.form.submit()">
+            <option value="">-- Semua Toko --</option>
+            @foreach($stores as $store)
+                <option value="{{ $store->id }}" {{ $selectedStoreId == $store->id ? 'selected' : '' }}>
+                    {{ $store->store_name }}
+                </option>
+            @endforeach
+        </select>
+    @endif
 
-                    <select name="range" class="form-select" onchange="this.form.submit()">
-                        <option value="daily" {{ $range == 'daily' ? 'selected' : '' }}>Per Hari</option>
-                        <option value="weekly" {{ $range == 'weekly' ? 'selected' : '' }}>Per Minggu</option>
-                        <option value="monthly" {{ $range == 'monthly' ? 'selected' : '' }}>Per Bulan</option>
-                        <option value="yearly" {{ $range == 'yearly' ? 'selected' : '' }}>Per Tahun</option>
-                    </select>
-                </form>
+  
+    {{-- Specific date range --}}
+    <input type="date" name="date_from" class="form-control"
+           value="{{ request('date_from') }}" onchange="this.form.submit()">
+    <span class="mx-1">s/d</span>
+    <input type="date" name="date_to" class="form-control"
+           value="{{ request('date_to') }}" onchange="this.form.submit()">
+</form>
 
                 <!-- Summary Cards -->
                 <div class="d-flex justify-content-around mb-4">
