@@ -22,7 +22,7 @@
         <select id="store_select" class="form-select" style="min-width:240px">
           <option value="">-- Pilih Toko Dulu --</option>
           @foreach($stores as $store)
-            <option value="{{ $store->id }}" {{ (string)$selectedStoreId === (string)$store->id ? 'selected' : '' }}>
+            <option value="{{ $store->id }}" {{ (string)($selectedStoreId ?? '') === (string)$store->id ? 'selected' : '' }}>
               {{ $store->store_name }}
             </option>
           @endforeach
@@ -53,6 +53,19 @@
             <th>Aksi</th>
           </tr>
         </thead>
+
+        {{-- FOOTER untuk total --}}
+        <tfoot>
+          <tr>
+            <th></th>
+            <th class="text-end">Total</th>
+            <th class="text-end" id="footer_total_amount">Rp 0</th>
+            <th></th>
+            <th class="text-end" id="footer_total_status">Rp 0</th>
+            <th></th>
+          </tr>
+        </tfoot>
+
         <tbody></tbody>
       </table>
     </div>
@@ -76,28 +89,32 @@ $(function () {
   let dt;
 
   function buildDataTable() {
+    let serverTotals = null;
+
     dt = $('#table_kasir').DataTable({
       processing: true,
       serverSide: true,
       ajax: {
         url: "{{ route('report.index.data') }}",
         data: function (d) {
-          // kirimkan store (untuk superadmin), biar backend bisa filter
           d.store = $('#store_select').val() || '';
+        },
+        dataSrc: function (json) {
+          serverTotals = json.totals || null;
+          return json.data || [];
         }
       },
       columns: [
         { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable:false, searchable:false },
         { data: 'name', name: 'name' },
         {
-          data: 'amount', name: 'amount',
+          data: 'amount', name: 'amount', className: 'text-end',
           render: function (data, type) {
             if (type === 'display' || type === 'filter') {
               return 'Rp ' + Number(data ?? 0).toLocaleString('id-ID');
             }
             return data;
-          },
-          className: 'text-end'
+          }
         },
         {
           data: 'date', name: 'date',
@@ -112,10 +129,9 @@ $(function () {
             if (type === 'display' || type === 'filter') {
               const sign = val >= 0 ? '+' : '−';
               const absVal = Math.abs(val);
-              const formatted = 'Rp ' + absVal.toLocaleString('id-ID');
               const colorClass = val >= 0 ? 'text-success' : 'text-danger';
               return `<span class="${colorClass}" title="${val >= 0 ? 'Surplus' : 'Defisit'}">
-                        ${sign} ${formatted}
+                        ${sign} Rp ${absVal.toLocaleString('id-ID')}
                       </span>`;
             }
             return val;
@@ -123,7 +139,38 @@ $(function () {
         },
         { data: 'action', name: 'action', orderable:false, searchable:false, className:'text-center align-self-center' },
       ],
-      order: [[3, 'desc']]
+      order: [[3, 'desc']],
+
+      footerCallback: function (row, data, start, end, display) {
+        const api = this.api();
+
+        const pageSum = (colIdx) =>
+          api.column(colIdx, { page: 'current' })
+             .data()
+             .reduce((a, b) => Number(a) + Number(b ?? 0), 0);
+
+        const amountPage = pageSum(2); // kolom "Total"
+        const statusPage = pageSum(4); // kolom "+/-"
+
+        const fmtRupiah = (v) => 'Rp ' + Number(v ?? 0).toLocaleString('id-ID');
+        const fmtSigned  = (v) => {
+          const val = Number(v ?? 0);
+          const sign = val >= 0 ? '+' : '−';
+          const cls  = val >= 0 ? 'text-success' : 'text-danger';
+          return `<span class="${cls}">${sign} Rp ${Math.abs(val).toLocaleString('id-ID')}</span>`;
+        };
+
+        let amountHtml = `${fmtRupiah(amountPage)} <small class="text-muted"></small>`;
+        let statusHtml = `${fmtSigned(statusPage)} <small class="text-muted"></small>`;
+
+        if (serverTotals) {
+          amountHtml += ` <br><strong>${fmtRupiah(serverTotals.amount ?? 0)}</strong> <small class="text-muted">(filter)</small>`;
+          statusHtml += ` <br><strong>${fmtSigned(serverTotals.status ?? 0)}</strong> <small class="text-muted">(filter)</small>`;
+        }
+
+        $('#footer_total_amount').html(amountHtml);
+        $('#footer_total_status').html(statusHtml);
+      }
     });
   }
 
@@ -133,11 +180,9 @@ $(function () {
     if (selected) {
       buildDataTable();
     } else {
-      // Belum pilih toko → tunggu user pilih, tampilkan hint
       $('#store_hint').addClass('text-danger').text('Pilih toko dulu untuk memuat data.');
     }
 
-    // Saat toko dipilih/diubah → (re)load tabel
     $('#store_select').on('change', function () {
       $('#store_hint').removeClass('text-danger').text('Memuat data…');
       if (!dt) {
@@ -147,7 +192,6 @@ $(function () {
       }
     });
   } else {
-    // Bukan superadmin → langsung jalan (store otomatis dari backend)
     buildDataTable();
   }
 });
