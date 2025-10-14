@@ -6,7 +6,7 @@ use App\Models\tb_daily_revenues;
 use App\Models\tb_outgoing_goods;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
-
+use Carbon\Carbon;
 class ReportController extends Controller
 {
     public function index(Request $request)
@@ -39,67 +39,115 @@ class ReportController extends Controller
         ]);
     }
 
-  public function indexData(Request $request)
+ public function indexData(Request $request)
 {
-    $user = auth()->user();
+    $user         = auth()->user();
     $isSuperadmin = $user?->roles === 'superadmin';
-    $storeId = $request->get('store');
+    $storeId      = $request->get('store');
 
     if ($isSuperadmin && empty($storeId)) {
-        return DataTables::of(collect())->toJson();
-    } elseif (! $isSuperadmin) {
+        return \Yajra\DataTables\Facades\DataTables::of(collect())
+            ->with(['totals' => ['amount' => 0, 'status' => 0]])
+            ->toJson();
+    } elseif (!$isSuperadmin) {
         $storeId = $user?->store_id;
     }
 
-    // SELECT list dinamis (jangan paksa store_id kalau tidak ada)
+    // --- Range tanggal (default: hari ini) ---
+    $dateFrom = $request->query('date_from');
+    $dateTo   = $request->query('date_to');
+
+    if (!$dateFrom && !$dateTo) {
+        $start = \Carbon\Carbon::today('Asia/Jakarta')->startOfDay();
+        $end   = \Carbon\Carbon::today('Asia/Jakarta')->endOfDay();
+    } else {
+        $start = \Carbon\Carbon::parse($dateFrom ?: $dateTo, 'Asia/Jakarta')->startOfDay();
+        $end   = \Carbon\Carbon::parse($dateTo   ?: $dateFrom, 'Asia/Jakarta')->endOfDay();
+        if ($start->gt($end)) { [$start, $end] = [$end, $start]; }
+    }
+    $startStr = $start->toDateString(); // YYYY-MM-DD
+    $endStr   = $end->toDateString();
+
+    // --- Select & base query ---
     $select = ['id', 'user_id', 'amount', 'date'];
-    if (schemaHasColumn('tb_daily_revenues', 'store_id')) {
+    if (\Illuminate\Support\Facades\Schema::hasColumn('tb_daily_revenues', 'store_id')) {
         $select[] = 'store_id';
     }
 
-    $query = tb_daily_revenues::with('user:id,name,store_id')
+    $base = \App\Models\tb_daily_revenues::with('user:id,name,store_id')
         ->select($select);
 
-    // Filter by store dengan cek kolom
-    if (schemaHasColumn('tb_daily_revenues','store_id')) {
-        $query->where('store_id', $storeId);
+    // Filter store
+    if (\Illuminate\Support\Facades\Schema::hasColumn('tb_daily_revenues','store_id')) {
+        $base->where('store_id', $storeId);
     } else {
-        $query->whereHas('user', fn($q) => $q->where('store_id', $storeId));
+        $base->whereHas('user', fn($q) => $q->where('store_id', $storeId));
     }
 
-    return DataTables::eloquent($query)
+    // 🔧 PENTING: jika kolom `date` adalah DATE, pakai whereDate
+    $base->whereDate('date', '>=', $startStr)
+         ->whereDate('date', '<=', $endStr);
+
+    // Totals.amount
+    $totalAmount = (int) (clone $base)->sum('amount');
+
+    // Agregasi outgoing_goods utk status (tetap sama)
+    $ogRows = \App\Models\tb_outgoing_goods::query()
+        ->leftJoin('tb_products as p', 'p.id', '=', 'tb_outgoing_goods.product_id')
+        ->when(
+            \Illuminate\Support\Facades\Schema::hasColumn('tb_outgoing_goods','store_id'),
+            fn($q) => $q->where('tb_outgoing_goods.store_id', $storeId)
+        )
+        ->where(function ($q) use ($startStr, $endStr) {
+            $q->whereBetween(\Illuminate\Support\Facades\DB::raw('DATE(tb_outgoing_goods.date)'), [$startStr, $endStr])
+              ->orWhereBetween(\Illuminate\Support\Facades\DB::raw('DATE(tb_outgoing_goods.created_at)'), [$startStr, $endStr]);
+        })
+        ->selectRaw("
+            DATE(COALESCE(tb_outgoing_goods.date, tb_outgoing_goods.created_at)) as d,
+            REPLACE(REPLACE(REPLACE(REPLACE(LOWER(TRIM(COALESCE(tb_outgoing_goods.recorded_by,''))), ' ', ''), '.', ''), '-', ''), '_', '') as rec_norm,
+            COALESCE(SUM(GREATEST(0,
+                (COALESCE(p.selling_price,0) * COALESCE(tb_outgoing_goods.quantity_out,0))
+                - COALESCE(tb_outgoing_goods.discount,0)
+            )), 0) as total
+        ")
+        ->groupBy('d','rec_norm')
+        ->get();
+
+    $ogMap = [];
+    foreach ($ogRows as $r) {
+        $ogMap[$r->d . '|' . $r->rec_norm] = (int) $r->total;
+    }
+
+    // Totals.status
+    $rowsForTotals = (clone $base)->get(['id','user_id','amount','date']);
+    $totalStatus = 0;
+    foreach ($rowsForTotals as $r) {
+        $dateKey = $r->date instanceof \Carbon\Carbon
+            ? $r->date->toDateString()
+            : \Carbon\Carbon::parse($r->date)->toDateString();
+        $cashierName = trim(optional($r->user)->name ?? '');
+        $norm = $this->normalizeName($cashierName);
+        $sold = $ogMap[$dateKey.'|'.$norm] ?? 0;
+        $totalStatus += ((int)$r->amount - (int)$sold);
+    }
+
+    return \Yajra\DataTables\Facades\DataTables::eloquent($base)
         ->addIndexColumn()
         ->addColumn('name', fn ($row) => optional($row->user)->name ?? '-')
         ->editColumn('amount', fn ($row) => (int) $row->amount)
-        ->editColumn('date', fn ($row) => $row->date instanceof \Carbon\Carbon ? $row->date->toDateString() : $row->date)
-        ->addColumn('status', function ($row) use ($storeId) {
-            $filterDate  = \Carbon\Carbon::parse($row->date)->toDateString();
+        ->editColumn('date', fn ($row) =>
+            $row->date instanceof \Carbon\Carbon
+                ? $row->date->toDateString()
+                : (\Carbon\Carbon::parse($row->date)->toDateString())
+        )
+        ->addColumn('status', function ($row) use ($ogMap) {
+            $dateKey = $row->date instanceof \Carbon\Carbon
+                ? $row->date->toDateString()
+                : \Carbon\Carbon::parse($row->date)->toDateString();
             $cashierName = trim(optional($row->user)->name ?? '');
-
-            $soldTotal = tb_outgoing_goods::query()
-                ->leftJoin('tb_products as p', 'p.id', '=', 'tb_outgoing_goods.product_id')
-                ->when(schemaHasColumn('tb_outgoing_goods','store_id'), fn($q) => $q->where('tb_outgoing_goods.store_id', $storeId))
-                ->where(function ($q) use ($filterDate) {
-                    $q->whereDate('tb_outgoing_goods.date', $filterDate)
-                      ->orWhereDate('tb_outgoing_goods.created_at', $filterDate);
-                })
-                ->when($cashierName !== '', function ($q) use ($cashierName) {
-                    $normalized = strtolower(trim($cashierName));
-                    $sql = "
-                        REPLACE(REPLACE(REPLACE(REPLACE(LOWER(TRIM(COALESCE(tb_outgoing_goods.recorded_by,''))), ' ', ''), '.', ''), '-', ''), '_', '')
-                        = REPLACE(REPLACE(REPLACE(REPLACE(LOWER(?), ' ', ''), '.', ''), '-', ''), '_', '')
-                    ";
-                    $q->whereRaw($sql, [$normalized]);
-                })
-                ->selectRaw("
-                    COALESCE(SUM(GREATEST(0,
-                        (COALESCE(p.selling_price,0) * COALESCE(tb_outgoing_goods.quantity_out,0))
-                        - COALESCE(tb_outgoing_goods.discount,0)
-                    )), 0) as total
-                ")
-                ->value('total');
-
-            return (int) $row->amount - (int) $soldTotal;
+            $norm = $this->normalizeName($cashierName);
+            $sold = $ogMap[$dateKey.'|'.$norm] ?? 0;
+            return (int) $row->amount - (int) $sold;
         })
         ->addColumn('action', fn ($row) =>
             '<div class="d-flex justify-content-center">
@@ -109,9 +157,9 @@ class ReportController extends Controller
             </div>'
         )
         ->rawColumns(['action'])
+        ->with(['totals' => ['amount' => $totalAmount, 'status' => $totalStatus]])
         ->toJson();
 }
-
 
   public function detail(Request $request, $id)
 {
@@ -168,7 +216,13 @@ public function detailData(Request $request, $id)
         })
         ->toJson();
 }
+private function normalizeName(?string $name): string
+{
+    $n = mb_strtolower(trim((string) $name), 'UTF-8');
+    return str_replace([' ', '.', '-', '_'], '', $n);
 }
+}
+
 
 /**
  * Helper kecil untuk cek kolom ada (hindari error kalau struktur beda)
@@ -182,3 +236,4 @@ if (! function_exists('schemaHasColumn')) {
         }
     }
 }
+

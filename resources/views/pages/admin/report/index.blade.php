@@ -28,17 +28,34 @@
           @endforeach
         </select>
       </div>
-      <small id="store_hint" class="text-muted">
-        Pilih toko untuk memuat data laporan.
-      </small>
+      <small id="store_hint" class="text-muted">Pilih toko untuk memuat data laporan.</small>
     @else
       <div><span class="badge bg-secondary">Toko: {{ $currentStoreName ?? '-' }}</span></div>
     @endif
+
+    <div class="vr d-none d-md-block"></div>
+
+    {{-- Filter tanggal --}}
+    <div class="d-flex align-items-center gap-2">
+      <label for="date_from" class="mb-0">Dari</label>
+      <input type="date" id="date_from" class="form-control" style="min-width:170px">
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <label for="date_to" class="mb-0">Sampai</label>
+      <input type="date" id="date_to" class="form-control" style="min-width:170px">
+    </div>
+
+    <button id="reset_filter" class="btn btn-outline-secondary">Reset</button>
+
+    {{-- Pesan validasi ringan --}}
+    <small id="date_hint" class="text-danger ms-2"></small>
   </div>
 </div>
 
 <h6 class="mb-0 text-uppercase">Data Pembelian</h6>
 <hr />
+
 <div class="card">
   <div class="card-body">
     <div class="table-responsive">
@@ -88,6 +105,27 @@ $(function () {
   const isSuperadmin = @json(auth()->user()?->roles === 'superadmin');
   let dt;
 
+  function todayStr() {
+    const d = new Date(); // Asia/Jakarta di sisi client
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function setDateHint(msg) {
+    $('#date_hint').text(msg || '');
+  }
+
+  function reloadIfReady() {
+    // Superadmin wajib pilih toko dulu
+    if (isSuperadmin && !$('#store_select').val()) {
+      $('#store_hint').addClass('text-danger').text('Pilih toko dulu untuk memuat data.');
+      return;
+    }
+    if (dt) dt.ajax.reload(null, false);
+  }
+
   function buildDataTable() {
     let serverTotals = null;
 
@@ -96,8 +134,12 @@ $(function () {
       serverSide: true,
       ajax: {
         url: "{{ route('report.index.data') }}",
+        type: 'GET',
+        cache: false,
         data: function (d) {
-          d.store = $('#store_select').val() || '';
+          d.store     = $('#store_select').val() || '';
+          d.date_from = $('#date_from').val()    || '';
+          d.date_to   = $('#date_to').val()      || '';
         },
         dataSrc: function (json) {
           serverTotals = json.totals || null;
@@ -137,35 +179,35 @@ $(function () {
             return val;
           }
         },
-        { data: 'action', name: 'action', orderable:false, searchable:false, className:'text-center align-self-center' },
+        { data: 'action', name: 'action', orderable:false, searchable:false, className:'text-center' },
       ],
       order: [[3, 'desc']],
-
-      footerCallback: function (row, data, start, end, display) {
+      pageLength: 25,
+      language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/id.json' },
+      footerCallback: function () {
         const api = this.api();
-
-        const pageSum = (colIdx) =>
-          api.column(colIdx, { page: 'current' })
+        const pageSum = (i) =>
+          api.column(i, { page: 'current' })
              .data()
              .reduce((a, b) => Number(a) + Number(b ?? 0), 0);
 
-        const amountPage = pageSum(2); // kolom "Total"
-        const statusPage = pageSum(4); // kolom "+/-"
+        const amountPage = pageSum(2);
+        const statusPage = pageSum(4);
 
-        const fmtRupiah = (v) => 'Rp ' + Number(v ?? 0).toLocaleString('id-ID');
-        const fmtSigned  = (v) => {
-          const val = Number(v ?? 0);
-          const sign = val >= 0 ? '+' : '−';
-          const cls  = val >= 0 ? 'text-success' : 'text-danger';
-          return `<span class="${cls}">${sign} Rp ${Math.abs(val).toLocaleString('id-ID')}</span>`;
+        const fmtRp = (v) => 'Rp ' + Number(v ?? 0).toLocaleString('id-ID');
+        const fmtSigned = (v) => {
+          const n = Number(v ?? 0);
+          const sign = n >= 0 ? '+' : '−';
+          const cls  = n >= 0 ? 'text-success' : 'text-danger';
+          return `<span class="${cls}">${sign} Rp ${Math.abs(n).toLocaleString('id-ID')}</span>`;
         };
 
-        let amountHtml = `${fmtRupiah(amountPage)} <small class="text-muted"></small>`;
-        let statusHtml = `${fmtSigned(statusPage)} <small class="text-muted"></small>`;
+        let amountHtml = fmtRp(amountPage);
+        let statusHtml = fmtSigned(statusPage);
 
         if (serverTotals) {
-          amountHtml += ` <br><strong>${fmtRupiah(serverTotals.amount ?? 0)}</strong> <small class="text-muted">(filter)</small>`;
-          statusHtml += ` <br><strong>${fmtSigned(serverTotals.status ?? 0)}</strong> <small class="text-muted">(filter)</small>`;
+          amountHtml += `<br><strong>${fmtRp(serverTotals.amount ?? 0)}</strong> <small class="text-muted">(filter)</small>`;
+          statusHtml += `<br><strong>${fmtSigned(serverTotals.status ?? 0)}</strong> <small class="text-muted">(filter)</small>`;
         }
 
         $('#footer_total_amount').html(amountHtml);
@@ -174,7 +216,7 @@ $(function () {
     });
   }
 
-  // Inisialisasi:
+  // Inisialisasi
   if (isSuperadmin) {
     const selected = $('#store_select').val();
     if (selected) {
@@ -182,18 +224,73 @@ $(function () {
     } else {
       $('#store_hint').addClass('text-danger').text('Pilih toko dulu untuk memuat data.');
     }
-
     $('#store_select').on('change', function () {
       $('#store_hint').removeClass('text-danger').text('Memuat data…');
-      if (!dt) {
-        buildDataTable();
-      } else {
-        dt.ajax.reload();
-      }
+      setDateHint('');
+      if (!dt) buildDataTable(); else reloadIfReady();
     });
   } else {
     buildDataTable();
   }
+
+  // ==== Auto apply tanggal (tanpa tombol) ====
+
+  // Jika user ubah date_from:
+  $('#date_from').on('change', function () {
+    setDateHint('');
+    const from = $('#date_from').val();
+    const to   = $('#date_to').val();
+
+    // Atur batas minimal date_to
+    $('#date_to').attr('min', from || '');
+
+    if (!from) {
+      // Jika from dikosongkan: kosongkan to dan reload -> default server = hari ini
+      $('#date_to').val('');
+      reloadIfReady();
+      return;
+    }
+
+    if (!to) {
+      // Jika hanya from diisi -> set to = hari ini dan reload
+      $('#date_to').val(todayStr());
+    }
+    reloadIfReady();
+  });
+
+  // Jika user ubah date_to:
+  $('#date_to').on('change', function () {
+    setDateHint('');
+    const from = $('#date_from').val();
+    const to   = $('#date_to').val();
+
+    if (to && !from) {
+      setDateHint('Isi "Dari" terlebih dahulu sebelum memilih "Sampai".');
+      $('#date_to').val('');
+      $('#date_from').focus();
+      return;
+    }
+
+    if (from && to) {
+      // Pastikan min terpenuhi
+      $('#date_to').attr('min', from);
+      if (to < from) {
+        setDateHint('"Sampai" tidak boleh sebelum "Dari".');
+        $('#date_to').val(from);
+      }
+      reloadIfReady();
+    }
+  });
+
+  // Reset filter
+  $('#reset_filter').on('click', function (e) {
+    e.preventDefault();
+    setDateHint('');
+    $('#date_from').val('');
+    $('#date_to').val('');
+    $('#date_to').attr('min', '');
+    reloadIfReady();
+  });
 });
 </script>
 @endsection
