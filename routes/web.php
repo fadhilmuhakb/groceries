@@ -202,7 +202,7 @@ Route::prefix('report')->name('report.')->group(function () {
     Route::get('/detail/{id}/data', [ReportController::class, 'detailData'])->name('detail.data');
 });
 
-Route::prefix('settings')->middleware(['auth','superadmin'])->group(function () {
+Route::prefix('settings')->group(function () {
     Route::get('access',  [MenuAccessController::class, 'index'])->name('settings.access.index');
     Route::post('access', [MenuAccessController::class, 'save'])->name('settings.access.save');
 });
