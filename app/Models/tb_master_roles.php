@@ -2,13 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class tb_master_roles extends Model
+class TbMasterRole extends Model
 {
-    use HasFactory;
+    protected $table = 'tb_master_roles';
+    protected $fillable = ['role_name', 'is_active'];
 
-    protected $guarded = ['id'];
-    
+    public function menus()
+    {
+        return $this->belongsToMany(
+            TbMasterMenus::class,
+            'tb_master_menu_roles',
+            'role_id',
+            'menu_id'
+        );
+    }
 }

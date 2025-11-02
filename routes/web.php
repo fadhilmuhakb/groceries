@@ -22,7 +22,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TbMasterMenusController;
 use App\Http\Controllers\TbMasterRolesController;
-
+use App\Http\Controllers\Settings\MenuAccessController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -202,6 +202,10 @@ Route::prefix('report')->name('report.')->group(function () {
     Route::get('/detail/{id}/data', [ReportController::class, 'detailData'])->name('detail.data');
 });
 
+Route::prefix('settings')->middleware(['auth','superadmin'])->group(function () {
+    Route::get('access',  [MenuAccessController::class, 'index'])->name('settings.access.index');
+    Route::post('access', [MenuAccessController::class, 'save'])->name('settings.access.save');
+});
 
 // routes/web.php
 

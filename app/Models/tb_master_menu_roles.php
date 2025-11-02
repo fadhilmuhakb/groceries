@@ -2,26 +2,20 @@
 
 namespace App\Models;
 
-use App\Http\Controllers\TbMasterMenusController;
-use App\Http\Controllers\TbMasterRolesController;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class tb_master_menu_roles extends Model
 {
-    use HasFactory;
-    protected $fillable = [
-        'menu_id',
-        'role_id'
-    ];
+    protected $table = 'tb_master_menu_roles';
+    protected $fillable = ['menu_id', 'role_id'];
 
-    public function menus()
+    public function menu()
     {
-        return $this->hasMany(TbMasterMenusController::class, 'menu_id');
+        return $this->belongsTo(tb_master_menus::class, 'menu_id');
     }
 
-    public function roles()
+    public function role()
     {
-        return $this->hasMany(TbMasterRolesController::class, 'role_id');
+        return $this->belongsTo(tb_master_roles::class, 'role_id');
     }
 }
