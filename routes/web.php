@@ -20,6 +20,9 @@ use App\Http\Controllers\StaffController;
 use App\Http\Controllers\SyncController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\TbMasterMenusController;
+use App\Http\Controllers\TbMasterRolesController;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -158,6 +161,26 @@ Route::get('/sync/manual', [SyncController::class, 'manual'])->name('sync.manual
         Route::get('/', [TbSalesController::class, 'index'])->name('sales.index');
         Route::post('/', [TbSalesController::class, 'store'])->name('sales.store');
 
+    });
+
+    Route::prefix('settings')->group(function() {
+        Route::prefix('/roles')->group(function() {
+            Route::get('/', [TbMasterRolesController::class, 'index'])->name('settings.roles.index');
+            Route::get('/create', [TbMasterRolesController::class, 'create'])->name('settings.roles.create');
+            Route::get('/edit/{id}', [TbMasterRolesController::class, 'edit'])->name('settings.roles.edit');
+            Route::post('/', [TbMasterRolesController::class, 'store'])->name('settings.roles.store');
+            Route::put('/{id}', [TbMasterRolesController::class, 'update'])->name('settings.roles.update');
+            Route::delete('/{id}', [TbMasterRolesController::class, 'destroy'])->name('settings.roles.delete');
+        });
+
+        Route::prefix('/menus')->group(function() {
+            Route::get('/', [TbMasterMenusController::class, 'index'])->name('settings.menus.index');
+            Route::get('/create', [TbMasterMenusController::class, 'create'])->name('settings.menus.create');
+            Route::get('/edit/{id}', [TbMasterMenusController::class, 'edit'])->name('settings.menus.edit');
+            Route::post('/', [TbMasterMenusController::class, 'store'])->name('settings.menus.store');
+            Route::put('/{id}', [TbMasterMenusController::class, 'update'])->name('settings.menus.update');
+            Route::delete('/{id}', [TbMasterMenusController::class, 'destroy'])->name('settings.menus.delete');
+        });
     });
 
     Route::prefix('options')->group(function () {

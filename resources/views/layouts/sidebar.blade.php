@@ -122,6 +122,17 @@
 
         </li>
         @endif
+        <li>
+            <a href="javascript:void(0)" class="has-arrow">
+                <div class="parent-icon"><i class="bx bx-category"></i></div>
+                <div class="menu-title">Settings</div>
+            </a>
+            <ul>
+                <li><a href="{{route('settings.roles.index')}}"><i class="bx bx-right-arrow-alt"></i>Roles</a></li>
+                <li><a href="{{route('settings.menus.index')}}"><i class="bx bx-right-arrow-alt"></i>Menus</a></li>
+            </ul>
+
+        </li>
         {{-- 🔄 Sinkronisasi (tampil untuk semua user yang login) --}}
         <!-- <li>
             <a href="{{ route('sync.manual') }}">
