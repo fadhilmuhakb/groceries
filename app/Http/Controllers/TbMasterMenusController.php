@@ -28,10 +28,9 @@ class TbMasterMenusController extends Controller
                         })
                         ->addColumn('ancestors', function($menu) {
                             if($menu->parent_id) {
-                                $ordered = $menu->ancestors->sortBy('depth');
+                                $ordered = $menu->ancestors;
                                 return $ordered
                                     ->pluck('menu_name')
-                                    ->push($menu->menu_name)
                                     ->implode(' › ');
                             } else {
                                 return '-';
