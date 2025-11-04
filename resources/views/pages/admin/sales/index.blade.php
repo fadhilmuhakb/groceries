@@ -327,6 +327,8 @@
         let lastKeyTime = Date.now();
         let keyModal = Number(1);
         let onClickedItem = Number(0);
+        let itemTable = null;          // instance global DataTable
+        let isOpeningModal = false;    // guard agar modal tak double-open
 
 
         $(document).ready(function() {
@@ -348,23 +350,33 @@
 
         $('#item-modal').on('shown.bs.modal', function () {
             isItemModalOpen = true;
+            isOpeningModal = false; // reset guard
+
             selectedRow = 0;
             highlightRow(selectedRow);
-            // $('#search_term').focus();
-            $(document).on('keydown', function(e) {
-                if(e.key === 'Escape') {
-                    $('#item-modal').modal('hide');
-                }
-            })
-            $('#table-item').DataTable().columns.adjust();
-        });
 
-        $('#item-modal').on('hidden.bs.modal', function() {
+            // ESC untuk close (namespaced biar gampang di-off)
+            $(document).on('keydown._itemmodal', function (e) {
+                if (e.key === 'Escape') $('#item-modal').modal('hide');
+            });
+
+            // Pastikan sudah ada instance, lalu adjust setelah layout settle
+            ensureItemTableInitialized();
+            setTimeout(() => {
+                if (itemTable) itemTable.columns.adjust();
+            }, 200);
+            });
+
+            $('#item-modal').on('hidden.bs.modal', function () {
             $('#item-code').focus();
             onClickedItem = 0;
-            $('#table-item').DataTable().destroy();
             isItemModalOpen = false;
-        });
+
+            // PENTING: JANGAN destroy di sini
+            // $('#table-item').DataTable().destroy();  <-- HAPUS BARIS INI
+
+            $(document).off('keydown._itemmodal');
+            });
 
         // Qty
         $('#qty').on('keydown', function(e) {
@@ -557,10 +569,11 @@
                         $('#qty').focus()
                         return;
                     } else {
-                        datatableItem();
-                        var myModal = new bootstrap.Modal(document.getElementById('item-modal'));
-                        isItemModalOpen = true;
-                        myModal.show();
+                        openItemModalSafely()
+                        // datatableItem();
+                        // var myModal = new bootstrap.Modal(document.getElementById('item-modal'));
+                        // isItemModalOpen = true;
+                        // myModal.show();
                     }
                 }
                 inputString = '';
@@ -632,62 +645,77 @@
             if(event.key === "Enter") {
                 event.preventDefault();
                 search_term = $('#search_term').val();
-                $('#table-item').DataTable().destroy();
-                datatableItem();
+                // $('#table-item').DataTable().destroy();
+                // datatableItem();
+                ensureItemTableInitialized();
+                itemTable.ajax.reload(null, false); 
 
             }
         }
 
+        
 
-        const datatableItem = () => {
-            $('#table-item').DataTable({
-                    "paging": false,
-                    "processing": true,
-                    "serverSide": true,
-                    "ajax": {
-                        "url": "{{ route('options.incoming_goods') }}",
-                        "data": function(d) {
-                            d.search_term = search_term;
-                            d.sear_type = $('#search_type').val();
-                            d.type = 'table';
-                        }
+        function ensureItemTableInitialized() {
+                if ($.fn.DataTable.isDataTable('#table-item')) {
+                    itemTable = $('#table-item').DataTable(); // ambil instance lama
+                    return itemTable;
+                }
+
+                // INIT PERTAMA KALI SAJA
+                itemTable = $('#table-item').DataTable({
+                    paging: false,
+                    processing: true,
+                    serverSide: true,
+                    ajax: {
+                    url: "{{ route('options.incoming_goods') }}",
+                    data: function (d) {
+                        d.search_term = search_term;
+                        d.sear_type = $('#search_type').val();
+                        d.type = 'table';
+                    }
                     },
-                    "columnDefs": [{ visible: false, targets: 0 }, {targets: 6, className: 'dt-right'}],
-                    "columns": [
-                        { "data": "id"},
-                        { "data": "product_code" },
-                        { "data": "product_name" },
-                        { "data": "current_stock" },
-                        { "data": "unit_name" },
-                        { "data": "type_name" },
-                        { "data": "price",
-                            render: function(data) {
-                                return formatRupiah(data);
-                            }
-                        },
-                        { "data": "product_discount",
-                            render: function(data) {
-                                return formatRupiah(data);
-                            }
-                        },
-                        { "data": "selling_price",
-                            render: function(data) {
-                                return formatRupiah(data);
-                            }
-                        },
-                        { "data": "brand_name" }
+                    columnDefs: [
+                    { visible: false, targets: 0 },
+                    { targets: 6, className: 'dt-right' }
                     ],
-                    "scrollY": "300px",
-                    "scrollCollapse": true,
-                    "searching": false,
-                    "info": false,
-                    "ordering": false,
-                    "dom": 'rtip'
+                    columns: [
+                    { data: "id" },
+                    { data: "product_code" },
+                    { data: "product_name" },
+                    { data: "current_stock" },
+                    { data: "unit_name" },
+                    { data: "type_name" },
+                    { data: "price", render: (d) => formatRupiah(d) },
+                    { data: "product_discount", render: (d) => formatRupiah(d) },
+                    { data: "selling_price", render: (d) => formatRupiah(d) },
+                    { data: "brand_name" }
+                    ],
+                    scrollY: "300px",
+                    scrollCollapse: true,
+                    searching: false,
+                    info: false,
+                    ordering: false,
+                    dom: 'rtip',
+                    // JAGA-JAGA: kalau tanpa guard masih kepanggil 2x, kembalikan instance yang sama
+                    retrieve: true
                 });
-        };
 
+                return itemTable;
+                }
+        function openItemModalSafely() {
+                if (isItemModalOpen || isOpeningModal) return; // cegah double open cepat
+                isOpeningModal = true;
+
+                ensureItemTableInitialized();     // pastikan sudah init
+                itemTable.ajax.reload(null, false); // sync data terbaru sebelum tampil
+
+                const myModal = new bootstrap.Modal(document.getElementById('item-modal'));
+                myModal.show();
+                }
+        
         $('#table-item').on('click', 'tbody tr', function() {
-            let data = $('#table-item').DataTable().row(this).data();
+            ensureItemTableInitialized();
+            let data = itemTable.row(this).data();
             let qty = $('#qty').val();
             if(data) {
                 if(data.current_stock < qty) {
