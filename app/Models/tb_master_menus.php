@@ -16,28 +16,31 @@ class tb_master_menus extends Model
     /**
      * Ambil tree menu aktif yang diizinkan utk role tertentu (berdasar users.roles string)
      */
-  public static function treeAllowedForRoleName(string $roleName)
+ public static function treeAllowedForRoleName(string $roleName)
 {
-    $roleName   = trim(strtolower($roleName));
+    $roleName = strtolower(trim($roleName));
+
     $allowedIds = \DB::table('tb_master_menu_roles')
-        ->whereRaw('LOWER(role_name) = ?', [$roleName])
+        ->whereRaw('LOWER(TRIM(role_name)) = ?', [$roleName])
         ->pluck('menu_id')
-        ->toArray();
+        ->map(fn($v) => (int) $v)
+        ->all();
 
-    // Ambil semua menu aktif, dikelompokkan per parent
-    $all = static::where('is_active', 1)->orderBy('id')->get()->groupBy('parent_id');
+    $allowSet = array_flip($allowedIds);
 
-    $build = function ($parentId) use (&$build, $all, $allowedIds) {
+    $all = static::where('is_active', 1)
+        // ->orderBy('sort')
+        ->orderBy('id')
+        ->get()
+        ->groupBy('parent_id');
+
+    $build = function ($parentId) use (&$build, $all, $allowSet) {
         $items = $all[$parentId] ?? collect();
 
-        return $items->map(function ($m) use ($build, $allowedIds) {
-            // Bangun dulu anak-anaknya
+        return $items->map(function ($m) use ($build, $allowSet) {
             $children = $build($m->id);
 
-            // Aturan tampil:
-            // - Jika menu ini explicit diizinkan (id ada di pivot) => tampil
-            // - Jika menu ini parent (menu_path NULL) => hanya tampil bila punya anak yang diizinkan
-            $isSelfAllowed = in_array($m->id, $allowedIds, true);
+            $isSelfAllowed = isset($allowSet[(int) $m->id]);
             $isParent      = is_null($m->menu_path);
             $hasAllowedKid = $children->isNotEmpty();
 
@@ -45,13 +48,12 @@ class tb_master_menus extends Model
                 $m->setRelation('children', $children->values());
                 return $m;
             }
-
-            // Selain itu sembunyikan
             return null;
         })->filter()->values();
     };
 
     return $build(null);
 }
+
 
 }
