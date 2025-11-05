@@ -164,7 +164,7 @@
                                             <th width="30%">Nama Item</th>
                                             <th>Jumlah</th>
                                             <th>Harga</th>
-                                            <th>Potongan</th>
+                                            {{-- <th>Potongan</th> --}}
                                             <th>Total</th>
                                             <th>Aksi</th>
                                         </tr>
@@ -805,7 +805,7 @@
                             <td>${item.product_name}</td>
                             <td><input type="number" name="products[${index}][qty]" style="width:50px ;text-align:right; border:1px solid #ced4da" value="${item.qty}" oninput="onQtyChange(${index}, this.value)"></td>
                             <td style="text-align:right">${formatRupiah(item.selling_price)}</td>
-                            <td><input type="number" name="products[${index}][discount]" style="text-align:right; border:1px solid #ced4da" value="${item.discount}" oninput="onDiscountChange(${index}, this.value)"></td>
+                            
                             <td style="text-align:right">${formatRupiah(item.total)}</td>
                             <td><button class="btn btn-sm btn-danger" onclick="onDelete(${index})"><i class="bx bx-trash me-0"></i></button></td>
                         </tr>
