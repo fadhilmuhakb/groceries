@@ -561,6 +561,10 @@
             if(event.key === "Enter") {
                 onClickedItem = onClickedItem+1;
                 search_term = $(this).val();
+                item_code = $('#item-code').val();
+                if(item_code.length > 1) {
+                    onClickedItem = onClickedItem+1
+                }
                 event.preventDefault();
                 if(delta < 50) {
                     processBarcode(search_term);
