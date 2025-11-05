@@ -6,7 +6,7 @@
     <h5 class="mb-0">Pengaturan Akses Menu</h5>
   </div>
 
-  {{-- pilih role --}}
+  {{-- Pilih role --}}
   <form method="GET" class="d-flex gap-2 align-items-center mb-3">
     <label class="mb-0">Role</label>
     <select name="role" class="form-select" style="max-width:260px" onchange="this.form.submit()">
@@ -17,8 +17,8 @@
     <noscript><button class="btn btn-primary">Pilih</button></noscript>
   </form>
 
-  @if(session('ok')) <div class="alert alert-success">{{ session('ok') }}</div> @endif
-  @if($errors->any()) <div class="alert alert-danger">{{ $errors->first() }}</div> @endif
+  @if(session('ok'))    <div class="alert alert-success">{{ session('ok') }}</div> @endif
+  @if($errors->any())   <div class="alert alert-danger">{{ $errors->first() }}</div> @endif
 
   <form method="POST" action="{{ route('settings.access.save') }}">
     @csrf
@@ -34,7 +34,12 @@
     </div>
 
     <ul class="list-unstyled">
-      @include('settings.access.tree', ['nodes' => $nodes, 'lock' => $currentRole === 'superadmin'])
+      {{-- ⬇️ WAJIB kirim allowSet ke partial --}}
+      @include('settings.access.tree', [
+        'nodes'    => $nodes,
+        'lock'     => $currentRole === 'superadmin',
+        'allowSet' => $allowSet
+      ])
     </ul>
 
     @if($currentRole === 'superadmin')
@@ -46,7 +51,8 @@
   </form>
 @endsection
 
-@push('scripts')
+{{-- layout kamu pakai @yield('scripts'), jadi gunakan @section, bukan @push --}}
+@section('scripts')
 <script>
 (() => {
   const lock = {{ $currentRole === 'superadmin' ? 'true' : 'false' }};
@@ -65,4 +71,4 @@
   document.getElementById('btn-collapse')?.addEventListener('click', () => showAll('none'));
 })();
 </script>
-@endpush
+@endsection

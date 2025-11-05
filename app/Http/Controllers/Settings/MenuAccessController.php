@@ -12,42 +12,44 @@ class MenuAccessController extends Controller
     // Daftar role yang bisa diatur
     private array $roles = ['superadmin','admin','staff'];
 
-    public function index(Request $request)
-    {
-        $roles = collect($this->roles);
+ public function index(Request $request)
+{
+    $roles = collect(['superadmin','admin','staff']);
+    $currentRole = strtolower(trim((string) $request->query('role', 'superadmin')));
+    if (!in_array($currentRole, $roles->all(), true)) $currentRole = 'superadmin';
 
-        // role aktif dari query ?role=..., default superadmin
-        $currentRole = strtolower((string) $request->query('role', 'superadmin'));
-        if (!in_array($currentRole, $this->roles, true)) $currentRole = 'superadmin';
+    // Ambil id menu yang diizinkan untuk role (CAST ke int + trim/lower)
+    $allowedIds = \DB::table('tb_master_menu_roles')
+        ->whereRaw('LOWER(TRIM(role_name)) = ?', [$currentRole])
+        ->pluck('menu_id')
+        ->map(fn($v) => (int) $v)
+        ->all();
 
-        // id menu yang diizinkan utk role sekarang
-        $allowedIds = DB::table('tb_master_menu_roles')
-            ->whereRaw('LOWER(role_name) = ?', [$currentRole])
-            ->pluck('menu_id')
-            ->toArray();
+    // Buat SET supaya lookup O(1) & kebal tipe
+    $allowSet = array_flip($allowedIds);
 
-        // build tree menu aktif
-        $all = tb_master_menus::where('is_active', 1)->orderBy('id')->get()->groupBy('parent_id');
-        $build = function($pid) use (&$build, $all, $allowedIds) {
-            $items = $all[$pid] ?? collect();
-            return $items->map(function ($m) use ($build, $allowedIds) {
-                return (object)[
-                    'id'       => $m->id,
-                    'name'     => $m->menu_name,
-                    'path'     => $m->menu_path,
-                    'icon'     => $m->menu_icon,
-                    'checked'  => in_array($m->id, $allowedIds, true),
-                    'children' => $build($m->id),
-                ];
-            });
-        };
+    // Build tree seperti biasa
+    $all   = \App\Models\tb_master_menus::where('is_active', 1)->orderBy('id')->get()->groupBy('parent_id');
+    $build = function($pid) use (&$build, $all) {
+        $items = $all[$pid] ?? collect();
+        return $items->map(function($m) use ($build) {
+            return (object)[
+                'id'       => (int) $m->id,
+                'name'     => $m->menu_name,
+                'path'     => $m->menu_path,
+                'icon'     => $m->menu_icon,
+                'children' => $build($m->id),
+            ];
+        });
+    };
 
-        return view('settings.access.index', [
-            'roles'       => $roles,
-            'currentRole' => $currentRole,
-            'nodes'       => $build(null),
-        ]);
-    }
+    return view('settings.access.index', [
+        'roles'       => $roles,
+        'currentRole' => $currentRole,
+        'nodes'       => $build(null),
+        'allowSet'    => $allowSet,   // ⬅️ kirim ke view
+    ]);
+}
 
     public function save(Request $request)
     {

@@ -1,24 +1,41 @@
-@props(['nodes','lock' => false])
+@php
+  // Default jika variabel tidak dipassing
+  $nodes    = $nodes    ?? collect();
+  $lock     = $lock     ?? false;
+  $allowSet = $allowSet ?? [];
+@endphp
 
 @foreach($nodes as $n)
+  @php
+    $id        = (int) ($n->id ?? 0);
+    $children  = ($n->children ?? collect());
+    $isChecked = isset($allowSet[$id]); // kebal tipe data (string/int)
+  @endphp
+
   <li class="mb-1">
     <div class="form-check">
       <input class="form-check-input"
              type="checkbox"
              data-menu
-             id="m{{ $n->id }}"
-             name="menu[{{ $n->id }}]"
-             @checked($n->checked)
+             id="m{{ $id }}"
+             name="menu[{{ $id }}]"
+             @checked($isChecked)
              @disabled($lock)>
-      <label class="form-check-label" for="m{{ $n->id }}">
-        {!! $n->icon ? "<i class='{$n->icon}'></i>" : '' !!} {{ $n->name }}
-        @if($n->path)<small class="text-muted">(<code>{{ $n->path }}</code>)</small>@endif
+      <label class="form-check-label" for="m{{ $id }}">
+        {!! !empty($n->icon) ? "<i class='{$n->icon}'></i>" : '' !!} {{ $n->name ?? '-' }}
+        @if(!empty($n->path))
+          <small class="text-muted">(<code>{{ $n->path }}</code>)</small>
+        @endif
       </label>
     </div>
 
-    @if($n->children->isNotEmpty())
+    @if($children->isNotEmpty())
       <ul class="ms-4 list-unstyled" data-tree>
-        @include('settings.access.tree', ['nodes' => $n->children, 'lock' => $lock])
+        @include('settings.access.tree', [
+          'nodes'    => $children,
+          'lock'     => $lock,
+          'allowSet' => $allowSet,  {{-- ⬅️ teruskan ke anak --}}
+        ])
       </ul>
     @endif
   </li>
