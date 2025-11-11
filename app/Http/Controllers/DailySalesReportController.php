@@ -29,15 +29,18 @@ class DailySalesReportController extends Controller
             ? tb_stores::where('id', $selectedStoreId)->value('store_name')
             : null;
 
-        $selectedDate = now('Asia/Jakarta')->toDateString();
-        $cashiers     = $this->availableCashiers($selectedStoreId, $selectedDate);
+        $today             = now('Asia/Jakarta')->toDateString();
+        $defaultDateFrom   = $today;
+        $defaultDateTo     = $today;
+        $cashiers          = $this->availableCashiers($selectedStoreId, $today, $today);
 
         return view('pages.admin.report.sales-today', [
             'stores'           => $stores,
             'isSuperadmin'     => $isSuperadmin,
             'selectedStoreId'  => $selectedStoreId,
             'currentStoreName' => $currentStoreName,
-            'defaultDate'      => $selectedDate,
+            'defaultDateFrom'  => $defaultDateFrom,
+            'defaultDateTo'    => $defaultDateTo,
             'cashiers'         => $cashiers,
         ]);
     }
@@ -49,7 +52,7 @@ class DailySalesReportController extends Controller
         $storeId      = $isSuperadmin ? $request->get('store') : ($user?->store_id);
         $storeId      = $storeId === '' ? null : $storeId;
 
-        $selectedDate = now('Asia/Jakarta')->toDateString();
+        [$startDate, $endDate] = $this->resolveDateRange($request->get('date_from'), $request->get('date_to'));
         $cashier      = $request->get('cashier');
 
         $baseQuery = tb_outgoing_goods::query()
@@ -58,8 +61,11 @@ class DailySalesReportController extends Controller
             ->leftJoin('tb_stores as st', 'st.id', '=', 's.store_id')
             ->leftJoin('tb_customers as c', 'c.id', '=', 's.customer_id')
             ->when($storeId, fn ($q) => $q->where('s.store_id', $storeId))
-            ->where(function ($query) use ($selectedDate) {
-                $query->whereDate(DB::raw('COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at)'), $selectedDate);
+            ->where(function ($query) use ($startDate, $endDate) {
+                $query->whereBetween(
+                    DB::raw('COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at)'),
+                    [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()]
+                );
             })
             ->when(
                 $cashier && Schema::hasColumn('tb_outgoing_goods', 'recorded_by'),
@@ -91,7 +97,7 @@ class DailySalesReportController extends Controller
             'discount' => (clone $baseQuery)->sum('tb_outgoing_goods.discount'),
         ];
 
-        $cashiers = $this->availableCashiers($storeId, $selectedDate);
+        $cashiers = $this->availableCashiers($storeId, $startDate->toDateString(), $endDate->toDateString());
 
         $dataQuery = (clone $baseQuery)->orderByDesc('activity_date')->orderByDesc('tb_outgoing_goods.id');
 
@@ -123,39 +129,69 @@ class DailySalesReportController extends Controller
             })
             ->rawColumns(['action'])
             ->with([
-                'totals'   => $totals,
-                'cashiers' => $cashiers,
-                'date'     => $selectedDate,
+                'totals'      => $totals,
+                'cashiers'    => $cashiers,
+                'date_range'  => [
+                    $startDate->toDateString(),
+                    $endDate->toDateString(),
+                ],
             ])
             ->toJson();
     }
 
-    private function resolveDate(?string $dateInput): Carbon
+    private function resolveDateRange(?string $from, ?string $to): array
     {
-        if ($dateInput) {
-            try {
-                return Carbon::createFromFormat('Y-m-d', $dateInput, 'Asia/Jakarta');
-            } catch (\Throwable $e) {
-                // fallback
-            }
+        $tz   = 'Asia/Jakarta';
+        $now  = now($tz);
+
+        $start = $this->tryParseDate($from, $tz)?->startOfDay();
+        $end   = $this->tryParseDate($to, $tz)?->endOfDay();
+
+        if (!$start && !$end) {
+            $start = $now->copy()->startOfDay();
+            $end   = $now->copy()->endOfDay();
+        } elseif ($start && !$end) {
+            $end = $start->copy()->endOfDay();
+        } elseif (!$start && $end) {
+            $start = $end->copy()->startOfDay();
         }
 
-        return now('Asia/Jakarta');
+        if ($start->gt($end)) {
+            [$start, $end] = [$end, $start];
+        }
+
+        return [$start, $end];
     }
 
-    private function availableCashiers(?int $storeId, string $date): array
+    private function tryParseDate(?string $value, string $tz): ?Carbon
+    {
+        if (!$value) return null;
+        try {
+            return Carbon::createFromFormat('Y-m-d', $value, $tz);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function availableCashiers(?int $storeId, string $startDate, string $endDate): array
     {
         if (!Schema::hasColumn('tb_outgoing_goods', 'recorded_by')) {
             return [];
         }
+
+        $start = Carbon::createFromFormat('Y-m-d', $startDate, 'Asia/Jakarta')->startOfDay();
+        $end   = Carbon::createFromFormat('Y-m-d', $endDate, 'Asia/Jakarta')->endOfDay();
 
         return tb_outgoing_goods::query()
             ->join('tb_sells as s', 's.id', '=', 'tb_outgoing_goods.sell_id')
             ->select('tb_outgoing_goods.recorded_by')
             ->when($storeId, fn ($q) => $q->where('s.store_id', $storeId))
             ->whereNotNull('recorded_by')
-            ->where(function ($query) use ($date) {
-                $query->whereDate(DB::raw('COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at)'), $date);
+            ->where(function ($query) use ($start, $end) {
+                $query->whereBetween(
+                    DB::raw('COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at)'),
+                    [$start, $end]
+                );
             })
             ->groupBy('recorded_by')
             ->orderBy('recorded_by')

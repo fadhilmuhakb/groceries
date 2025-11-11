@@ -33,9 +33,20 @@
 
         <div class="vr d-none d-md-block"></div>
 
-        <div class="d-flex align-items-center gap-2">
-            <strong class="mb-0">Tanggal</strong>
-            <span>{{ \Carbon\Carbon::parse($defaultDate)->translatedFormat('d M Y') }} (otomatis)</span>
+        <div class="vr d-none d-md-block"></div>
+
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <label for="filter_date_from" class="mb-0">Dari</label>
+                <input type="date" id="filter_date_from" class="form-control" style="min-width:170px"
+                       value="{{ $defaultDateFrom }}">
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <label for="filter_date_to" class="mb-0">Sampai</label>
+                <input type="date" id="filter_date_to" class="form-control" style="min-width:170px"
+                       value="{{ $defaultDateTo }}">
+            </div>
+            <small id="date_hint" class="text-danger"></small>
         </div>
     </div>
 </div>
@@ -146,6 +157,9 @@
 
         const $store   = $('#filter_store');
         const $cashier = $('#filter_cashier');
+        const $dateFrom = $('#filter_date_from');
+        const $dateTo   = $('#filter_date_to');
+        const $dateHint = $('#date_hint');
         const $cashierFilters = $('#cashier_filters');
 
         let totalsFromServer = null;
@@ -158,6 +172,8 @@
                 data: function (d) {
                     d.store   = $store.length ? $store.val() : '';
                     d.cashier = $cashier.val() || '';
+                    d.date_from = $dateFrom.val() || '';
+                    d.date_to   = $dateTo.val() || '';
                 },
                 dataSrc: function (json) {
                     totalsFromServer = json?.totals || null;
@@ -232,6 +248,8 @@
         });
 
         $store.on('change', reloadTable);
+        $dateFrom.on('change', handleDateChange);
+        $dateTo.on('change', handleDateChange);
         $cashierFilters.on('click', 'button[data-cashier-filter]', function () {
             const cashierVal = $(this).data('cashier-filter') ?? '';
             $cashier.val(cashierVal);
@@ -241,6 +259,30 @@
 
         function reloadTable() {
             table.ajax.reload(null, false);
+        }
+
+        function handleDateChange() {
+            const fromVal = $dateFrom.val();
+            const toVal   = $dateTo.val();
+
+            if (!fromVal && !toVal) {
+                const today = new Date().toISOString().slice(0, 10);
+                $dateFrom.val(today);
+                $dateTo.val(today);
+            } else if (fromVal && !toVal) {
+                $dateTo.val(fromVal);
+            } else if (!fromVal && toVal) {
+                $dateFrom.val(toVal);
+            }
+
+            const from = new Date($dateFrom.val());
+            const to   = new Date($dateTo.val());
+            if (from > to) {
+                $dateHint.text('Tanggal "Dari" tidak boleh setelah "Sampai".');
+                return;
+            }
+            $dateHint.text('');
+            reloadTable();
         }
 
         function updateSummary() {
