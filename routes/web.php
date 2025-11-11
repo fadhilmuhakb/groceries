@@ -4,6 +4,7 @@ use App\Http\Controllers\TbBrandsController;
 use App\Http\Controllers\TbIncomingGoodsController;
 use App\Http\Controllers\TbProductsController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\TbCustomersController;
 use App\Http\Controllers\TbStoresController;
 use App\Http\Controllers\TbSuppliersController;
@@ -12,7 +13,10 @@ use App\Http\Controllers\TbUnitsController;
 use App\Http\Controllers\TbUserController;
 use App\Http\Controllers\TbPurchaseController;
 use App\Http\Controllers\TbSalesController;
+use App\Http\Controllers\DailySalesReportController;
+use App\Http\Controllers\ProductStockController;
 use App\Http\Controllers\TbSellController;
+use App\Http\Controllers\SalesReportController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -23,6 +27,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TbMasterMenusController;
 use App\Http\Controllers\TbMasterRolesController;
 use App\Http\Controllers\Settings\MenuAccessController;
+use App\Support\MenuHelper;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -42,7 +47,7 @@ Auth::routes();
 
 
 Route::group(['middleware' => ['auth']], function () {
-    Route::get('/', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+    Route::get('/', [HomeController::class, 'index'])->name('home');
     Route::post('/staff/logout-revenue', [StaffController::class, 'submitRevenueAndLogout'])->name('staff.submitRevenueAndLogout');
 
     Route::get('/check-daily-revenue', function (Request $request) {
@@ -189,18 +194,20 @@ Route::get('/sync/manual', [SyncController::class, 'manual'])->name('sync.manual
 
 
 Route::prefix('report')->name('report.')->group(function () {
-    // Halaman daftar report
     Route::get('/', [ReportController::class, 'index'])->name('index');
-
-    // DataTables JSON untuk halaman daftar
     Route::get('/data', [ReportController::class, 'indexData'])->name('index.data');
-
-    // Halaman detail
     Route::get('/detail/{id}', [ReportController::class, 'detail'])->name('detail');
-
-    // DataTables JSON untuk halaman detail
     Route::get('/detail/{id}/data', [ReportController::class, 'detailData'])->name('detail.data');
+
+    // Daily sales report (baru)
+    Route::get('/sales/today', [DailySalesReportController::class, 'index'])->name('sales.today');
+    Route::get('/sales/today/data', [DailySalesReportController::class, 'data'])->name('sales.today.data');
+
+    // Legacy laporan penjualan
+    Route::get('/sales-report', [SalesReportController::class, 'index'])->name('sales_report.index');
+    Route::get('/sales-report/data', [SalesReportController::class, 'data'])->name('sales_report.data');
 });
+
 
 Route::prefix('settings')->group(function () {
     Route::get('access',  [MenuAccessController::class, 'index'])->name('settings.access.index');
@@ -211,3 +218,7 @@ Route::prefix('settings')->group(function () {
 
 
 });
+    Route::prefix('master-stock')->group(function () {
+        Route::get('/', [ProductStockController::class, 'index'])->name('master-stock.index');
+        Route::get('/data', [ProductStockController::class, 'data'])->name('master-stock.data');
+    });

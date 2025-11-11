@@ -64,7 +64,8 @@
           <tr>
             <th>No</th>
             <th>Nama</th>
-            <th>Total</th>
+            <th>Input Kasir</th>
+            <th>Pendapatan Omset</th>
             <th>Tanggal</th>
             <th>+/-</th>
             <th>Aksi</th>
@@ -77,6 +78,7 @@
             <th></th>
             <th class="text-end">Total</th>
             <th class="text-end" id="footer_total_amount">Rp 0</th>
+            <th class="text-end" id="footer_total_omset">Rp 0</th>
             <th></th>
             <th class="text-end" id="footer_total_status">Rp 0</th>
             <th></th>
@@ -104,6 +106,26 @@ $(function () {
 
   const isSuperadmin = @json(auth()->user()?->roles === 'superadmin');
   let dt;
+
+  const formatCurrency = (v) => 'Rp ' + Number(v ?? 0).toLocaleString('id-ID');
+  const renderCurrencyCell = (data, type) => {
+    if (type === 'display' || type === 'filter') {
+      return formatCurrency(data);
+    }
+    return data;
+  };
+  const renderStatusCell = (data, type) => {
+    const val = Number(data ?? 0);
+    if (type === 'display' || type === 'filter') {
+      const sign = val >= 0 ? '+' : '−';
+      const absVal = Math.abs(val);
+      const colorClass = val >= 0 ? 'text-success' : 'text-danger';
+      return `<span class="${colorClass}" title="${val >= 0 ? 'Surplus' : 'Defisit'}">
+                ${sign} Rp ${absVal.toLocaleString('id-ID')}
+              </span>`;
+    }
+    return val;
+  };
 
   function todayStr() {
     const d = new Date(); // Asia/Jakarta di sisi client
@@ -149,39 +171,18 @@ $(function () {
       columns: [
         { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable:false, searchable:false },
         { data: 'name', name: 'name' },
-        {
-          data: 'amount', name: 'amount', className: 'text-end',
-          render: function (data, type) {
-            if (type === 'display' || type === 'filter') {
-              return 'Rp ' + Number(data ?? 0).toLocaleString('id-ID');
-            }
-            return data;
-          }
-        },
+        { data: 'amount', name: 'amount', className: 'text-end', render: renderCurrencyCell },
+        { data: 'omset',  name: 'omset',  className: 'text-end', render: renderCurrencyCell },
         {
           data: 'date', name: 'date',
           render: function (data) {
             return data ? moment(data).format('DD MMM YYYY') : '-';
           }
         },
-        {
-          data: 'status', name: 'status', className:'text-end',
-          render: function (data, type) {
-            const val = Number(data ?? 0);
-            if (type === 'display' || type === 'filter') {
-              const sign = val >= 0 ? '+' : '−';
-              const absVal = Math.abs(val);
-              const colorClass = val >= 0 ? 'text-success' : 'text-danger';
-              return `<span class="${colorClass}" title="${val >= 0 ? 'Surplus' : 'Defisit'}">
-                        ${sign} Rp ${absVal.toLocaleString('id-ID')}
-                      </span>`;
-            }
-            return val;
-          }
-        },
+        { data: 'status', name: 'status', className:'text-end', render: renderStatusCell },
         { data: 'action', name: 'action', orderable:false, searchable:false, className:'text-center' },
       ],
-      order: [[3, 'desc']],
+      order: [[4, 'desc']],
       pageLength: 25,
       language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/id.json' },
       footerCallback: function () {
@@ -192,25 +193,21 @@ $(function () {
              .reduce((a, b) => Number(a) + Number(b ?? 0), 0);
 
         const amountPage = pageSum(2);
-        const statusPage = pageSum(4);
+        const omsetPage  = pageSum(3);
+        const statusPage = pageSum(5);
 
-        const fmtRp = (v) => 'Rp ' + Number(v ?? 0).toLocaleString('id-ID');
-        const fmtSigned = (v) => {
-          const n = Number(v ?? 0);
-          const sign = n >= 0 ? '+' : '−';
-          const cls  = n >= 0 ? 'text-success' : 'text-danger';
-          return `<span class="${cls}">${sign} Rp ${Math.abs(n).toLocaleString('id-ID')}</span>`;
-        };
-
-        let amountHtml = fmtRp(amountPage);
-        let statusHtml = fmtSigned(statusPage);
+        let amountHtml = formatCurrency(amountPage);
+        let omsetHtml  = formatCurrency(omsetPage);
+        let statusHtml = renderStatusCell(statusPage, 'display');
 
         if (serverTotals) {
-          amountHtml += `<br><strong>${fmtRp(serverTotals.amount ?? 0)}</strong> <small class="text-muted">(filter)</small>`;
-          statusHtml += `<br><strong>${fmtSigned(serverTotals.status ?? 0)}</strong> <small class="text-muted">(filter)</small>`;
+          amountHtml += `<br><strong>${formatCurrency(serverTotals.amount ?? 0)}</strong> <small class="text-muted">(filter)</small>`;
+          omsetHtml  += `<br><strong>${formatCurrency(serverTotals.omset ?? 0)}</strong> <small class="text-muted">(filter)</small>`;
+          statusHtml += `<br><strong>${renderStatusCell(serverTotals.status ?? 0, 'display')}</strong> <small class="text-muted">(filter)</small>`;
         }
 
         $('#footer_total_amount').html(amountHtml);
+        $('#footer_total_omset').html(omsetHtml);
         $('#footer_total_status').html(statusHtml);
       }
     });

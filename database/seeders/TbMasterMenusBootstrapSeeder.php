@@ -104,6 +104,11 @@ class TbMasterMenusBootstrapSeeder extends Seeder
                 'menu_path' => 'master-unit.index',
                 'parent_id' => $masterId,
             ]);
+            $insert([
+                'menu_name' => 'Stok Produk',
+                'menu_path' => 'master-stock.index',
+                'parent_id' => $masterId,
+            ]);
 
             // Stock Opname children
             $insert([

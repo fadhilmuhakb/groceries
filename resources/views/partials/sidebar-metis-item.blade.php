@@ -19,7 +19,12 @@
       @endforeach
     </ul>
   @else
-    <a href="{{ $menu->menu_path ? route($menu->menu_path) : 'javascript:void(0)' }}">
+   @php
+      $targetUrl = ($menu->menu_path && Route::has($menu->menu_path))
+        ? route($menu->menu_path)
+        : 'javascript:void(0)';
+    @endphp
+    <a href="{{ $targetUrl }}">
       <div class="parent-icon"><i class="{{ $menu->menu_icon ?: 'bx bx-right-arrow-alt' }}"></i></div>
       <div class="menu-title">{{ $menu->menu_name }}</div>
     </a>

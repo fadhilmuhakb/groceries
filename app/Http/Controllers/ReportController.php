@@ -121,6 +121,7 @@ class ReportController extends Controller
     // Totals.status
     $rowsForTotals = (clone $base)->get(['id','user_id','amount','date']);
     $totalStatus = 0;
+    $totalOmset  = 0;
     foreach ($rowsForTotals as $r) {
         $dateKey = $r->date instanceof \Carbon\Carbon
             ? $r->date->toDateString()
@@ -128,6 +129,7 @@ class ReportController extends Controller
         $cashierName = trim(optional($r->user)->name ?? '');
         $norm = $this->normalizeName($cashierName);
         $sold = $ogMap[$dateKey.'|'.$norm] ?? 0;
+        $totalOmset += (int)$sold;
         $totalStatus += ((int)$r->amount - (int)$sold);
     }
 
@@ -135,6 +137,14 @@ class ReportController extends Controller
         ->addIndexColumn()
         ->addColumn('name', fn ($row) => optional($row->user)->name ?? '-')
         ->editColumn('amount', fn ($row) => (int) $row->amount)
+        ->addColumn('omset', function ($row) use ($ogMap) {
+            $dateKey = $row->date instanceof \Carbon\Carbon
+                ? $row->date->toDateString()
+                : \Carbon\Carbon::parse($row->date)->toDateString();
+            $cashierName = trim(optional($row->user)->name ?? '');
+            $norm = $this->normalizeName($cashierName);
+            return (int) ($ogMap[$dateKey.'|'.$norm] ?? 0);
+        })
         ->editColumn('date', fn ($row) =>
             $row->date instanceof \Carbon\Carbon
                 ? $row->date->toDateString()
@@ -157,7 +167,11 @@ class ReportController extends Controller
             </div>'
         )
         ->rawColumns(['action'])
-        ->with(['totals' => ['amount' => $totalAmount, 'status' => $totalStatus]])
+        ->with(['totals' => [
+            'amount' => $totalAmount,
+            'omset'  => $totalOmset,
+            'status' => $totalStatus,
+        ]])
         ->toJson();
 }
 
@@ -236,4 +250,3 @@ if (! function_exists('schemaHasColumn')) {
         }
     }
 }
-
