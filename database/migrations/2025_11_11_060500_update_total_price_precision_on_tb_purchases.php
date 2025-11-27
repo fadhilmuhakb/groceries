@@ -11,7 +11,9 @@ return new class extends Migration
     public function up(): void
     {
         // Allow very large totals (with cents) without overflow errors.
-        DB::statement('ALTER TABLE tb_purchases MODIFY total_price DECIMAL(20,2) NULL');
+        // Using DECIMAL(38,2) keeps the column numeric (so sums/sorts still work)
+        // while dramatically increasing the ceiling vs BIGINT/VARCHAR.
+        DB::statement('ALTER TABLE tb_purchases MODIFY total_price DECIMAL(38,2) NULL');
     }
 
     /**
