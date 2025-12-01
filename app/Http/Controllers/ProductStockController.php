@@ -43,9 +43,10 @@ class ProductStockController extends Controller
 
         $incomingSub = DB::table('tb_incoming_goods as ig')
             ->when(Schema::hasColumn('tb_incoming_goods', 'store_id'),
-                fn($q) => $q->where('ig.store_id', $storeId),
+                fn($q) => $q->where('ig.store_id', $storeId)->where('ig.is_pending_stock', false),
                 fn($q) => $q->join('tb_purchases as pur', 'ig.purchase_id', '=', 'pur.id')
                              ->where('pur.store_id', $storeId)
+                             ->where('ig.is_pending_stock', false)
             )
             ->select('ig.product_id', DB::raw('SUM(ig.stock) AS total_in'))
             ->groupBy('ig.product_id');
@@ -53,6 +54,7 @@ class ProductStockController extends Controller
         $outgoingSub = DB::table('tb_outgoing_goods as og')
             ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
             ->where('sl.store_id', $storeId)
+            ->where('og.is_pending_stock', false)
             ->select('og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))
             ->groupBy('og.product_id');
 

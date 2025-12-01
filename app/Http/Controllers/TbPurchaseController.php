@@ -62,7 +62,8 @@ class TbPurchaseController extends Controller
             'store_id' => $request->store_id,
             'total_price' => $request->total_price,
         ]);
-        
+        $storeOnline = \App\Models\tb_stores::where('id', $request->store_id)->value('is_online');
+        $isPendingStock = !$storeOnline;
         
         // Simpan produk ke tb_incoming_goods
         foreach ($request->products as $product) {
@@ -71,6 +72,7 @@ class TbPurchaseController extends Controller
                 'product_id' => $product['product_id'],
                 'stock' => $product['stock'],
                 'description' => $product['description'] ?? null, // Jika null, tetap bisa disimpan
+                'is_pending_stock' => $isPendingStock,
             ]);
         }
 

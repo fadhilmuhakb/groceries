@@ -83,3 +83,86 @@
         }
     </script>
 @endif
+
+@auth
+@php
+    $userStoreOnline = optional(Auth::user()->store)->is_online ?? false;
+@endphp
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const role = "{{ strtolower(Auth::user()->roles ?? '') }}";
+    const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    const updateStatus = (storeId, isOnline, note='') => {
+        return fetch(`/store/${storeId}/toggle-online`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': token,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ offline_note: note, is_online: isOnline ? 1 : 0 })
+        }).then(async res => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.message || 'Gagal memperbarui status');
+            return data;
+        });
+    };
+
+    const select = document.getElementById('header-store-select');
+    const btnToggle = document.getElementById('btn-toggle-store');
+    const btnToggleLabel = document.getElementById('btn-toggle-store-label');
+    const statusText = document.getElementById('header-store-status');
+
+    const refreshAdminButton = () => {
+        const opt = select?.selectedOptions[0];
+        if (!opt || !opt.value) {
+            btnToggleLabel.textContent = 'Pilih toko';
+            btnToggle.className = 'btn btn-sm btn-outline-primary';
+            statusText.textContent = '';
+            return;
+        }
+        const online = Number(opt.dataset.online || 0) === 1;
+        btnToggleLabel.textContent = online ? 'Matikan' : 'Nyalakan';
+        btnToggle.className = online ? 'btn btn-sm btn-outline-secondary' : 'btn btn-sm btn-outline-success';
+        statusText.textContent = online ? 'Sedang online' : 'Sedang offline';
+    };
+
+    if (btnToggle && select) {
+        refreshAdminButton();
+        select.addEventListener('change', refreshAdminButton);
+        btnToggle.addEventListener('click', () => {
+            const opt = select.selectedOptions[0];
+            if (!opt || !opt.value) return Swal.fire({icon:'warning', title:'Pilih toko terlebih dahulu'});
+            const storeId = opt.value;
+            const online = Number(opt.dataset.online || 0) === 1;
+            const desiredOnline = !online;
+            const note = desiredOnline ? '' : prompt('Catatan offline (opsional):', '');
+            updateStatus(storeId, desiredOnline, note)
+                .then(() => window.location.reload())
+                .catch(err => Swal.fire({icon:'error', title:'Oops', text: err.message}));
+        });
+    }
+
+    const btnToggleSelf = document.getElementById('btn-toggle-store-self');
+    if (btnToggleSelf) {
+        let selfOnline = {{ $userStoreOnline ? 'true' : 'false' }};
+        const storeId = "{{ Auth::user()->store_id ?? '' }}";
+        const setSelfLabel = () => {
+            btnToggleSelf.textContent = selfOnline ? 'Matikan' : 'Nyalakan';
+            btnToggleSelf.className = selfOnline ? 'btn btn-sm btn-outline-secondary' : 'btn btn-sm btn-outline-success';
+        };
+        setSelfLabel();
+        btnToggleSelf.addEventListener('click', () => {
+            if (!storeId) return Swal.fire({icon:'error', title:'Tidak ada store_id'});
+            const desired = !selfOnline;
+            const note = desired ? '' : prompt('Catatan offline (opsional):', '');
+            updateStatus(storeId, desired, note)
+                .then(() => window.location.reload())
+                .catch(err => Swal.fire({icon:'error', title:'Oops', text: err.message}));
+        });
+    }
+});
+</script>
+@endauth

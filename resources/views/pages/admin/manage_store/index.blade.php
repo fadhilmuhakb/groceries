@@ -35,6 +35,7 @@
                             <th>No.</th>
                             <th>Alamat Toko</th>
                             <th>Nama Toko</th>
+                            <th>Status</th>
                             <th>Aksi</th>
                         </tr>
                     </thead>
@@ -49,6 +50,7 @@
 @section('scripts')
 <script src="{{asset('assets/plugins/datatable/js/jquery.dataTables.min.js')}}"></script>
 <script src="{{asset('assets/plugins/datatable/js/dataTables.bootstrap5.min.js')}}"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     const confirmDelete = (id) => {
@@ -89,6 +91,30 @@
         }
     });
 };
+
+const toggleOnline = (storeId, desiredStatus) => {
+    const note = !desiredStatus ? prompt('Catatan offline (opsional):', '') : '';
+    $.ajax({
+        url: `/store/${storeId}/toggle-online`,
+        type: 'POST',
+        data: {
+            _token: $("meta[name='csrf-token']").attr("content"),
+            is_online: desiredStatus ? 1 : 0,
+            offline_note: note
+        },
+        success: function (resp) {
+            Swal.fire({ icon: 'success', title: 'Berhasil', text: resp.message || 'Status diperbarui' })
+                .then(() => window.location.reload());
+        },
+        error: function (err) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops...',
+                text: err.responseJSON?.message || 'Gagal memperbarui status'
+            });
+        }
+    });
+}
     $(document).ready(function() {
         $('#table-brand').DataTable({
             processing: true,
@@ -102,6 +128,16 @@
                 },
                 {data:'store_address', name:'store_address'},
                 {data:'store_name', name:'store_name'},
+                {data:'status', name:'status', orderable:false, searchable:false,
+                    render: function(data, type, row) {
+                        // fallback to compute if html not provided
+                        if (data && data.includes('badge')) return data;
+                        const online = row.is_online;
+                        return online
+                            ? '<span class="badge bg-success">Online</span>'
+                            : '<span class="badge bg-secondary">Offline</span>';
+                    }
+                },
                 { data: 'action', name: 'action', orderable: false, searchable: false, className:'text-end' }
 
             ]

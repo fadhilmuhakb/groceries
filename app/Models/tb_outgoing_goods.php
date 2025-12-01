@@ -18,7 +18,9 @@ class tb_outgoing_goods extends Model
         'discount',
         'recorded_by',
         'description',
-        'uuid'
+        'uuid',
+        'is_pending_stock',
+        'synced_at',
     ];
 
 

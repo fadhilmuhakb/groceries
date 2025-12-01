@@ -64,6 +64,7 @@ class DailySalesReportController extends Controller
             ->leftJoin('tb_stores as st', 'st.id', '=', 's.store_id')
             ->leftJoin('tb_customers as c', 'c.id', '=', 's.customer_id')
             ->when($storeId, fn ($q) => $q->where('s.store_id', $storeId))
+            ->where('tb_outgoing_goods.is_pending_stock', false)
             ->where(function ($query) use ($startDate, $endDate) {
                 $query->whereBetween(
                     DB::raw('COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at)'),
