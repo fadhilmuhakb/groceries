@@ -50,15 +50,22 @@ class ProductStockController extends Controller
             ->select('ig.product_id', DB::raw('SUM(ig.stock) AS total_in'))
             ->groupBy('ig.product_id');
 
+        $outgoingSub = DB::table('tb_outgoing_goods as og')
+            ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
+            ->where('sl.store_id', $storeId)
+            ->select('og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))
+            ->groupBy('og.product_id');
+
         $base = DB::table('tb_products as p')
             ->leftJoinSub($incomingSub, 'incoming', fn($join) => $join->on('incoming.product_id', '=', 'p.id'))
+            ->leftJoinSub($outgoingSub, 'outgoing', fn($join) => $join->on('outgoing.product_id', '=', 'p.id'))
             ->select(
                 'p.id',
                 'p.product_code',
                 'p.product_name',
-                DB::raw('COALESCE(incoming.total_in, 0) as stock_system')
+                DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system')
             )
-            ->where(DB::raw('COALESCE(incoming.total_in, 0)'), '>', 0)
+            ->where(DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0))'), '>', 0)
             ->orderBy('p.product_name');
 
         return DataTables::of($base)
