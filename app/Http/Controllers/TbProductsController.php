@@ -186,9 +186,19 @@ class TbProductsController extends Controller
     public function destroy($id)
     {
         try {
-            tb_products::findOrFail($id)->delete();
+            $product = tb_products::findOrFail($id);
+
+            DB::beginTransaction();
+            // hapus override harga toko (cascade juga sudah di FK, tapi eksplisit agar pasti)
+            \App\Models\tb_product_store_price::where('product_id', $product->id)->delete();
+            // hapus detail incoming/outgoing yang refer ke produk? (opsional) -> dibiarkan jika ada constraint
+
+            $product->delete();
+            DB::commit();
+
             return response()->json(['message' => 'Produk dihapus']);
         } catch (\Throwable $e) {
+            DB::rollBack();
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
