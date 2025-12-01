@@ -117,7 +117,11 @@ class DailySalesReportController extends Controller
 
         $cashiers = $this->availableCashiers($storeId, $startDate->toDateString(), $endDate->toDateString());
 
-        $dataQuery = (clone $baseQuery)->orderByDesc('activity_date')->orderByDesc('tb_outgoing_goods.id');
+        // order by grouped/selected columns only to satisfy ONLY_FULL_GROUP_BY
+        $dataQuery = (clone $baseQuery)
+            ->orderByDesc('activity_date')
+            ->orderBy('tb_outgoing_goods.recorded_by')
+            ->orderBy('p.product_name');
 
         return DataTables::eloquent($dataQuery)
             ->addIndexColumn()
