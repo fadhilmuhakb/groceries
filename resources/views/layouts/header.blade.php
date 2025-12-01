@@ -5,6 +5,27 @@
             <div class="search-bar flex-grow-1"></div>
             <div class="top-menu ms-auto">
                 <ul class="navbar-nav align-items-center">
+                    @auth
+                        @php
+                            $roleHeader = strtolower(Auth::user()->roles ?? '');
+                            $userStoreId = Auth::user()->store_id ?? null;
+                            $userStoreName = optional(Auth::user()->store)->store_name ?? '-';
+                            $userStoreOnline = optional(Auth::user()->store)->is_online ?? false;
+                        @endphp
+                        @if(!in_array($roleHeader, ['superadmin','admin']))
+                        <li class="nav-item d-flex align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold">{{ $userStoreName }}</span>
+                                <span class="badge {{ $userStoreOnline ? 'bg-success' : 'bg-secondary' }}">
+                                    {{ $userStoreOnline ? 'Online' : 'Offline' }}
+                                </span>
+                                <button class="btn btn-sm {{ $userStoreOnline ? 'btn-outline-secondary' : 'btn-outline-success' }}" id="btn-toggle-store-self-header">
+                                    {{ $userStoreOnline ? 'Offline' : 'Online' }}
+                                </button>
+                            </div>
+                        </li>
+                        @endif
+                    @endauth
                     <li class="nav-item mobile-search-icon">
                         <a class="nav-link" href="#"><i class='bx bx-search'></i></a>
                     </li>
@@ -86,7 +107,7 @@
 
 @auth
 @php
-    $userStoreOnline = optional(Auth::user()->store)->is_online ?? false;
+    $userStoreOnline = Auth::check() ? (optional(Auth::user()->store)->is_online ?? false) : false;
 @endphp
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -146,11 +167,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const btnToggleSelf = document.getElementById('btn-toggle-store-self');
+    const btnToggleSelfHeader = document.getElementById('btn-toggle-store-self-header');
     if (btnToggleSelf) {
         let selfOnline = {{ $userStoreOnline ? 'true' : 'false' }};
         const storeId = "{{ Auth::user()->store_id ?? '' }}";
         const setSelfLabel = () => {
-            btnToggleSelf.textContent = selfOnline ? 'Matikan' : 'Nyalakan';
+            btnToggleSelf.textContent = selfOnline ? 'Offline' : 'Online';
             btnToggleSelf.className = selfOnline ? 'btn btn-sm btn-outline-secondary' : 'btn btn-sm btn-outline-success';
         };
         setSelfLabel();
@@ -159,6 +181,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const desired = !selfOnline;
             const note = desired ? '' : prompt('Catatan offline (opsional):', '');
             updateStatus(storeId, desired, note)
+                .then(() => window.location.reload())
+                .catch(err => Swal.fire({icon:'error', title:'Oops', text: err.message}));
+        });
+    }
+
+    if (btnToggleSelfHeader) {
+        let selfOnline2 = {{ $userStoreOnline ? 'true' : 'false' }};
+        const storeId2 = "{{ Auth::user()->store_id ?? '' }}";
+        const setSelfLabel2 = () => {
+            btnToggleSelfHeader.textContent = selfOnline2 ? 'Offline' : 'Online';
+            btnToggleSelfHeader.className = selfOnline2 ? 'btn btn-sm btn-outline-secondary' : 'btn btn-sm btn-outline-success';
+        };
+        setSelfLabel2();
+        btnToggleSelfHeader.addEventListener('click', () => {
+            if (!storeId2) return Swal.fire({icon:'error', title:'Tidak ada store_id'});
+            const desired = !selfOnline2;
+            const note = desired ? '' : prompt('Catatan offline (opsional):', '');
+            updateStatus(storeId2, desired, note)
                 .then(() => window.location.reload())
                 .catch(err => Swal.fire({icon:'error', title:'Oops', text: err.message}));
         });
