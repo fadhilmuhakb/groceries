@@ -86,6 +86,7 @@
             </div>
         </div>
     </div>
+    @unless($hideSalesTotal ?? false)
     <div class="col-md-3">
         <div class="card shadow-none border h-100">
             <div class="card-body">
@@ -94,6 +95,7 @@
             </div>
         </div>
     </div>
+    @endunless
     <div class="col-md-3">
         <div class="card shadow-none border h-100">
             <div class="card-body">
@@ -135,7 +137,7 @@
                         <th class="text-end" id="footer_total_qty">0</th>
                         <th></th>
                         <th class="text-end" id="footer_total_discount">Rp 0</th>
-                        <th class="text-end" id="footer_total_sales">Rp 0</th>
+                        <th class="text-end" id="footer_total_sales">@if($hideSalesTotal ?? false) — @else Rp 0 @endif</th>
                         <th></th>
                         <th></th>
                     </tr>
@@ -163,6 +165,7 @@
         const $cashierFilters = $('#cashier_filters');
 
         let totalsFromServer = null;
+        const hideSales = @json($hideSalesTotal ?? false);
 
         const table = $('#table_daily_sales').DataTable({
             processing: true,
@@ -289,8 +292,13 @@
             const totals = totalsFromServer || {};
             $('#summary_items').text(Number(totals.items || 0).toLocaleString('id-ID'));
             $('#summary_quantity').text(Number(totals.quantity || 0).toLocaleString('id-ID'));
-            $('#summary_sales').text(formatCurrency(totals.sales || 0));
+            if (!hideSales) {
+                $('#summary_sales').text(formatCurrency(totals.sales || 0));
+            }
             $('#summary_discount').text(formatCurrency(totals.discount || 0));
+            if (hideSales) {
+                $('#footer_total_sales').text('—');
+            }
         }
 
         function renderCurrency(value, type) {
