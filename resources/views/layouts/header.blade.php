@@ -5,6 +5,27 @@
             <div class="search-bar flex-grow-1"></div>
             <div class="top-menu ms-auto">
                 <ul class="navbar-nav align-items-center">
+                    @auth
+                        @php
+                            $roleHeader = strtolower(Auth::user()->roles ?? '');
+                            $userStoreId = Auth::user()->store_id ?? null;
+                            $userStoreName = optional(Auth::user()->store)->store_name ?? '-';
+                            $userStoreOnline = optional(Auth::user()->store)->is_online ?? false;
+                        @endphp
+                        @if(!in_array($roleHeader, ['superadmin','admin']))
+                        <li class="nav-item d-flex align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold">{{ $userStoreName }}</span>
+                                <span class="badge {{ $userStoreOnline ? 'bg-success' : 'bg-secondary' }}">
+                                    {{ $userStoreOnline ? 'Online' : 'Offline' }}
+                                </span>
+                                <button class="btn btn-sm {{ $userStoreOnline ? 'btn-outline-secondary' : 'btn-outline-success' }}" id="btn-toggle-store-self-header">
+                                    {{ $userStoreOnline ? 'Offline' : 'Online' }}
+                                </button>
+                            </div>
+                        </li>
+                        @endif
+                    @endauth
                     <li class="nav-item mobile-search-icon">
                         <a class="nav-link" href="#"><i class='bx bx-search'></i></a>
                     </li>
@@ -83,3 +104,105 @@
         }
     </script>
 @endif
+
+@auth
+@php
+    $userStoreOnline = Auth::check() ? (optional(Auth::user()->store)->is_online ?? false) : false;
+@endphp
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const role = "{{ strtolower(Auth::user()->roles ?? '') }}";
+    const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    const updateStatus = (storeId, isOnline, note='') => {
+        return fetch(`/store/${storeId}/toggle-online`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': token,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ offline_note: note, is_online: isOnline ? 1 : 0 })
+        }).then(async res => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.message || 'Gagal memperbarui status');
+            return data;
+        });
+    };
+
+    const select = document.getElementById('header-store-select');
+    const btnToggle = document.getElementById('btn-toggle-store');
+    const btnToggleLabel = document.getElementById('btn-toggle-store-label');
+    const statusText = document.getElementById('header-store-status');
+
+    const refreshAdminButton = () => {
+        const opt = select?.selectedOptions[0];
+        if (!opt || !opt.value) {
+            btnToggleLabel.textContent = 'Pilih toko';
+            btnToggle.className = 'btn btn-sm btn-outline-primary';
+            statusText.textContent = '';
+            return;
+        }
+        const online = Number(opt.dataset.online || 0) === 1;
+        btnToggleLabel.textContent = online ? 'Matikan' : 'Nyalakan';
+        btnToggle.className = online ? 'btn btn-sm btn-outline-secondary' : 'btn btn-sm btn-outline-success';
+        statusText.textContent = online ? 'Sedang online' : 'Sedang offline';
+    };
+
+    if (btnToggle && select) {
+        refreshAdminButton();
+        select.addEventListener('change', refreshAdminButton);
+        btnToggle.addEventListener('click', () => {
+            const opt = select.selectedOptions[0];
+            if (!opt || !opt.value) return Swal.fire({icon:'warning', title:'Pilih toko terlebih dahulu'});
+            const storeId = opt.value;
+            const online = Number(opt.dataset.online || 0) === 1;
+            const desiredOnline = !online;
+            const note = desiredOnline ? '' : prompt('Catatan offline (opsional):', '');
+            updateStatus(storeId, desiredOnline, note)
+                .then(() => window.location.reload())
+                .catch(err => Swal.fire({icon:'error', title:'Oops', text: err.message}));
+        });
+    }
+
+    const btnToggleSelf = document.getElementById('btn-toggle-store-self');
+    const btnToggleSelfHeader = document.getElementById('btn-toggle-store-self-header');
+    if (btnToggleSelf) {
+        let selfOnline = {{ $userStoreOnline ? 'true' : 'false' }};
+        const storeId = "{{ Auth::user()->store_id ?? '' }}";
+        const setSelfLabel = () => {
+            btnToggleSelf.textContent = selfOnline ? 'Offline' : 'Online';
+            btnToggleSelf.className = selfOnline ? 'btn btn-sm btn-outline-secondary' : 'btn btn-sm btn-outline-success';
+        };
+        setSelfLabel();
+        btnToggleSelf.addEventListener('click', () => {
+            if (!storeId) return Swal.fire({icon:'error', title:'Tidak ada store_id'});
+            const desired = !selfOnline;
+            const note = desired ? '' : prompt('Catatan offline (opsional):', '');
+            updateStatus(storeId, desired, note)
+                .then(() => window.location.reload())
+                .catch(err => Swal.fire({icon:'error', title:'Oops', text: err.message}));
+        });
+    }
+
+    if (btnToggleSelfHeader) {
+        let selfOnline2 = {{ $userStoreOnline ? 'true' : 'false' }};
+        const storeId2 = "{{ Auth::user()->store_id ?? '' }}";
+        const setSelfLabel2 = () => {
+            btnToggleSelfHeader.textContent = selfOnline2 ? 'Offline' : 'Online';
+            btnToggleSelfHeader.className = selfOnline2 ? 'btn btn-sm btn-outline-secondary' : 'btn btn-sm btn-outline-success';
+        };
+        setSelfLabel2();
+        btnToggleSelfHeader.addEventListener('click', () => {
+            if (!storeId2) return Swal.fire({icon:'error', title:'Tidak ada store_id'});
+            const desired = !selfOnline2;
+            const note = desired ? '' : prompt('Catatan offline (opsional):', '');
+            updateStatus(storeId2, desired, note)
+                .then(() => window.location.reload())
+                .catch(err => Swal.fire({icon:'error', title:'Oops', text: err.message}));
+        });
+    }
+});
+</script>
+@endauth

@@ -31,10 +31,16 @@ trait Syncable
                 return;
             }
 
+            // Pastikan ada uuid untuk row; gunakan fallback untuk log jika model belum terisi
+            $rowUuid = $model->uuid ?: (string) Str::uuid();
+            if (empty($model->uuid)) {
+                $model->uuid = $rowUuid;
+            }
+
             // Build data minimal
             $data = [
                 'table'    => $model->getTable(),
-                'row_uuid' => $model->uuid,
+                'row_uuid' => $rowUuid,
             ];
 
             if (in_array('changed_at', $cols, true)) {

@@ -9,7 +9,7 @@
     <div class="breadcrumb-title pe-3">Penjualan Harian</div>
 </div>
 
-<div class="card mb-3">
+<div class="card mb-4">
     <div class="card-body d-flex flex-wrap gap-3 align-items-center">
         @if($isSuperadmin)
             <div class="d-flex align-items-center gap-2">
@@ -96,14 +96,7 @@
         </div>
     </div>
     @endunless
-    <div class="col-md-3">
-        <div class="card shadow-none border h-100">
-            <div class="card-body">
-                <small class="text-muted text-uppercase">Total Diskon</small>
-                <h4 class="mb-0" id="summary_discount">Rp 0</h4>
-            </div>
-        </div>
-    </div>
+   
 </div>
 
 <div class="card">
@@ -116,32 +109,13 @@
                         <th>No Invoice</th>
                         <th>Toko</th>
                         <th>Kasir</th>
-                        <th>Pelanggan</th>
                         <th>Produk</th>
                         <th>Qty</th>
-                        <th>Harga</th>
-                        <th>Diskon</th>
-                        <th>Total</th>
                         <th>Tanggal</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
-                <tfoot>
-                    <tr>
-                        <th></th>
-                        <th class="text-end">Total</th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th class="text-end" id="footer_total_qty">0</th>
-                        <th></th>
-                        <th class="text-end" id="footer_total_discount">Rp 0</th>
-                        <th class="text-end" id="footer_total_sales">@if($hideSalesTotal ?? false) — @else Rp 0 @endif</th>
-                        <th></th>
-                        <th></th>
-                    </tr>
-                </tfoot>
             </table>
         </div>
     </div>
@@ -187,10 +161,9 @@
             },
             columns: [
                 { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
-                { data: 'no_invoice', name: 'no_invoice' },
+                { data: 'invoices', name: 'invoices', render: d => d || '-' },
                 { data: 'store_name', name: 'store_id', defaultContent: '-' },
                 { data: 'recorded_by', name: 'recorded_by', defaultContent: '-' },
-                { data: 'customer_name', name: 'customer_id', defaultContent: '-' },
                 { data: 'product_name', name: 'product_name', defaultContent: '-' },
                 {
                     data: 'quantity_out',
@@ -201,52 +174,16 @@
                         : data
                 },
                 {
-                    data: 'unit_price',
-                    name: 'unit_price',
-                    className: 'text-end',
-                    render: (data, type) => renderCurrency(data, type)
-                },
-                {
-                    data: 'line_discount',
-                    name: 'line_discount',
-                    className: 'text-end',
-                    render: (data, type) => renderCurrency(data, type)
-                },
-                {
-                    data: 'line_total',
-                    name: 'line_total',
-                    className: 'text-end',
-                    render: (data, type) => renderCurrency(data, type)
-                },
-                {
-                    data: 'date',
-                    name: 'date',
+                    data: 'activity_date',
+                    name: 'activity_date',
                     render: (data) => data ? moment(data).format('DD MMM YYYY') : '-'
                 },
                 { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' }
             ],
-            order: [[9, 'desc']],
+            order: [[6, 'desc']],
             pageLength: 25,
             language: {
                 url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/id.json'
-            },
-            footerCallback: function () {
-                const api = this.api();
-                const data = api.rows({ page: 'current' }).data();
-
-                let pageQty = 0;
-                let pageDiscount = 0;
-                let pageSales = 0;
-
-                data.each(function (row) {
-                    pageQty      += Number(row.quantity_out || 0);
-                    pageDiscount += Number(row.line_discount || 0);
-                    pageSales    += Number(row.line_total || 0);
-                });
-
-                $('#footer_total_qty').text(Number(pageQty).toLocaleString('id-ID'));
-                $('#footer_total_discount').text(formatCurrency(pageDiscount));
-                $('#footer_total_sales').text(formatCurrency(pageSales));
             }
         });
 

@@ -142,6 +142,7 @@ Route::get('/sync/manual', [SyncController::class, 'manual'])->name('sync.manual
         Route::post('/store', [TbStoresController::class, 'store'])->name('store.store');
         Route::put('/update/{id}', [TbStoresController::class, 'update'])->name('store.update');
         Route::delete('/delete/{id}', [TbStoresController::class, 'delete'])->name('store.delete');
+        Route::post('/{id}/toggle-online', [TbStoresController::class, 'toggleOnline'])->name('store.toggle_online');
     });
 
     Route::prefix('customer')->group(function () {

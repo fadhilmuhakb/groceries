@@ -12,6 +12,9 @@ class tb_stores extends Model
     protected $fillable = [
         'store_address',
         'store_name',
-        'uuid'
+        'uuid',
+        'is_online',
+        'offline_since',
+        'offline_note',
     ];
 }

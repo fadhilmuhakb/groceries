@@ -64,6 +64,15 @@ class DailySalesReportController extends Controller
             ->leftJoin('tb_stores as st', 'st.id', '=', 's.store_id')
             ->leftJoin('tb_customers as c', 'c.id', '=', 's.customer_id')
             ->when($storeId, fn ($q) => $q->where('s.store_id', $storeId))
+            // abaikan penyesuaian stock opname (invoice dibuat otomatis)
+            ->where(function ($q) {
+                $q->whereNull('s.no_invoice')
+                  ->orWhere('s.no_invoice', 'not like', 'SO-ADJ-%');
+            })
+            // abaikan pencatatan khusus stock opname
+            ->when(Schema::hasColumn('tb_outgoing_goods','recorded_by'),
+                fn($q) => $q->whereRaw('LOWER(COALESCE(TRIM(tb_outgoing_goods.recorded_by), "")) != ?', ['stock opname'])
+            )
             ->where(function ($query) use ($startDate, $endDate) {
                 $query->whereBetween(
                     DB::raw('COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at)'),
@@ -74,30 +83,36 @@ class DailySalesReportController extends Controller
                 $cashier && Schema::hasColumn('tb_outgoing_goods', 'recorded_by'),
                 fn ($q) => $q->where('tb_outgoing_goods.recorded_by', $cashier)
             )
-            ->select([
-                'tb_outgoing_goods.id',
-                's.id as sell_id',
-                'tb_outgoing_goods.quantity_out',
-                'tb_outgoing_goods.discount',
-                'tb_outgoing_goods.recorded_by',
-                'tb_outgoing_goods.date',
-                'tb_outgoing_goods.created_at',
-                's.no_invoice',
-                's.store_id',
-                'st.store_name',
-                'c.customer_name',
+            ->selectRaw('
+                p.id as product_id,
+                p.product_name,
+                st.store_name,
+                s.store_id,
+                tb_outgoing_goods.recorded_by,
+                DATE(COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at)) as activity_date,
+                SUM(tb_outgoing_goods.quantity_out) as quantity_out,
+                SUM(tb_outgoing_goods.discount) as discount,
+                COALESCE(p.selling_price, 0) as unit_price,
+                SUM(COALESCE(tb_outgoing_goods.quantity_out,0) * COALESCE(p.selling_price,0) - COALESCE(tb_outgoing_goods.discount,0)) as line_total,
+                GROUP_CONCAT(DISTINCT s.id ORDER BY s.id DESC) as sell_ids,
+                GROUP_CONCAT(DISTINCT s.no_invoice ORDER BY s.no_invoice DESC) as invoices
+            ')
+            ->groupBy(
+                'p.id',
                 'p.product_name',
-                DB::raw('COALESCE(p.selling_price, 0) as unit_price'),
-                DB::raw('COALESCE(tb_outgoing_goods.quantity_out,0) * COALESCE(p.selling_price,0) - COALESCE(tb_outgoing_goods.discount,0) as line_total'),
-                DB::raw('COALESCE(tb_outgoing_goods.discount,0) as line_discount'),
-                DB::raw('COALESCE(s.date, tb_outgoing_goods.date, s.created_at, tb_outgoing_goods.created_at) as activity_date'),
-            ]);
+                'st.store_name',
+                's.store_id',
+                'tb_outgoing_goods.recorded_by',
+                DB::raw('DATE(COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at))'),
+                'p.selling_price'
+            );
 
+        $summaryRows = (clone $baseQuery)->get();
         $totals = [
-            'items'    => (clone $baseQuery)->count(),
-            'quantity' => (clone $baseQuery)->sum('tb_outgoing_goods.quantity_out'),
-            'sales'    => (clone $baseQuery)->sum(DB::raw('COALESCE(tb_outgoing_goods.quantity_out,0) * COALESCE(p.selling_price,0) - COALESCE(tb_outgoing_goods.discount,0)')),
-            'discount' => (clone $baseQuery)->sum('tb_outgoing_goods.discount'),
+            'items'    => $summaryRows->count(),
+            'quantity' => (float)$summaryRows->sum('quantity_out'),
+            'sales'    => (float)$summaryRows->sum('line_total'),
+            'discount' => (float)$summaryRows->sum('discount'),
         ];
 
         $cashiers = $this->availableCashiers($storeId, $startDate->toDateString(), $endDate->toDateString());
@@ -107,15 +122,20 @@ class DailySalesReportController extends Controller
         return DataTables::eloquent($dataQuery)
             ->addIndexColumn()
             ->editColumn('store_name', fn ($row) => $row->store_name ?? '-')
-            ->addColumn('customer_name', fn ($row) => $row->customer_name ?? '-')
             ->addColumn('action', function ($row) {
-                $sellId = $row->sell_id ?? $row->id;
-                $url = route('sell.detail', $sellId);
-                return '<div class="d-flex justify-content-center">
-                    <a href="' . e($url) . '" class="btn btn-sm btn-success me-1">
-                        Detail Penjualan <i class="bx bx-right-arrow-alt"></i>
-                    </a>
-                </div>';
+                $ids = array_filter(array_map('trim', explode(',', $row->sell_ids ?? ''))); // buang kosong
+                $invoices = array_map('trim', explode(',', $row->invoices ?? ''));
+                if (empty($ids)) {
+                    return '<span class="text-muted">-</span>';
+                }
+                $buttons = '';
+                foreach ($ids as $idx => $sid) {
+                    if (!$sid) continue;
+                    $inv = $invoices[$idx] ?? ('INV-'.$sid);
+                    $url = route('sell.detail', $sid);
+                    $buttons .= '<a href="'.e($url).'" class="badge bg-primary me-1" target="_blank">'.e($inv).'</a>';
+                }
+                return '<div class="d-flex flex-wrap gap-1">'.($buttons ?: '<span class="text-muted">-</span>').'</div>';
             })
             ->filter(function ($query) use ($request) {
                 $search = $request->input('search.value');
@@ -125,7 +145,6 @@ class DailySalesReportController extends Controller
                         $q->where('s.no_invoice', 'like', $like)
                           ->orWhere('st.store_name', 'like', $like)
                           ->orWhere('tb_outgoing_goods.recorded_by', 'like', $like)
-                          ->orWhere('c.customer_name', 'like', $like)
                           ->orWhere('p.product_name', 'like', $like);
                     });
                 }
@@ -189,6 +208,7 @@ class DailySalesReportController extends Controller
             ->join('tb_sells as s', 's.id', '=', 'tb_outgoing_goods.sell_id')
             ->select('tb_outgoing_goods.recorded_by')
             ->when($storeId, fn ($q) => $q->where('s.store_id', $storeId))
+            ->whereRaw('LOWER(COALESCE(TRIM(tb_outgoing_goods.recorded_by), "")) != ?', ['stock opname'])
             ->whereNotNull('recorded_by')
             ->where(function ($query) use ($start, $end) {
                 $query->whereBetween(

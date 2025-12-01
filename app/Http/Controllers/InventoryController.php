@@ -26,12 +26,14 @@ class InventoryController extends Controller
         $incomingSub = DB::table('tb_incoming_goods as ig')
             ->join('tb_purchases as p', 'ig.purchase_id', '=', 'p.id')
             ->where('p.store_id', $storeId)
+            ->where('ig.is_pending_stock', false)
             ->select('ig.product_id', DB::raw('SUM(ig.stock) AS total_in'))
             ->groupBy('ig.product_id');
 
         $outgoingSub = DB::table('tb_outgoing_goods as og')
             ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
             ->where('sl.store_id', $storeId)
+            ->where('og.is_pending_stock', false)
             ->select('og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))
             ->groupBy('og.product_id');
 
@@ -131,6 +133,10 @@ class InventoryController extends Controller
         try {
             DB::transaction(function () use ($items, $ver) {
                 $now = now();
+                // cek status toko
+                $storeId = (int)($items[0]['store_id'] ?? 0);
+                $storeOnline = DB::table('tb_stores')->where('id', $storeId)->value('is_online') ?? true;
+                $isPending = !$storeOnline;
 
                 $storeIds = array_values(array_unique(array_filter(array_column($items, 'store_id'))));
                 if (count($storeIds) !== 1) {
@@ -214,11 +220,11 @@ class InventoryController extends Controller
                         $priceMinus = (int)($prices[$pid] ?? 0);
                         $totalSell += $minus * $priceMinus;
 
-                        DB::insert(
-                            'INSERT INTO tb_outgoing_goods
-                               (`product_id`,`sell_id`,`date`,`quantity_out`,`discount`,`recorded_by`,`description`,`created_at`,`updated_at`)
-                             VALUES (?,?,?,?,?,?,?,?,?)',
-                            [$pid, $sellId, $now, $minus, 0, 'Stock Opname', 'Stock Opname (-)', $now, $now]
+                            DB::insert(
+                                'INSERT INTO tb_outgoing_goods
+                               (`product_id`,`sell_id`,`date`,`quantity_out`,`discount`,`recorded_by`,`description`,`is_pending_stock`,`created_at`,`updated_at`)
+                             VALUES (?,?,?,?,?,?,?,?,?,?)',
+                            [$pid, $sellId, $now, $minus, 0, 'Stock Opname', 'Stock Opname (-)', $isPending, $now, $now]
                         );
                     }
 
@@ -258,9 +264,9 @@ class InventoryController extends Controller
 
                         DB::insert(
                             'INSERT INTO tb_incoming_goods
-                               (`purchase_id`,`product_id`,`stock`,`description`,`created_at`,`updated_at`)
-                             VALUES (?,?,?,?,?,?)',
-                            [$purchaseId, $pid, $plus, 'Stock Opname (+)', $now, $now]
+                               (`purchase_id`,`product_id`,`stock`,`description`,`is_pending_stock`,`created_at`,`updated_at`)
+                             VALUES (?,?,?,?,?,?,?)',
+                            [$purchaseId, $pid, $plus, 'Stock Opname (+)', $isPending, $now, $now]
                         );
                     }
                 }

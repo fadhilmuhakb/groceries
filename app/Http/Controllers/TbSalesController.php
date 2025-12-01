@@ -98,6 +98,8 @@ class TbSalesController extends Controller
             } else {
                 $store_id = $user->store_id;
             }
+            $storeOnline = \App\Models\tb_stores::where('id', $store_id)->value('is_online');
+            $isPendingStock = !$storeOnline;
 
             $sell = tb_sell::create([
                 'no_invoice' => $request->data['no_invoice'],
@@ -117,6 +119,7 @@ class TbSalesController extends Controller
                     'quantity_out' => $product['qty'],
                     'discount' => $product['discount'],
                     'recorded_by' => $user->name,
+                    'is_pending_stock' => $isPendingStock,
                     // 'description' => $product['description']
                 ]);
             }
