@@ -1,6 +1,19 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+  /* Buat kolom jumlah fisik cukup lebar untuk layar kecil */
+  #stock-table input.physical-qty {
+    min-width: 110px;
+    text-align: right;
+  }
+
+  @media (max-width: 768px) {
+    #stock-table td, #stock-table th {
+      white-space: nowrap;
+    }
+  }
+</style>
 <div class="container">
     <h4 class="mb-4">Kelola Stok Fisik Produk Per Toko</h4>
 
