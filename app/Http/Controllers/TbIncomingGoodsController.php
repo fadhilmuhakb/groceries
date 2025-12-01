@@ -28,8 +28,21 @@ class TbIncomingGoodsController extends Controller
             $user_id = auth()->user()->id;
             $user = User::where('id', $user_id)->with('store')->first();
             if(auth()->user()->roles == 'superadmin') {
+                $storeId = $request->get('store_id');
 
-                $products = tb_products::with(['incomingGoods', 'outgoingGoods','unit', 'type','brand'])
+                $products = tb_products::with([
+                        'incomingGoods' => function($query) use ($storeId) {
+                            if ($storeId) {
+                                $query->whereHas('purchase', fn($q) => $q->where('store_id', $storeId));
+                            }
+                        },
+                        'outgoingGoods' => function($query) use ($storeId) {
+                            if ($storeId) {
+                                $query->whereHas('sell', fn($q) => $q->where('store_id', $storeId));
+                            }
+                        },
+                        'unit', 'type','brand', 'storePrices'
+                    ])
                     ->when($search, function($query) use($request, $search) {
                         $query->where(function($q) use($request, $search) {
                             $q->where('product_name', 'LIKE', '%'.$search.'%')
@@ -37,16 +50,18 @@ class TbIncomingGoodsController extends Controller
                         });
                     })
                     ->get()
-                    ->map(function($product) {
+                    ->map(function($product) use ($storeId) {
                         $totalIncoming = $product->incomingGoods->sum('stock');
                         $totalOutgoing = $product->outgoingGoods->sum('quantity_out');
                         $product->current_stock = $totalIncoming - $totalOutgoing;
+                        $product->price_payload = $product->priceForStore($storeId);
                         return $product;
                     })
                     ->where('current_stock', '>', 0);
             }
 
             else if(auth()->user()->roles == 'staff' || auth()->user()->roles == 'admin') {
+                $storeId = auth()->user()->store_id;
 
 
                 $products = tb_products::with(['incomingGoods' => function($query) {
@@ -59,7 +74,7 @@ class TbIncomingGoodsController extends Controller
                         $query->whereHas('sell', function($q) {
                             $q->where('store_id', auth()->user()->store_id);
                         });
-                    }])
+                    }, 'storePrices'])
                     ->when($search, function($query) use($request, $search) {
                         $query->where(function($q) use($request, $search) {
                             $q->where('product_name', 'LIKE', '%'.$search.'%')
@@ -67,10 +82,11 @@ class TbIncomingGoodsController extends Controller
                         });
                     })
                     ->get()
-                    ->map(function($product) {
+                    ->map(function($product) use ($storeId) {
                         $totalIncoming = $product->incomingGoods->sum('stock');
                         $totalOutgoing = $product->outgoingGoods->sum('quantity_out');
                         $product->current_stock = $totalIncoming - $totalOutgoing;
+                        $product->price_payload = $product->priceForStore($storeId);
                         return $product;
                     })
                     ->where('current_stock', '>', 0);
@@ -81,6 +97,7 @@ class TbIncomingGoodsController extends Controller
 
             // if($request->type === 'barcode') {
                 $products = $products->map(function($product) {
+                    $pricing = $product->price_payload ?? $product->priceForStore(null);
                     return [
                         'id' => $product->id,
                         'product_code' => $product->product_code,
@@ -88,10 +105,10 @@ class TbIncomingGoodsController extends Controller
                         'current_stock' => $product->current_stock,
                         'unit_name' => $product->unit->unit_name ?? '-',
                         'type_name' => $product->type->type_name ?? '-',
-                        'price' => $product->selling_price,
-                        'product_discount' => $product->product_discount,
-                        'selling_price' => $product->selling_price - $product->product_discount,
-                        'tier_prices' => $product->tier_prices,
+                        'price' => $pricing['selling_price'],
+                        'product_discount' => $pricing['product_discount'],
+                        'selling_price' => $pricing['selling_price'] - ($pricing['product_discount'] ?? 0),
+                        'tier_prices' => $pricing['tier_prices'],
                         'brand_name' => $product->brand->brand_name ?? '-',
                     ];
                 });

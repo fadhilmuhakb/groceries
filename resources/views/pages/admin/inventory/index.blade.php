@@ -35,6 +35,8 @@
                     <th style="width:40px;">No.</th>
                     <th>Nama Produk</th>
                     <th>Nama Toko</th>
+                    <th class="text-end">Harga Beli (toko)</th>
+                    <th class="text-end">Harga Jual (toko)</th>
                     <th class="text-end">Jumlah Sistem</th>
                     <th>Jumlah Fisik</th>
                     <th class="text-end">Jumlah Minus</th>
@@ -50,6 +52,8 @@
                     <td>{{ $index + 1 }}</td>
                     <td class="product-name">{{ $row->product_name }}</td>
                     <td>{{ $row->store_name }}</td>
+                    <td class="text-end">{{ number_format((float)$row->purchase_price, 2, ',', '.') }}</td>
+                    <td class="text-end">{{ number_format((float)$row->selling_price, 2, ',', '.') }}</td>
 
                     {{-- GUNAKAN system_stock_raw untuk tampilan stok sistem --}}
                     <td class="text-end system-stock">{{ number_format((int)$row->system_stock_raw) }}</td>
@@ -74,7 +78,7 @@
             </tbody>
             <tfoot>
                 <tr class="fw-bold">
-                    <td colspan="5" class="text-end">TOTAL</td>
+                    <td colspan="7" class="text-end">TOTAL</td>
                     <td class="text-end" id="total-minus-qty">0</td>
                     <td class="text-end" id="total-minus-unit">0</td>
                     <td class="text-end" id="total-minus-value">Rp 0</td>
@@ -82,7 +86,7 @@
                     <td class="text-end" id="total-plus-value">Rp 0</td>
                 </tr>
                 <tr class="fw-bold">
-                    <td colspan="9" class="text-end">TOTAL PLUS - MINUS</td>
+                    <td colspan="11" class="text-end">TOTAL PLUS - MINUS</td>
                     <td class="text-end" id="total-plus-minus">Rp 0</td>
                 </tr>
             </tfoot>

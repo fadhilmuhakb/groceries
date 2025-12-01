@@ -678,6 +678,7 @@
                         d.search_term = search_term;
                         d.sear_type = $('#search_type').val();
                         d.type = 'table';
+                        d.store_id = $('#store-id').val();
                     }
                     },
                     columnDefs: [
@@ -1025,4 +1026,3 @@
         
     </script>
 @endsection
-

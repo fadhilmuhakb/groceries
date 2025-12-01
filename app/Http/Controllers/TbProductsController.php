@@ -6,6 +6,8 @@ use App\Models\tb_products;
 use App\Models\tb_types;
 use App\Models\tb_brands;
 use App\Models\tb_units;
+use App\Models\tb_stores;
+use App\Models\tb_product_store_price;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -48,6 +50,7 @@ class TbProductsController extends Controller
             'types'  => tb_types::all(),
             'brands' => tb_brands::all(),
             'units'  => tb_units::all(),
+            'stores' => tb_stores::all(),
         ]);
     }
 
@@ -78,6 +81,11 @@ class TbProductsController extends Controller
         'tier_prices'          => 'nullable|array',
         'tier_prices.*.qty'    => 'required|integer|min:1',
         'tier_prices.*.price'  => 'required|numeric|min:0',
+        'store_prices'                 => 'nullable|array',
+        'store_prices.*.store_id'      => 'nullable|integer|exists:tb_stores,id',
+        'store_prices.*.purchase_price'=> 'nullable|numeric|min:0',
+        'store_prices.*.selling_price' => 'nullable|numeric|min:0',
+        'store_prices.*.product_discount' => 'nullable|numeric|min:0',
     ]);
 
     // 3) Normalisasi ke map qty=>price kalau ada isinya
@@ -92,7 +100,8 @@ class TbProductsController extends Controller
 
     DB::beginTransaction();
     try {
-        tb_products::create($data);
+        $product = tb_products::create($data);
+        $this->syncStorePrices($product->id, $request->input('store_prices', []));
         DB::commit();
         return redirect()->route('master-product.index')->with('success', 'Produk berhasil ditambahkan');
     } catch (\Throwable $e) {
@@ -105,10 +114,11 @@ class TbProductsController extends Controller
     public function edit($id)
     {
         return view('pages.admin.master.manage_product.create', [
-            'product' => tb_products::findOrFail($id),
+            'product' => tb_products::with('storePrices')->findOrFail($id),
             'types'   => tb_types::all(),
             'brands'  => tb_brands::all(),
             'units'   => tb_units::all(),
+            'stores'  => tb_stores::all(),
         ]);
     }
 
@@ -136,6 +146,11 @@ class TbProductsController extends Controller
         'tier_prices'          => 'nullable|array',
         'tier_prices.*.qty'    => 'required|integer|min:1',
         'tier_prices.*.price'  => 'required|numeric|min:0',
+        'store_prices'                 => 'nullable|array',
+        'store_prices.*.store_id'      => 'nullable|integer|exists:tb_stores,id',
+        'store_prices.*.purchase_price'=> 'nullable|numeric|min:0',
+        'store_prices.*.selling_price' => 'nullable|numeric|min:0',
+        'store_prices.*.product_discount' => 'nullable|numeric|min:0',
     ]);
 
     if (!empty($data['tier_prices'])) {
@@ -152,6 +167,7 @@ class TbProductsController extends Controller
     DB::beginTransaction();
     try {
         tb_products::findOrFail($id)->update($data);
+        $this->syncStorePrices($id, $request->input('store_prices', []));
         DB::commit();
         return redirect()->route('master-product.index')->with('success', 'Produk berhasil diperbarui');
     } catch (\Throwable $e) {
@@ -170,9 +186,19 @@ class TbProductsController extends Controller
     public function destroy($id)
     {
         try {
-            tb_products::findOrFail($id)->delete();
+            $product = tb_products::findOrFail($id);
+
+            DB::beginTransaction();
+            // hapus override harga toko (cascade juga sudah di FK, tapi eksplisit agar pasti)
+            \App\Models\tb_product_store_price::where('product_id', $product->id)->delete();
+            // hapus detail incoming/outgoing yang refer ke produk? (opsional) -> dibiarkan jika ada constraint
+
+            $product->delete();
+            DB::commit();
+
             return response()->json(['message' => 'Produk dihapus']);
         } catch (\Throwable $e) {
+            DB::rollBack();
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -262,4 +288,44 @@ class TbProductsController extends Controller
         return redirect()->route('master-product.index')->with('success', 'Produk berhasil diimpor!');
     }
 
+    /**
+     * Simpan override harga per toko, hapus yang tidak dikirim.
+     */
+    private function syncStorePrices(int $productId, array $rows): void
+    {
+        $rows = array_filter($rows ?? [], function ($row) {
+            return !empty($row['store_id']);
+        });
+
+        $keepIds = [];
+        foreach ($rows as $row) {
+            $storeId = (int)($row['store_id'] ?? 0);
+            if ($storeId <= 0) continue;
+
+            $hasValue = ($row['purchase_price'] ?? null) !== null
+                || ($row['selling_price'] ?? null) !== null
+                || ($row['product_discount'] ?? null) !== null;
+            if (!$hasValue) continue;
+
+            $payload = [
+                'purchase_price'   => $row['purchase_price'] ?? 0,
+                'selling_price'    => $row['selling_price'] ?? 0,
+                'product_discount' => $row['product_discount'] ?? null,
+            ];
+
+            $record = tb_product_store_price::updateOrCreate(
+                ['product_id' => $productId, 'store_id' => $storeId],
+                $payload
+            );
+            $keepIds[] = $record->id;
+        }
+
+        if (!empty($keepIds)) {
+            tb_product_store_price::where('product_id', $productId)
+                ->whereNotIn('id', $keepIds)
+                ->delete();
+        } else {
+            tb_product_store_price::where('product_id', $productId)->delete();
+        }
+    }
 }
