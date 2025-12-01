@@ -33,6 +33,8 @@ class DailySalesReportController extends Controller
         $defaultDateFrom   = $today;
         $defaultDateTo     = $today;
         $cashiers          = $this->availableCashiers($selectedStoreId, $today, $today);
+        // Sembunyikan total penjualan untuk role staff/kasir
+        $isCashierRole     = in_array(strtolower((string)($user?->roles)), ['kasir','cashier','staff']);
 
         return view('pages.admin.report.sales-today', [
             'stores'           => $stores,
@@ -42,6 +44,7 @@ class DailySalesReportController extends Controller
             'defaultDateFrom'  => $defaultDateFrom,
             'defaultDateTo'    => $defaultDateTo,
             'cashiers'         => $cashiers,
+            'hideSalesTotal'   => $isCashierRole,
         ]);
     }
 
