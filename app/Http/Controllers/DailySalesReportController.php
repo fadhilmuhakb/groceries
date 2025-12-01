@@ -71,7 +71,7 @@ class DailySalesReportController extends Controller
             })
             // abaikan pencatatan khusus stock opname
             ->when(Schema::hasColumn('tb_outgoing_goods','recorded_by'),
-                fn($q) => $q->whereRaw('LOWER(TRIM(tb_outgoing_goods.recorded_by)) != ?', ['stock opname'])
+                fn($q) => $q->whereRaw('LOWER(COALESCE(TRIM(tb_outgoing_goods.recorded_by), "")) != ?', ['stock opname'])
             )
             ->where(function ($query) use ($startDate, $endDate) {
                 $query->whereBetween(
@@ -122,7 +122,6 @@ class DailySalesReportController extends Controller
         return DataTables::eloquent($dataQuery)
             ->addIndexColumn()
             ->editColumn('store_name', fn ($row) => $row->store_name ?? '-')
-            ->addColumn('customer_name', fn ($row) => $row->customer_name ?? '-')
             ->addColumn('action', function ($row) {
                 $ids = array_filter(array_map('trim', explode(',', $row->sell_ids ?? ''))); // buang kosong
                 $invoices = array_map('trim', explode(',', $row->invoices ?? ''));
@@ -209,7 +208,7 @@ class DailySalesReportController extends Controller
             ->join('tb_sells as s', 's.id', '=', 'tb_outgoing_goods.sell_id')
             ->select('tb_outgoing_goods.recorded_by')
             ->when($storeId, fn ($q) => $q->where('s.store_id', $storeId))
-            ->whereRaw('LOWER(TRIM(tb_outgoing_goods.recorded_by)) != ?', ['stock opname'])
+            ->whereRaw('LOWER(COALESCE(TRIM(tb_outgoing_goods.recorded_by), "")) != ?', ['stock opname'])
             ->whereNotNull('recorded_by')
             ->where(function ($query) use ($start, $end) {
                 $query->whereBetween(
