@@ -53,11 +53,36 @@ class tb_products extends Model
     {
         return $this->hasMany(tb_outgoing_goods::class, 'product_id');
     }
-    public function unitPriceForQty(int $qty): float
+    public function storePrices()
     {
-        $base = (float) $this->selling_price;
+        return $this->hasMany(tb_product_store_price::class, 'product_id');
+    }
 
-        $tiers = collect($this->tier_prices ?? [])
+    /**
+     * Resolve harga per toko dengan fallback ke harga dasar produk.
+     */
+    public function priceForStore(?int $storeId): array
+    {
+        $override = $storeId
+            ? $this->storePrices
+                ->loadMissing('store')
+                ->firstWhere('store_id', $storeId)
+            : null;
+
+        return [
+            'purchase_price'   => $override->purchase_price ?? $this->purchase_price,
+            'selling_price'    => $override->selling_price ?? $this->selling_price,
+            'product_discount' => $override->product_discount ?? $this->product_discount,
+            'tier_prices'      => $override->tier_prices ?? $this->tier_prices,
+        ];
+    }
+
+    public function unitPriceForQty(int $qty, ?int $storeId = null): float
+    {
+        $priceSet = $this->priceForStore($storeId);
+        $base = (float) ($priceSet['selling_price'] ?? 0);
+
+        $tiers = collect($priceSet['tier_prices'] ?? [])
             ->mapWithKeys(fn($price, $q) => [(int)$q => (float)$price])
             ->sortKeys();
 

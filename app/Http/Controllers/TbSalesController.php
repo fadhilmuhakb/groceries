@@ -20,6 +20,9 @@ class TbSalesController extends Controller
     public function index(Request $request)
     {
         $user_id = auth()->user()->id;
+        $store_id = auth()->user()->roles === 'superadmin'
+            ? $request->get('store_id')
+            : auth()->user()->store_id;
         $current_month = Carbon::now()->format('m');
         $current_year = Carbon::now()->format('Y');
         $count_invoice = tb_sell::where('store_id', auth()->user()->store_id)
@@ -32,21 +35,32 @@ class TbSalesController extends Controller
         $user = User::where('id', $user_id)->with('store')->first();
         if(auth()->user()->roles == 'superadmin') {
             $customers = tb_customers::all();
-            $product = tb_incoming_goods::with('product', 'purchase')->get();
+            $product = tb_incoming_goods::with(['product.storePrices', 'purchase'])
+                        ->when($store_id, fn($q) => $q->whereHas('purchase', fn($p) => $p->where('store_id', $store_id)))
+                        ->get();
         }
         else if(auth()->user()->roles == 'staff' || auth()->user()->roles == 'admin') {
             $customers = tb_customers::where('store_id', auth()->user()->store_id)->get();
 
-            $product = tb_incoming_goods::with('product', 'purchase')
-                                        ->whereHas('purchase', function($q) {
-                                            $q->where('store_id', auth()->user()->store_id);
+            $product = tb_incoming_goods::with(['product.storePrices', 'purchase'])
+                                        ->whereHas('purchase', function($q) use ($store_id) {
+                                            $q->where('store_id', $store_id);
                                         })->get();
 
         }
 
         $stores = tb_stores::all();
         if($request->ajax()) {
-            return DataTables::of($product)
+            $products = $product->map(function($row) use ($store_id) {
+                            $pricing = optional($row->product)->priceForStore($store_id);
+                            $row->price = $pricing['selling_price'] ?? 0;
+                            $row->product_discount = $pricing['product_discount'] ?? 0;
+                            $row->selling_price = ($pricing['selling_price'] ?? 0) - ($pricing['product_discount'] ?? 0);
+                            $row->tier_prices = $pricing['tier_prices'] ?? null;
+                            return $row;
+                        });
+
+            return DataTables::of($products)
                         ->addColumn('action', function($product) {
                             $productData = htmlspecialchars(json_encode($product), ENT_QUOTES, 'UTF-8');
                             return '<a href="javascript:void(0)" onClick="handleSelect('.$productData.')" class="btn btn-sm

@@ -109,6 +109,66 @@
               <textarea name="description" class="form-control">{{ old('description', $product->description ?? '') }}</textarea>
             </div>
 
+            @if(!empty($stores))
+            <div class="col-12"><hr></div>
+            <div class="col-12">
+              <h6 class="fw-bold">Harga per Toko (opsional)</h6>
+              <p class="text-muted mb-2">Isi jika harga jual/beli toko ini berbeda. Biarkan kosong untuk pakai harga dasar produk.</p>
+              @php
+                $oldStorePrices = old('store_prices');
+                $storePriceMap = [];
+                if ($oldStorePrices) {
+                    foreach ($oldStorePrices as $row) {
+                        $sid = $row['store_id'] ?? null;
+                        if ($sid) $storePriceMap[$sid] = $row;
+                    }
+                } elseif(isset($product)) {
+                    foreach ($product->storePrices ?? [] as $sp) {
+                        $storePriceMap[$sp->store_id] = [
+                            'store_id' => $sp->store_id,
+                            'purchase_price' => $sp->purchase_price,
+                            'selling_price' => $sp->selling_price,
+                            'product_discount' => $sp->product_discount,
+                        ];
+                    }
+                }
+              @endphp
+
+              @foreach($stores as $s)
+                @php
+                  $row = $storePriceMap[$s->id] ?? ['store_id' => $s->id];
+                @endphp
+                <div class="border rounded p-3 mb-2">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <strong>{{ $s->store_name }}</strong>
+                    <small class="text-muted">Override harga</small>
+                  </div>
+                  <input type="hidden" name="store_prices[{{ $s->id }}][store_id]" value="{{ $s->id }}">
+                  <div class="row g-2">
+                    <div class="col-md-4">
+                      <label class="form-label">Harga Beli</label>
+                      <input type="number" step="0.01" min="0" class="form-control"
+                             name="store_prices[{{ $s->id }}][purchase_price]"
+                             value="{{ $row['purchase_price'] ?? '' }}" placeholder="Kosongkan = default">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Harga Jual</label>
+                      <input type="number" step="0.01" min="0" class="form-control"
+                             name="store_prices[{{ $s->id }}][selling_price]"
+                             value="{{ $row['selling_price'] ?? '' }}" placeholder="Kosongkan = default">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Diskon</label>
+                      <input type="number" step="0.01" min="0" class="form-control"
+                             name="store_prices[{{ $s->id }}][product_discount]"
+                             value="{{ $row['product_discount'] ?? '' }}" placeholder="Kosongkan = 0">
+                    </div>
+                  </div>
+                </div>
+              @endforeach
+            </div>
+            @endif
+
             <div class="col-12"><hr></div>
 
             {{-- ================== HARGA TIER ================== --}}

@@ -39,6 +39,10 @@ class InventoryController extends Controller
             ->join('tb_stores as s', function ($join) use ($storeId) {
                 $join->on('s.id', '=', DB::raw((int)$storeId));
             })
+            ->leftJoin('tb_product_store_prices as sp', function ($join) use ($storeId) {
+                $join->on('sp.product_id', '=', 'pr.id')
+                     ->where('sp.store_id', '=', $storeId);
+            })
             ->leftJoinSub($incomingSub, 'in_sum', function ($join) {
                 $join->on('in_sum.product_id', '=', 'pr.id');
             })
@@ -54,7 +58,8 @@ class InventoryController extends Controller
                 'pr.product_name',
                 's.id as store_id',
                 's.store_name',
-                'pr.purchase_price',
+                DB::raw('COALESCE(sp.purchase_price, pr.purchase_price) as purchase_price'),
+                DB::raw('COALESCE(sp.selling_price, pr.selling_price) as selling_price'),
                 DB::raw('COALESCE(in_sum.total_in, 0) - COALESCE(out_sum.total_out, 0) as system_stock_raw'),
                 DB::raw('so.physical_quantity as physical_quantity')
             )
@@ -174,8 +179,12 @@ class InventoryController extends Controller
                 foreach ($rowsOut as $r) { $outgoing[(int)$r->product_id] = (int)$r->total_out; }
 
                 $rowsPrice = DB::select(
-                    'SELECT id, purchase_price FROM tb_products WHERE id IN ('.$ph(count($productIds)).')',
-                    $productIds
+                    'SELECT p.id, COALESCE(sp.purchase_price, p.purchase_price) AS purchase_price
+                       FROM tb_products p
+                       LEFT JOIN tb_product_store_prices sp
+                         ON sp.product_id = p.id AND sp.store_id = ?
+                      WHERE p.id IN ('.$ph(count($productIds)).')',
+                    array_merge([$storeId], $productIds)
                 );
                 $prices = [];
                 foreach ($rowsPrice as $r) { $prices[(int)$r->id] = (int)$r->purchase_price; }
