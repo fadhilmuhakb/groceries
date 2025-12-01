@@ -191,6 +191,8 @@ class InventoryController extends Controller
 
                 $purchaseId    = null;
                 $totalPurchase = 0;
+                $sellId        = null;
+                $totalSell     = 0;
 
                 foreach ($items as $it) {
                     $pid  = (int)$it['product_id'];
@@ -198,6 +200,27 @@ class InventoryController extends Controller
                     if ($pid <= 0) continue;
 
                     $system = (int)($incoming[$pid] ?? 0) - (int)($outgoing[$pid] ?? 0);
+                    $minus  = max(0, $system - $phys);
+
+                    if ($minus > 0) {
+                        if ($sellId === null) {
+                            DB::insert(
+                                'INSERT INTO tb_sells (`no_invoice`,`store_id`,`date`,`total_price`,`payment_amount`,`created_at`,`updated_at`)
+                                 VALUES (?,?,?,?,?,?,?)',
+                                ['SO-ADJ-OUT-'.date('YmdHis'), $storeId, $now, 0, 0, $now, $now]
+                            );
+                            $sellId = (int)DB::getPdo()->lastInsertId();
+                        }
+                        $priceMinus = (int)($prices[$pid] ?? 0);
+                        $totalSell += $minus * $priceMinus;
+
+                        DB::insert(
+                            'INSERT INTO tb_outgoing_goods
+                               (`product_id`,`sell_id`,`date`,`quantity_out`,`discount`,`recorded_by`,`description`,`created_at`,`updated_at`)
+                             VALUES (?,?,?,?,?,?,?,?,?)',
+                            [$pid, $sellId, $now, $minus, 0, 'Stock Opname', 'Stock Opname (-)', $now, $now]
+                        );
+                    }
 
                     $exists = DB::select(
                         'SELECT 1 FROM tb_stock_opnames WHERE product_id = ? AND store_id = ? LIMIT 1',
@@ -246,6 +269,13 @@ class InventoryController extends Controller
                     DB::update(
                         'UPDATE tb_purchases SET total_price = ?, updated_at = ? WHERE id = ?',
                         [$totalPurchase, $now, $purchaseId]
+                    );
+                }
+
+                if ($sellId !== null) {
+                    DB::update(
+                        'UPDATE tb_sells SET total_price = ?, payment_amount = ?, updated_at = ? WHERE id = ?',
+                        [$totalSell, 0, $now, $sellId]
                     );
                 }
             });
