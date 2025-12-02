@@ -52,6 +52,19 @@
 </div>
 
 <div class="card mb-3">
+    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <div>
+            <small class="text-muted d-block">Mode Toko / Potong Stok</small>
+            <div id="data_source_buttons" class="btn-group" role="group" aria-label="Sumber data">
+                <button type="button" class="btn btn-outline-primary active" data-source-mode="all">Semua</button>
+                <button type="button" class="btn btn-outline-secondary" data-source-mode="online">Online</button>
+                <button type="button" class="btn btn-outline-secondary" data-source-mode="offline">Offline</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
     <div class="card-body">
         <div class="d-flex flex-wrap align-items-center gap-2">
             <strong>Filter Kasir:</strong>
@@ -68,6 +81,7 @@
 </div>
 
 <input type="hidden" id="filter_cashier" value="">
+<input type="hidden" id="filter_data_source" value="all">
 
 <div class="row g-3 mb-3">
     <div class="col-md-3">
@@ -133,10 +147,12 @@
 
         const $store   = $('#filter_store');
         const $cashier = $('#filter_cashier');
+        const $dataSource = $('#filter_data_source');
         const $dateFrom = $('#filter_date_from');
         const $dateTo   = $('#filter_date_to');
         const $dateHint = $('#date_hint');
         const $cashierFilters = $('#cashier_filters');
+        const $dataSourceButtons = $('#data_source_buttons');
 
         let totalsFromServer = null;
         const hideSales = @json($hideSalesTotal ?? false);
@@ -151,6 +167,7 @@
                     d.cashier = $cashier.val() || '';
                     d.date_from = $dateFrom.val() || '';
                     d.date_to   = $dateTo.val() || '';
+                    d.source_mode = $dataSource.val() || 'online';
                 },
                 dataSrc: function (json) {
                     totalsFromServer = json?.totals || null;
@@ -194,6 +211,12 @@
             const cashierVal = $(this).data('cashier-filter') ?? '';
             $cashier.val(cashierVal);
             setActiveCashierButton(cashierVal);
+            reloadTable();
+        });
+        $dataSourceButtons.on('click', 'button[data-source-mode]', function () {
+            const mode = $(this).data('source-mode') || 'online';
+            $dataSource.val(mode);
+            setActiveSourceButton(mode);
             reloadTable();
         });
 
@@ -266,6 +289,17 @@
             $cashierFilters.find('button[data-cashier-filter]').each(function () {
                 const btnVal = $(this).data('cashier-filter') ?? '';
                 $(this).toggleClass('active', btnVal === value);
+            });
+        }
+
+        function setActiveSourceButton(mode) {
+            $dataSourceButtons.find('button[data-source-mode]').each(function () {
+                const btnMode = $(this).data('source-mode') || 'all';
+                const isActive = btnMode === mode;
+                $(this).toggleClass('active', isActive);
+                $(this).toggleClass('btn-primary', isActive);
+                $(this).toggleClass('btn-outline-primary', !isActive && btnMode === 'online');
+                $(this).toggleClass('btn-outline-secondary', !isActive && btnMode !== 'online');
             });
         }
     });

@@ -32,7 +32,7 @@ class DailySalesReportController extends Controller
         $today             = now('Asia/Jakarta')->toDateString();
         $defaultDateFrom   = $today;
         $defaultDateTo     = $today;
-        $cashiers          = $this->availableCashiers($selectedStoreId, $today, $today);
+        $cashiers          = $this->availableCashiers($selectedStoreId, $today, $today, 'all');
         // Sembunyikan total penjualan untuk role staff/kasir
         $isCashierRole     = in_array(strtolower((string)($user?->roles)), ['kasir','cashier','staff']);
 
@@ -57,6 +57,8 @@ class DailySalesReportController extends Controller
 
         [$startDate, $endDate] = $this->resolveDateRange($request->get('date_from'), $request->get('date_to'));
         $cashier      = $request->get('cashier');
+        $sourceMode   = $request->get('source_mode');
+        $sourceMode   = in_array($sourceMode, ['online', 'offline'], true) ? $sourceMode : 'all';
 
         $baseQuery = tb_outgoing_goods::query()
             ->join('tb_sells as s', 's.id', '=', 'tb_outgoing_goods.sell_id')
@@ -72,6 +74,11 @@ class DailySalesReportController extends Controller
             // abaikan pencatatan khusus stock opname
             ->when(Schema::hasColumn('tb_outgoing_goods','recorded_by'),
                 fn($q) => $q->whereRaw('LOWER(COALESCE(TRIM(tb_outgoing_goods.recorded_by), "")) != ?', ['stock opname'])
+            )
+            // filter mode toko: online (potong stok) vs offline (pending stok opname)
+            ->when(
+                Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock') && $sourceMode !== 'all',
+                fn ($q) => $q->where('tb_outgoing_goods.is_pending_stock', $sourceMode === 'offline')
             )
             ->where(function ($query) use ($startDate, $endDate) {
                 $query->whereBetween(
@@ -115,7 +122,7 @@ class DailySalesReportController extends Controller
             'discount' => (float)$summaryRows->sum('discount'),
         ];
 
-        $cashiers = $this->availableCashiers($storeId, $startDate->toDateString(), $endDate->toDateString());
+        $cashiers = $this->availableCashiers($storeId, $startDate->toDateString(), $endDate->toDateString(), $sourceMode);
 
         // order by grouped/selected columns only to satisfy ONLY_FULL_GROUP_BY
         $dataQuery = (clone $baseQuery)
@@ -199,7 +206,7 @@ class DailySalesReportController extends Controller
         }
     }
 
-    private function availableCashiers(?int $storeId, string $startDate, string $endDate): array
+    private function availableCashiers(?int $storeId, string $startDate, string $endDate, string $sourceMode = 'all'): array
     {
         if (!Schema::hasColumn('tb_outgoing_goods', 'recorded_by')) {
             return [];
@@ -213,6 +220,10 @@ class DailySalesReportController extends Controller
             ->select('tb_outgoing_goods.recorded_by')
             ->when($storeId, fn ($q) => $q->where('s.store_id', $storeId))
             ->whereRaw('LOWER(COALESCE(TRIM(tb_outgoing_goods.recorded_by), "")) != ?', ['stock opname'])
+            ->when(
+                Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock') && $sourceMode !== 'all',
+                fn ($q) => $q->where('tb_outgoing_goods.is_pending_stock', $sourceMode === 'offline')
+            )
             ->whereNotNull('recorded_by')
             ->where(function ($query) use ($start, $end) {
                 $query->whereBetween(
