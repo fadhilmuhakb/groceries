@@ -32,7 +32,8 @@
 
     @if(!$query->isEmpty())
     <div class="mb-3">
-        <input type="text" id="search-product" class="form-control" placeholder="Cari Produk...">
+        <input type="text" id="search-product" class="form-control" placeholder="Scan barcode atau ketik nama/kode produk...">
+        <small class="text-muted">Arahkan scanner ke input ini untuk langsung memfilter item sesuai barcode/kode.</small>
     </div>
     @endif
 
@@ -61,9 +62,16 @@
             </thead>
             <tbody>
                 @foreach($query as $index => $row)
-                <tr data-price="{{ $row->purchase_price }}">
+                <tr data-price="{{ $row->purchase_price }}"
+                    data-code="{{ strtolower($row->product_code ?? '') }}"
+                    data-name="{{ strtolower($row->product_name ?? '') }}">
                     <td>{{ $index + 1 }}</td>
-                    <td class="product-name">{{ $row->product_name }}</td>
+                    <td class="product-name">
+                        <div class="fw-semibold">{{ $row->product_name }}</div>
+                        @if(!empty($row->product_code))
+                            <div class="text-muted small">Kode: {{ $row->product_code }}</div>
+                        @endif
+                    </td>
                     <td>{{ $row->store_name }}</td>
                     <td class="text-end">{{ number_format((float)$row->purchase_price, 2, ',', '.') }}</td>
                     <td class="text-end">{{ number_format((float)$row->selling_price, 2, ',', '.') }}</td>
@@ -165,6 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalPlusUnitEl = document.getElementById('total-plus-unit');
     const totalPlusValueEl = document.getElementById('total-plus-value');
     const totalPlusMinusEl = document.getElementById('total-plus-minus');
+    let highlightTimeout = null;
 
     function updateTotals() {
         let totalMinusQty = 0, totalMinusUnit = 0, totalMinusValue = 0, totalPlusUnit = 0, totalPlusValue = 0;
@@ -268,13 +277,37 @@ document.addEventListener('DOMContentLoaded', () => {
     // SEARCH
     const searchInput = document.getElementById('search-product');
     if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            const term = searchInput.value.toLowerCase();
-            table.querySelectorAll('tbody tr').forEach(tr => {
-                const name = tr.querySelector('.product-name').textContent.toLowerCase();
-                tr.style.display = name.includes(term) ? '' : 'none';
+        const rows = table.querySelectorAll('tbody tr');
+
+        const filterRows = (term) => {
+            const keyword = (term || '').trim().toLowerCase();
+            let firstMatch = null;
+
+            rows.forEach(tr => {
+                const name = (tr.dataset.name || tr.querySelector('.product-name').textContent || '').toLowerCase();
+                const code = (tr.dataset.code || '').toLowerCase();
+                const matches = !keyword || name.includes(keyword) || code.includes(keyword);
+                tr.style.display = matches ? '' : 'none';
+                if (matches && !firstMatch) {
+                    firstMatch = tr;
+                }
             });
-        });
+
+            // Highlight dan scroll ke hasil pertama untuk scanner
+            table.querySelectorAll('tbody tr.table-warning').forEach(row => row.classList.remove('table-warning'));
+            if (keyword && firstMatch) {
+                firstMatch.classList.add('table-warning');
+                firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                clearTimeout(highlightTimeout);
+                highlightTimeout = setTimeout(() => {
+                    firstMatch.classList.remove('table-warning');
+                }, 1200);
+            }
+        };
+
+        searchInput.addEventListener('input', () => filterRows(searchInput.value));
+        filterRows(searchInput.value);
+        searchInput.focus();
     }
 });
 </script>

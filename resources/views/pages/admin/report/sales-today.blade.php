@@ -181,7 +181,15 @@
                 { data: 'invoices', name: 'invoices', render: d => d || '-' },
                 { data: 'store_name', name: 'store_id', defaultContent: '-' },
                 { data: 'recorded_by', name: 'recorded_by', defaultContent: '-' },
-                { data: 'product_name', name: 'product_name', defaultContent: '-' },
+                {
+                    data: 'product_name',
+                    name: 'product_name',
+                    defaultContent: '-',
+                    render: (data, type, row) => {
+                        const code = row?.product_code ? `<div class="text-muted small">Kode: ${row.product_code}</div>` : '';
+                        return `${data || '-'}${code}`;
+                    }
+                },
                 {
                     data: 'quantity_out',
                     name: 'quantity_out',

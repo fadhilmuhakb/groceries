@@ -92,6 +92,7 @@ class DailySalesReportController extends Controller
             )
             ->selectRaw('
                 p.id as product_id,
+                p.product_code,
                 p.product_name,
                 st.store_name,
                 s.store_id,
@@ -106,6 +107,7 @@ class DailySalesReportController extends Controller
             ')
             ->groupBy(
                 'p.id',
+                'p.product_code',
                 'p.product_name',
                 'st.store_name',
                 's.store_id',
@@ -156,7 +158,8 @@ class DailySalesReportController extends Controller
                         $q->where('s.no_invoice', 'like', $like)
                           ->orWhere('st.store_name', 'like', $like)
                           ->orWhere('tb_outgoing_goods.recorded_by', 'like', $like)
-                          ->orWhere('p.product_name', 'like', $like);
+                          ->orWhere('p.product_name', 'like', $like)
+                          ->orWhere('p.product_code', 'like', $like);
                     });
                 }
             })

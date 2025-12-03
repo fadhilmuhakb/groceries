@@ -57,6 +57,7 @@ class InventoryController extends Controller
             })
             ->select(
                 'pr.id as product_id',
+                'pr.product_code',
                 'pr.product_name',
                 's.id as store_id',
                 's.store_name',
