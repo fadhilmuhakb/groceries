@@ -46,6 +46,10 @@
         <input type="hidden" name="store_id" value="{{ $selected }}">
         <div class="card">
           <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="fw-bold">Produk di bawah stok minimum</span>
+              <a href="{{ route('order-stock.export', ['store' => $selected]) }}" class="btn btn-sm btn-outline-success">Export Excel</a>
+            </div>
             <div class="table-responsive">
               <table class="table table-striped">
                 <thead>
@@ -56,6 +60,7 @@
                     <th>Stok</th>
                     <th>Min</th>
                     <th>Max</th>
+                    <th>PO</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -67,6 +72,7 @@
                       <td>{{ $item->stock_system }}</td>
                       <td>{{ $item->min_stock ?? '-' }}</td>
                       <td>{{ $item->max_stock ?? '-' }}</td>
+                      <td>{{ $item->po_qty ?? 0 }}</td>
                     </tr>
                   @endforeach
                 </tbody>

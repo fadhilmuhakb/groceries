@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Exports\OrderStockExport;
 
 class OrderStockController extends Controller
 {
@@ -32,7 +35,10 @@ class OrderStockController extends Controller
             return redirect()->back()->with('warning', 'Pilih toko terlebih dahulu.');
         }
 
-        $items = $this->lowStockQuery($storeId)->get();
+        $items = $this->lowStockQuery($storeId)->get()->map(function ($row) {
+            $row->po_qty = max(0, ((int)$row->max_stock) - ((int)$row->stock_system));
+            return $row;
+        });
         $currentStore = DB::table('tb_stores')->where('id', $storeId)->value('store_name');
 
         return view('pages.admin.order-stock.index', [
@@ -57,14 +63,18 @@ class OrderStockController extends Controller
         $products = $this->lowStockQuery($storeId)
             ->whereIn('p.id', $items)
             ->whereNotNull('sp.max_stock')
-            ->get();
+            ->get()
+            ->map(function ($row) {
+                $row->po_qty = max(0, ((int)$row->max_stock) - ((int)$row->stock_system));
+                return $row;
+            });
 
         $restockRows   = [];
         $totalPurchase = 0;
         $now           = now();
 
         foreach ($products as $row) {
-            $needed = max(0, (int)$row->max_stock - (int)$row->stock_system);
+            $needed = (int)$row->po_qty;
             if ($needed <= 0) continue;
 
             $restockRows[] = [
@@ -120,6 +130,30 @@ class OrderStockController extends Controller
             DB::rollBack();
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    public function export(Request $request)
+    {
+        $user         = $request->user();
+        $isSuperadmin = $user?->roles === 'superadmin';
+        $storeId      = $isSuperadmin ? (int)$request->get('store') : (int)($user?->store_id);
+        if (!$storeId) return back()->with('error', 'Pilih toko terlebih dahulu.');
+
+        $items = $this->lowStockQuery($storeId)->get()->map(function ($row) {
+            $row->po_qty = max(0, ((int)$row->max_stock) - ((int)$row->stock_system));
+            return $row;
+        });
+
+        $exportRows = $items->map(function ($row) {
+            return [
+                'Kode'   => $row->product_code,
+                'Produk' => $row->product_name,
+                'PO'     => $row->po_qty,
+            ];
+        });
+
+        $filename = 'order-stock-store-'.$storeId.'.xlsx';
+        return Excel::download(new OrderStockExport($exportRows), $filename);
     }
 
     private function lowStockQuery(int $storeId)

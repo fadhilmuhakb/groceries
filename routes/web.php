@@ -174,6 +174,7 @@ Route::get('/sync/manual', [SyncController::class, 'manual'])->name('sync.manual
     Route::prefix('order-stock')->group(function () {
         Route::get('/', [OrderStockController::class, 'index'])->name('order-stock.index');
         Route::post('/restock', [OrderStockController::class, 'restock'])->name('order-stock.restock');
+        Route::get('/export', [OrderStockController::class, 'export'])->name('order-stock.export');
     });
 
     Route::prefix('stock-threshold')->group(function () {
