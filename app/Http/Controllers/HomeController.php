@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class HomeController extends Controller
 {
@@ -35,6 +36,19 @@ public function index(Request $request)
     $stores = $isSuperadmin ? DB::table('tb_stores')->get() : collect();
 
     $usingSpecificRange = $dateFrom && $dateTo;
+    $hasSellerIdColumn  = Schema::hasColumn('tb_sells', 'seller_id');
+
+    // Abaikan transaksi penyesuaian stok opname (seller_id=1 atau invoice SO-ADJ)
+    $excludeStockOpname = function ($query) use ($hasSellerIdColumn) {
+        if ($hasSellerIdColumn) {
+            $query->where('s.seller_id', '!=', 1);
+        } else {
+            $query->where(function ($q) {
+                $q->whereNull('s.no_invoice')
+                  ->orWhere('s.no_invoice', 'not like', 'SO-ADJ-%');
+            });
+        }
+    };
 
     // ===== Labels & Grouping =====
     if ($usingSpecificRange) {
@@ -83,6 +97,9 @@ public function index(Request $request)
         ->join('tb_sells as s', 'og.sell_id', '=', 's.id')
         ->join('tb_products as p', 'og.product_id', '=', 'p.id');
 
+    $excludeStockOpname($salesQuery);
+    $excludeStockOpname($hppBase);
+
     if ($storeId) {
         $salesQuery->where('s.store_id', $storeId);
         $hppBase->where('s.store_id', $storeId);
@@ -100,12 +117,13 @@ public function index(Request $request)
         $start = now()->subDays(27)->startOfDay();
         $end   = now()->endOfDay();
 
-        $salesRaw = DB::table('tb_sells as s')
+        $salesRawQuery = DB::table('tb_sells as s')
             ->when($storeId, fn($q) => $q->where('s.store_id', $storeId))
-            ->whereBetween('s.date', [$start, $end])
-            ->get(['s.date', 's.total_price']);
+            ->whereBetween('s.date', [$start, $end]);
+        $excludeStockOpname($salesRawQuery);
+        $salesRaw = $salesRawQuery->get(['s.date', 's.total_price']);
 
-        $hppRaw = $hppBase
+        $hppRaw = (clone $hppBase)
             ->whereBetween('s.date', [$start, $end])
             ->get(['s.date', DB::raw('og.quantity_out as qty'), DB::raw('p.purchase_price as cogs_unit')]);
 
@@ -129,11 +147,12 @@ public function index(Request $request)
             ->select($groupBySales, DB::raw('SUM(s.total_price) as total'))
             ->when($storeId, fn($q) => $q->where('s.store_id', $storeId))
             ->when($usingSpecificRange, fn($q) => $q->whereBetween('s.date', [$dateFrom, $dateTo]))
-            ->groupBy('group_val')
-            ->pluck('total', 'group_val');
+            ->groupBy('group_val');
+        $excludeStockOpname($salesData);
+        $salesData = $salesData->pluck('total', 'group_val');
 
         // HPP (COGS) by buckets
-        $hppData = $hppBase
+        $hppData = (clone $hppBase)
             ->select($groupByHpp, DB::raw('SUM(og.quantity_out * p.purchase_price) as total'))
             ->when($usingSpecificRange, fn($q) => $q->whereBetween('s.date', [$dateFrom, $dateTo]))
             ->groupBy('group_val')
@@ -156,6 +175,8 @@ public function index(Request $request)
         ->groupBy('p.product_name')
         ->orderByDesc('total_sold')
         ->limit(5);
+
+    $excludeStockOpname($topProductsQuery);
 
     if ($storeId) {
         $topProductsQuery->where('s.store_id', $storeId);
