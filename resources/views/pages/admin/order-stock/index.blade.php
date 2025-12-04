@@ -62,11 +62,12 @@
                     <th>Max</th>
                     <th>Harga Beli</th>
                     <th>PO</th>
+                    <th>Total Harga</th>
                   </tr>
                 </thead>
                 <tbody>
                   @foreach($items as $item)
-                    <tr>
+                    <tr class="order-row" data-price="{{ $item->purchase_price ?? 0 }}">
                       <td><input type="checkbox" name="items[]" value="{{ $item->id }}" class="row-check"></td>
                       <td>{{ $item->product_code }}</td>
                       <td>{{ $item->product_name }}</td>
@@ -81,10 +82,14 @@
                                min="0"
                                value="{{ $item->po_qty ?? 0 }}">
                       </td>
+                      <td class="row-total fw-semibold">0</td>
                     </tr>
                   @endforeach
                 </tbody>
               </table>
+            </div>
+            <div class="d-flex justify-content-end mt-2">
+              <div class="fw-bold">Total Harga: <span id="grand-total">0</span></div>
             </div>
             <div class="text-end mt-3">
               <button type="submit" class="btn btn-primary">Checklist &amp; Restock ke Max</button>
@@ -106,5 +111,32 @@
       document.querySelectorAll('.row-check').forEach(cb => cb.checked = e.target.checked);
     });
   }
+
+  function formatRupiah(num) {
+    const n = Number(num || 0);
+    return n.toLocaleString('id-ID', { minimumFractionDigits: 0 });
+  }
+
+  function recalcTotals() {
+    let grand = 0;
+    document.querySelectorAll('.order-row').forEach(row => {
+      const price = Number(row.getAttribute('data-price') || 0);
+      const input = row.querySelector('input[name^="po_qty"]');
+      const qty = Number(input?.value || 0);
+      const total = price * qty;
+      grand += total;
+      const cell = row.querySelector('.row-total');
+      if (cell) cell.textContent = formatRupiah(total);
+    });
+    const grandEl = document.getElementById('grand-total');
+    if (grandEl) grandEl.textContent = formatRupiah(grand);
+  }
+
+  // initial calc
+  recalcTotals();
+  document.querySelectorAll('input[name^="po_qty"]').forEach(inp => {
+    inp.addEventListener('input', recalcTotals);
+    inp.addEventListener('change', recalcTotals);
+  });
 </script>
 @endsection

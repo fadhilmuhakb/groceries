@@ -82,9 +82,18 @@
     <div class="modal fade" id="lowStockHeaderModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Peringatan Stok Minimum</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header d-flex align-items-center justify-content-between">
+                    <div class="d-flex flex-column">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-warning text-dark">Perlu PO</span>
+                            <h5 class="modal-title mb-0">Peringatan Stok Minimum</h5>
+                        </div>
+                        <small class="text-muted">Produk di bawah stok minimum per toko</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{{ route('order-stock.index') }}" class="btn btn-sm btn-primary">Menu Permintaan Order</a>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
                 </div>
                 <div class="modal-body">
                     @php
