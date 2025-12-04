@@ -35,15 +35,14 @@
             <div class="container-fluid">
                 <div class="row row-cols-1 row-cols-lg-2 row-cols-xl-3">
                     <div class="col mx-auto">
-                        <div class="mb-4 text-center">
-                            <img src="assets/images/logo-img.png" width="180" alt="" />
+                        <div class="text-center mb-3">
+                            <h3 class="mb-0 fw-bold">TwinkleStar</h3>
                         </div>
                         <div class="card">
                             <div class="card-body">
                                 <div class="border p-4 rounded">
-                                    <div class="text-center">
-                                        <h3 class="mb-0">TwinkleStar</h3>
-                                        <p class="text-muted">Sign in</p>
+                                    <div class="text-center mb-3">
+                                        <p class="text-muted mb-0">Sign in</p>
                                     </div>
                                     <div class="form-body">
                                         <form class="row g-3" method="POST" action="{{ route('login') }}">
