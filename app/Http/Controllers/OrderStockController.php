@@ -62,7 +62,7 @@ class OrderStockController extends Controller
 
         $products = $this->lowStockQuery($storeId)
             ->whereIn('p.id', $items)
-            ->whereNotNull('sp.max_stock')
+            ->whereNotNull('st.max_stock')
             ->get()
             ->map(function ($row) {
                 $row->po_qty = max(0, ((int)$row->max_stock) - ((int)$row->stock_system));

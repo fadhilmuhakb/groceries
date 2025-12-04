@@ -45,6 +45,11 @@ class AppServiceProvider extends ServiceProvider
                 $items = $storeId
                     ? $this->lowStockItems((int)$storeId)
                     : $this->lowStockAllStores();
+                Log::info('LOW_STOCK_HEADER_RESULT', [
+                    'role' => $user->roles ?? null,
+                    'store_id' => $storeId,
+                    'count' => $items->count(),
+                ]);
                 $view->with('lowStockItemsGlobal', $items);
             } catch (\Throwable $e) {
                 Log::error('LOW_STOCK_HEADER', ['msg' => $e->getMessage()]);
@@ -104,44 +109,21 @@ class AppServiceProvider extends ServiceProvider
 
     private function lowStockAllStores()
     {
-        $incomingSub = DB::table('tb_incoming_goods as ig')
-            ->join('tb_purchases as pur', 'ig.purchase_id', '=', 'pur.id')
-            ->select('pur.store_id', 'ig.product_id', DB::raw('SUM(ig.stock) AS total_in'))
-            ->groupBy('pur.store_id', 'ig.product_id');
+        $storeIds = DB::table('tb_product_store_thresholds')
+            ->select('store_id')
+            ->distinct()
+            ->pluck('store_id')
+            ->filter();
 
-        $outgoingSub = DB::table('tb_outgoing_goods as og')
-            ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
-            ->select('sl.store_id', 'og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))
-            ->groupBy('sl.store_id', 'og.product_id');
+        $all = collect();
+        foreach ($storeIds as $sid) {
+            try {
+                $all = $all->merge($this->lowStockItems((int)$sid));
+            } catch (\Throwable $e) {
+                Log::error('LOW_STOCK_ALL_STORES_ITEM', ['store_id' => $sid, 'msg' => $e->getMessage()]);
+            }
+        }
 
-        return DB::table('tb_products as p')
-            ->join('tb_product_store_thresholds as sp', 'sp.product_id', '=', 'p.id')
-            ->join('tb_stores as st', 'st.id', '=', 'sp.store_id')
-            ->leftJoinSub($incomingSub, 'incoming', function ($join) {
-                $join->on('incoming.product_id', '=', 'p.id')
-                     ->on('incoming.store_id', '=', 'sp.store_id');
-            })
-            ->leftJoinSub($outgoingSub, 'outgoing', function ($join) {
-                $join->on('outgoing.product_id', '=', 'p.id')
-                     ->on('outgoing.store_id', '=', 'sp.store_id');
-            })
-            ->select(
-                'p.id',
-                'p.product_code',
-                'p.product_name',
-                'sp.store_id',
-                'st.store_name',
-                'sp.min_stock',
-                'sp.max_stock',
-                DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system'),
-                DB::raw('GREATEST(COALESCE(sp.max_stock,0) - (COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)),0) as po_qty')
-            )
-            ->whereNotNull('sp.min_stock')
-            ->whereRaw('COALESCE(sp.min_stock,0) > 0')
-            ->whereRaw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) <= COALESCE(sp.min_stock, 0)')
-            ->orderBy('st.store_name')
-            ->orderBy('p.product_name')
-            ->limit(50)
-            ->get();
+        return $all;
     }
 }
