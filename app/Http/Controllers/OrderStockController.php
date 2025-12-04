@@ -60,12 +60,16 @@ class OrderStockController extends Controller
         $items = array_filter($request->input('items', []), fn ($v) => $v !== null && $v !== '');
         if (empty($items)) return back()->with('warning', 'Tidak ada produk yang dipilih.');
 
+        $poInput = $request->input('po_qty', []);
+
         $products = $this->lowStockQuery($storeId)
             ->whereIn('p.id', $items)
             ->whereNotNull('st.max_stock')
             ->get()
-            ->map(function ($row) {
-                $row->po_qty = max(0, ((int)$row->max_stock) - ((int)$row->stock_system));
+            ->map(function ($row) use ($poInput) {
+                $defaultPo   = max(0, ((int)$row->max_stock) - ((int)$row->stock_system));
+                $inputCustom = (int)($poInput[$row->id] ?? $defaultPo);
+                $row->po_qty = max(0, $inputCustom);
                 return $row;
             });
 
@@ -161,13 +165,26 @@ class OrderStockController extends Controller
         $incomingSub = DB::table('tb_incoming_goods as ig')
             ->when(
                 Schema::hasColumn('tb_incoming_goods', 'store_id'),
-                fn ($q) => $q->where('ig.store_id', $storeId)
-                             ->when(Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
-                                 fn ($q2) => $q2->where('ig.is_pending_stock', false)),
+                fn ($q) => $q->where(function ($qq) use ($storeId) {
+                    $qq->where('ig.store_id', $storeId)
+                       ->orWhereExists(function ($ex) use ($storeId) {
+                           $ex->select(DB::raw(1))
+                              ->from('tb_purchases as pur')
+                              ->whereColumn('pur.id', 'ig.purchase_id')
+                              ->where('pur.store_id', $storeId);
+                       });
+                })->when(Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
+                    fn ($q2) => $q2->where(function ($w) {
+                        $w->whereNull('ig.is_pending_stock')
+                          ->orWhere('ig.is_pending_stock', false);
+                    })),
                 fn ($q) => $q->join('tb_purchases as pur', 'ig.purchase_id', '=', 'pur.id')
                              ->where('pur.store_id', $storeId)
                              ->when(Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
-                                 fn ($q2) => $q2->where('ig.is_pending_stock', false))
+                                 fn ($q2) => $q2->where(function ($w) {
+                                     $w->whereNull('ig.is_pending_stock')
+                                       ->orWhere('ig.is_pending_stock', false);
+                                 }))
             )
             ->select('ig.product_id', DB::raw('SUM(ig.stock) AS total_in'))
             ->groupBy('ig.product_id');
@@ -185,20 +202,24 @@ class OrderStockController extends Controller
                 $join->on('st.product_id', '=', 'p.id')
                      ->where('st.store_id', '=', $storeId);
             })
+            ->leftJoin('tb_product_store_prices as psp', function ($join) use ($storeId) {
+                $join->on('psp.product_id', '=', 'p.id')
+                     ->where('psp.store_id', '=', $storeId);
+            })
             ->leftJoinSub($incomingSub, 'incoming', fn ($join) => $join->on('incoming.product_id', '=', 'p.id'))
             ->leftJoinSub($outgoingSub, 'outgoing', fn ($join) => $join->on('outgoing.product_id', '=', 'p.id'))
             ->select(
                 'p.id',
                 'p.product_code',
                 'p.product_name',
-                'st.min_stock',
-                'st.max_stock',
-                DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system'),
-                DB::raw('p.purchase_price as purchase_price')
-            )
-            ->whereNotNull('st.min_stock')
-            ->whereRaw('COALESCE(st.min_stock,0) > 0')
-            ->whereRaw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) <= COALESCE(st.min_stock, 0)')
-            ->orderBy('p.product_name');
+            'st.min_stock',
+            'st.max_stock',
+            DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system'),
+            DB::raw('COALESCE(psp.purchase_price, p.purchase_price) as purchase_price')
+        )
+        ->whereNotNull('st.min_stock')
+        ->whereRaw('COALESCE(st.min_stock,0) > 0')
+        ->whereRaw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) <= COALESCE(st.min_stock, 0)')
+        ->orderBy('p.product_name');
     }
 }

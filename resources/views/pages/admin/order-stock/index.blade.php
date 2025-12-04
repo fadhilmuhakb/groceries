@@ -60,6 +60,7 @@
                     <th>Stok</th>
                     <th>Min</th>
                     <th>Max</th>
+                    <th>Harga Beli</th>
                     <th>PO</th>
                   </tr>
                 </thead>
@@ -72,7 +73,14 @@
                       <td>{{ $item->stock_system }}</td>
                       <td>{{ $item->min_stock ?? '-' }}</td>
                       <td>{{ $item->max_stock ?? '-' }}</td>
-                      <td>{{ $item->po_qty ?? 0 }}</td>
+                      <td>{{ number_format($item->purchase_price ?? 0, 0, ',', '.') }}</td>
+                      <td style="width:120px">
+                        <input type="number"
+                               name="po_qty[{{ $item->id }}]"
+                               class="form-control form-control-sm"
+                               min="0"
+                               value="{{ $item->po_qty ?? 0 }}">
+                      </td>
                     </tr>
                   @endforeach
                 </tbody>
