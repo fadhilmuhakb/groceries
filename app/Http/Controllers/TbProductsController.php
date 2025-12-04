@@ -297,20 +297,72 @@ class TbProductsController extends Controller
             return !empty($row['store_id']);
         });
 
+        $base = DB::table('tb_products')
+            ->where('id', $productId)
+            ->select('purchase_price', 'selling_price', 'product_discount')
+            ->first();
+
         $keepIds = [];
         foreach ($rows as $row) {
             $storeId = (int)($row['store_id'] ?? 0);
             if ($storeId <= 0) continue;
 
-            $hasValue = ($row['purchase_price'] ?? null) !== null
-                || ($row['selling_price'] ?? null) !== null
-                || ($row['product_discount'] ?? null) !== null;
-            if (!$hasValue) continue;
+            $existing = DB::table('tb_product_store_prices')
+                ->where('product_id', $productId)
+                ->where('store_id', $storeId)
+                ->first();
+
+            $purchaseInput = $row['purchase_price'] ?? null;
+            $sellingInput  = $row['selling_price'] ?? null;
+            $discountInput = $row['product_discount'] ?? null;
+            $minInput      = $row['min_stock'] ?? null;
+            $maxInput      = $row['max_stock'] ?? null;
+
+            $hasPrice    = ($purchaseInput !== null && $purchaseInput !== '');
+            $hasSelling  = ($sellingInput !== null && $sellingInput !== '');
+            $hasDiscount = ($discountInput !== null && $discountInput !== '');
+            $hasMin      = ($minInput !== null && $minInput !== '');
+            $hasMax      = ($maxInput !== null && $maxInput !== '');
+
+            if (!($hasPrice || $hasSelling || $hasDiscount || $hasMin || $hasMax)) {
+                continue;
+            }
+
+            $minStock = $hasMin ? (int)$minInput : null;
+            $maxStock = $hasMax ? (int)$maxInput : null;
+            if ($minStock !== null && $maxStock !== null && $maxStock < $minStock) {
+                $maxStock = $minStock;
+            }
+
+            // if only min/max provided and record exists, update min/max only
+            if ($existing && !$hasPrice && !$hasSelling && !$hasDiscount) {
+                DB::table('tb_product_store_prices')
+                    ->where('id', $existing->id)
+                    ->update([
+                        'min_stock'  => $minStock,
+                        'max_stock'  => $maxStock,
+                        'updated_at' => now(),
+                    ]);
+                $keepIds[] = $existing->id;
+                continue;
+            }
+
+            $purchasePrice = $hasPrice
+                ? (float)$purchaseInput
+                : ($existing->purchase_price ?? $base->purchase_price ?? 0);
+            $sellingPrice = $hasSelling
+                ? (float)$sellingInput
+                : ($existing->selling_price ?? $base->selling_price ?? 0);
+            $productDiscount = $hasDiscount
+                ? (float)$discountInput
+                : ($existing->product_discount ?? $base->product_discount ?? null);
 
             $payload = [
-                'purchase_price'   => $row['purchase_price'] ?? 0,
-                'selling_price'    => $row['selling_price'] ?? 0,
-                'product_discount' => $row['product_discount'] ?? null,
+                'purchase_price'   => $purchasePrice,
+                'selling_price'    => $sellingPrice,
+                'product_discount' => $productDiscount,
+                'min_stock'        => $minStock,
+                'max_stock'        => $maxStock,
             ];
 
             $record = tb_product_store_price::updateOrCreate(

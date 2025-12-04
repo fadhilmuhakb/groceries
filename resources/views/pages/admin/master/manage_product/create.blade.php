@@ -124,11 +124,17 @@
                     }
                 } elseif(isset($product)) {
                     foreach ($product->storePrices ?? [] as $sp) {
+                        // treat same-as-base prices as empty override so fields show placeholder
+                        $isBasePurchase = isset($product->purchase_price) && (float)$sp->purchase_price === (float)$product->purchase_price;
+                        $isBaseSelling  = isset($product->selling_price) && (float)$sp->selling_price === (float)$product->selling_price;
+                        $isBaseDiscount = ($sp->product_discount === null) || (isset($product->product_discount) && (float)$sp->product_discount === (float)$product->product_discount);
                         $storePriceMap[$sp->store_id] = [
                             'store_id' => $sp->store_id,
-                            'purchase_price' => $sp->purchase_price,
-                            'selling_price' => $sp->selling_price,
-                            'product_discount' => $sp->product_discount,
+                            'purchase_price' => ($isBasePurchase ? null : $sp->purchase_price),
+                            'selling_price' => ($isBaseSelling ? null : $sp->selling_price),
+                            'product_discount' => ($isBaseDiscount ? null : $sp->product_discount),
+                            'min_stock' => $sp->min_stock,
+                            'max_stock' => $sp->max_stock,
                         ];
                     }
                 }

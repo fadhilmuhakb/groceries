@@ -95,31 +95,46 @@ class StockThresholdController extends Controller
                 if ($pid <= 0) continue;
                 $min = $row['min_stock'] ?? null;
                 $max = $row['max_stock'] ?? null;
-                $payload = [
-                    'min_stock' => $min === '' ? null : (int)$min,
-                    'max_stock' => $max === '' ? null : (int)$max,
-                ];
+                $minStock = ($min === '' || $min === null) ? null : (int)$min;
+                $maxStock = ($max === '' || $max === null) ? null : (int)$max;
+                if ($minStock !== null && $maxStock !== null && $maxStock < $minStock) {
+                    $maxStock = $minStock;
+                }
 
                 $existing = DB::table('tb_product_store_prices')
                     ->where('product_id', $pid)
                     ->where('store_id', $storeId)
                     ->first();
 
+                $base = DB::table('tb_products')
+                    ->where('id', $pid)
+                    ->select('purchase_price', 'selling_price', 'product_discount')
+                    ->first();
+
+                $purchase = $existing->purchase_price ?? $base->purchase_price ?? 0;
+                $selling  = $existing->selling_price ?? $base->selling_price ?? 0;
+                $discount = $existing->product_discount ?? $base->product_discount ?? null;
+
                 if ($existing) {
                     DB::table('tb_product_store_prices')
                         ->where('id', $existing->id)
-                        ->update(array_merge($payload, [
-                            'updated_at' => now(),
-                        ]));
+                        ->update([
+                            'min_stock'      => $minStock,
+                            'max_stock'      => $maxStock,
+                            'updated_at'     => now(),
+                        ]);
                 } else {
-                    DB::table('tb_product_store_prices')->insert(array_merge($payload, [
-                        'product_id' => $pid,
-                        'store_id'   => $storeId,
-                        'purchase_price' => 0,
-                        'selling_price'  => 0,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]));
+                    DB::table('tb_product_store_prices')->insert([
+                        'product_id'      => $pid,
+                        'store_id'        => $storeId,
+                        'purchase_price'  => $purchase,
+                        'selling_price'   => $selling,
+                        'product_discount'=> $discount,
+                        'min_stock'       => $minStock,
+                        'max_stock'       => $maxStock,
+                        'created_at'      => now(),
+                        'updated_at'      => now(),
+                    ]);
                 }
             }
             DB::commit();

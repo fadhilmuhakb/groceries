@@ -24,7 +24,7 @@
 	<link href="{{asset('assets/css/app.css')}}" rel="stylesheet">
 	<link href="{{asset('assets/css/icons.css')}}" rel="stylesheet">
 
-	<title>GROCARIES - LOGIN</title>
+	<title>TwinkleStar - Login</title>
     <style>
     </style>
 </head>
@@ -42,8 +42,8 @@
                             <div class="card-body">
                                 <div class="border p-4 rounded">
                                     <div class="text-center">
-                                        <h3 class="">Sign in</h3>
-                                        </p>
+                                        <h3 class="mb-0">TwinkleStar</h3>
+                                        <p class="text-muted">Sign in</p>
                                     </div>
                                     <div class="form-body">
                                         <form class="row g-3" method="POST" action="{{ route('login') }}">
