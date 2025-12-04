@@ -87,36 +87,46 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="table-responsive">
-                        @php $hasStore = isset($lowStockItemsGlobal[0]) && isset($lowStockItemsGlobal[0]->store_name); @endphp
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    @if($hasStore)<th>Toko</th>@endif
-                                    <th>Kode</th>
-                                    <th>Produk</th>
-                                    <th>Stok</th>
-                                    <th>Min</th>
-                                    <th>Max</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($lowStockItemsGlobal as $item)
-                                    <tr>
-                                        @if($hasStore)<td>{{ $item->store_name }}</td>@endif
-                                        <td>{{ $item->product_code }}</td>
-                                        <td>{{ $item->product_name }}</td>
-                                        <td>{{ $item->stock_system }}</td>
-                                        <td>{{ $item->min_stock ?? '-' }}</td>
-                                        <td>{{ $item->max_stock ?? '-' }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="text-end">
-                        <a href="{{ route('order-stock.index') }}" class="btn btn-primary">Buka Order Stock</a>
-                    </div>
+                    @php
+                        $hasStore = isset($lowStockItemsGlobal[0]) && isset($lowStockItemsGlobal[0]->store_name);
+                        $groups = $hasStore ? $lowStockItemsGlobal->groupBy('store_id') : collect([0 => $lowStockItemsGlobal]);
+                    @endphp
+                    @foreach($groups as $storeId => $items)
+                        <div class="mb-3 border rounded">
+                            @if($hasStore)
+                                <div class="p-2 bg-light fw-bold">
+                                    {{ $items->first()->store_name ?? 'Toko' }}
+                                </div>
+                            @endif
+                            <div class="table-responsive">
+                                <table class="table table-striped mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Kode</th>
+                                            <th>Produk</th>
+                                            <th>Stok</th>
+                                            <th>Min</th>
+                                            <th>Max</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($items as $item)
+                                            <tr>
+                                                <td>{{ $item->product_code }}</td>
+                                                <td>{{ $item->product_name }}</td>
+                                                <td>{{ $item->stock_system }}</td>
+                                                <td>{{ $item->min_stock ?? '-' }}</td>
+                                                <td>{{ $item->max_stock ?? '-' }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="p-2 text-end">
+                                <a href="{{ route('order-stock.index', $hasStore ? ['store' => $items->first()->store_id] : []) }}" class="btn btn-primary btn-sm">Order Stock</a>
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             </div>
         </div>
