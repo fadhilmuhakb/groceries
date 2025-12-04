@@ -17,6 +17,8 @@ use App\Http\Controllers\DailySalesReportController;
 use App\Http\Controllers\ProductStockController;
 use App\Http\Controllers\TbSellController;
 use App\Http\Controllers\SalesReportController;
+use App\Http\Controllers\OrderStockController;
+use App\Http\Controllers\StockThresholdController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -167,6 +169,16 @@ Route::get('/sync/manual', [SyncController::class, 'manual'])->name('sync.manual
         Route::get('/', [TbSalesController::class, 'index'])->name('sales.index');
         Route::post('/', [TbSalesController::class, 'store'])->name('sales.store');
 
+    });
+
+    Route::prefix('order-stock')->group(function () {
+        Route::get('/', [OrderStockController::class, 'index'])->name('order-stock.index');
+        Route::post('/restock', [OrderStockController::class, 'restock'])->name('order-stock.restock');
+    });
+
+    Route::prefix('stock-threshold')->group(function () {
+        Route::get('/', [StockThresholdController::class, 'index'])->name('stock-threshold.index');
+        Route::post('/', [StockThresholdController::class, 'save'])->name('stock-threshold.save');
     });
 
     Route::prefix('settings')->group(function() {

@@ -5,6 +5,13 @@
             <div class="search-bar flex-grow-1"></div>
             <div class="top-menu ms-auto">
                 <ul class="navbar-nav align-items-center">
+                    @if(isset($lowStockItemsGlobal) && $lowStockItemsGlobal->count())
+                        <li class="nav-item">
+                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#lowStockHeaderModal">
+                                Stok Minimum ({{ $lowStockItemsGlobal->count() }})
+                            </button>
+                        </li>
+                    @endif
                     @auth
                         @php
                             $roleHeader = strtolower(Auth::user()->roles ?? '');
@@ -70,6 +77,51 @@
             </div>
         </nav>
     </div>
+
+    @if(isset($lowStockItemsGlobal) && $lowStockItemsGlobal->count())
+    <div class="modal fade" id="lowStockHeaderModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Peringatan Stok Minimum</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        @php $hasStore = isset($lowStockItemsGlobal[0]) && isset($lowStockItemsGlobal[0]->store_name); @endphp
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    @if($hasStore)<th>Toko</th>@endif
+                                    <th>Kode</th>
+                                    <th>Produk</th>
+                                    <th>Stok</th>
+                                    <th>Min</th>
+                                    <th>Max</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($lowStockItemsGlobal as $item)
+                                    <tr>
+                                        @if($hasStore)<td>{{ $item->store_name }}</td>@endif
+                                        <td>{{ $item->product_code }}</td>
+                                        <td>{{ $item->product_name }}</td>
+                                        <td>{{ $item->stock_system }}</td>
+                                        <td>{{ $item->min_stock ?? '-' }}</td>
+                                        <td>{{ $item->max_stock ?? '-' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-end">
+                        <a href="{{ route('order-stock.index') }}" class="btn btn-primary">Buka Order Stock</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 
     {{-- Modal input pendapatan harian (khusus staff) --}}
     @if(Auth::check() && strtolower(Auth::user()->roles) === 'staff')

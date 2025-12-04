@@ -5,6 +5,18 @@
         <div class="row justify-content-center">
             <div class="col-md-10">
 
+                @if(isset($lowStockItems) && $lowStockItems->count())
+                    <div class="alert alert-warning d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Perhatian!</strong> Ada {{ $lowStockItems->count() }} produk di bawah stok minimum.
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{{ route('order-stock.index', ['store' => $selectedStoreId]) }}" class="btn btn-sm btn-outline-primary">Order Stock</a>
+                            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#lowStockModal">Lihat</button>
+                        </div>
+                    </div>
+                @endif
+
                 <!-- Filter Form -->
              <form method="GET" action="{{ route('home') }}" class="d-flex gap-2 mb-4 align-items-center">
     @if(Auth::user()->roles == 'superadmin')
@@ -128,4 +140,59 @@
             }
         });
     </script>
+    @if(isset($lowStockItems) && $lowStockItems->count())
+    <div class="modal fade" id="lowStockModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Produk di bawah stok minimum</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        @php
+                          $hasStore = isset($lowStockItems[0]) && isset($lowStockItems[0]->store_name);
+                        @endphp
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    @if($hasStore)<th>Toko</th>@endif
+                                    <th>Kode</th>
+                                    <th>Produk</th>
+                                    <th>Stok</th>
+                                    <th>Min</th>
+                                    <th>Max</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($lowStockItems as $item)
+                                    <tr>
+                                        @if($hasStore)<td>{{ $item->store_name }}</td>@endif
+                                        <td>{{ $item->product_code }}</td>
+                                        <td>{{ $item->product_name }}</td>
+                                        <td>{{ $item->stock_system }}</td>
+                                        <td>{{ $item->min_stock ?? '-' }}</td>
+                                        <td>{{ $item->max_stock ?? '-' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-end">
+                        <a href="{{ route('order-stock.index', ['store' => $selectedStoreId]) }}" class="btn btn-primary">Buka Order Stock</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const el = document.getElementById('lowStockModal');
+            if (el && typeof bootstrap !== 'undefined') {
+                const modal = new bootstrap.Modal(el);
+                modal.show();
+            }
+        });
+    </script>
+    @endif
 @endsection
