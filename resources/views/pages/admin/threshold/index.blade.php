@@ -23,6 +23,13 @@
                 @endforeach
               </select>
             </div>
+            <div class="col-md-6">
+              <label class="form-label">Cari Produk</label>
+              <div class="input-group">
+                <input type="text" class="form-control" name="q" value="{{ $search ?? '' }}" placeholder="Nama atau kode produk">
+                <button class="btn btn-outline-secondary" type="submit">Cari</button>
+              </div>
+            </div>
           </form>
         </div>
       </div>
@@ -41,6 +48,7 @@
                   <tr>
                     <th>Kode</th>
                     <th>Produk</th>
+                    <th>Stok</th>
                     <th>Stok Min</th>
                     <th>Stok Max</th>
                   </tr>
@@ -50,6 +58,7 @@
                     <tr>
                       <td>{{ $row->product_code }}</td>
                       <td>{{ $row->product_name }}</td>
+                      <td>{{ $row->stock_system }}</td>
                       <td style="max-width:150px">
                         <input type="number" min="0" class="form-control" name="items[{{ $row->id }}][min_stock]" value="{{ $row->min_stock }}">
                       </td>
