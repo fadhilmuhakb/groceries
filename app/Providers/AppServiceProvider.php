@@ -78,7 +78,7 @@ class AppServiceProvider extends ServiceProvider
             ->groupBy('og.product_id');
 
         return DB::table('tb_products as p')
-            ->leftJoin('tb_product_store_prices as sp', function ($join) use ($storeId) {
+            ->join('tb_product_store_thresholds as sp', function ($join) use ($storeId) {
                 $join->on('sp.product_id', '=', 'p.id')
                      ->where('sp.store_id', '=', $storeId);
             })
@@ -91,7 +91,8 @@ class AppServiceProvider extends ServiceProvider
                 'sp.store_id',
                 'sp.min_stock',
                 'sp.max_stock',
-                DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system')
+                DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system'),
+                DB::raw('GREATEST(COALESCE(sp.max_stock,0) - (COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)),0) as po_qty')
             )
             ->whereNotNull('sp.min_stock')
             ->whereRaw('COALESCE(sp.min_stock,0) > 0')
@@ -114,7 +115,7 @@ class AppServiceProvider extends ServiceProvider
             ->groupBy('sl.store_id', 'og.product_id');
 
         return DB::table('tb_products as p')
-            ->join('tb_product_store_prices as sp', 'sp.product_id', '=', 'p.id')
+            ->join('tb_product_store_thresholds as sp', 'sp.product_id', '=', 'p.id')
             ->join('tb_stores as st', 'st.id', '=', 'sp.store_id')
             ->leftJoinSub($incomingSub, 'incoming', function ($join) {
                 $join->on('incoming.product_id', '=', 'p.id')
@@ -132,7 +133,8 @@ class AppServiceProvider extends ServiceProvider
                 'st.store_name',
                 'sp.min_stock',
                 'sp.max_stock',
-                DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system')
+                DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system'),
+                DB::raw('GREATEST(COALESCE(sp.max_stock,0) - (COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)),0) as po_qty')
             )
             ->whereNotNull('sp.min_stock')
             ->whereRaw('COALESCE(sp.min_stock,0) > 0')

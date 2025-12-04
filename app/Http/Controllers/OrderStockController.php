@@ -181,9 +181,9 @@ class OrderStockController extends Controller
             ->groupBy('og.product_id');
 
         return DB::table('tb_products as p')
-            ->leftJoin('tb_product_store_prices as sp', function ($join) use ($storeId) {
-                $join->on('sp.product_id', '=', 'p.id')
-                     ->where('sp.store_id', '=', $storeId);
+            ->join('tb_product_store_thresholds as st', function ($join) use ($storeId) {
+                $join->on('st.product_id', '=', 'p.id')
+                     ->where('st.store_id', '=', $storeId);
             })
             ->leftJoinSub($incomingSub, 'incoming', fn ($join) => $join->on('incoming.product_id', '=', 'p.id'))
             ->leftJoinSub($outgoingSub, 'outgoing', fn ($join) => $join->on('outgoing.product_id', '=', 'p.id'))
@@ -191,14 +191,14 @@ class OrderStockController extends Controller
                 'p.id',
                 'p.product_code',
                 'p.product_name',
-                'sp.min_stock',
-                'sp.max_stock',
+                'st.min_stock',
+                'st.max_stock',
                 DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system'),
-                DB::raw('COALESCE(sp.purchase_price, p.purchase_price) as purchase_price')
+                DB::raw('p.purchase_price as purchase_price')
             )
-            ->whereNotNull('sp.min_stock')
-            ->whereRaw('COALESCE(sp.min_stock,0) > 0')
-            ->whereRaw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) <= COALESCE(sp.min_stock, 0)')
+            ->whereNotNull('st.min_stock')
+            ->whereRaw('COALESCE(st.min_stock,0) > 0')
+            ->whereRaw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) <= COALESCE(st.min_stock, 0)')
             ->orderBy('p.product_name');
     }
 }

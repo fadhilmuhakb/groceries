@@ -185,10 +185,10 @@ public function index(Request $request)
         $topProductsQuery->whereBetween('s.date', [$dateFrom, $dateTo]);
     }
 
-    $topProducts = $topProductsQuery->get();
-    $lowStockItems = $storeId
-        ? $this->lowStockItems((int)$storeId)
-        : ($isSuperadmin ? $this->lowStockAllStores() : collect());
+        $topProducts = $topProductsQuery->get();
+        $lowStockItems = $storeId
+            ? $this->lowStockItems((int)$storeId)
+            : ($isSuperadmin ? $this->lowStockAllStores() : collect());
 
     return view('home', [
         'stores'          => $stores,
@@ -231,7 +231,7 @@ public function index(Request $request)
             ->groupBy('og.product_id');
 
         return DB::table('tb_products as p')
-            ->leftJoin('tb_product_store_prices as sp', function ($join) use ($storeId) {
+            ->join('tb_product_store_thresholds as sp', function ($join) use ($storeId) {
                 $join->on('sp.product_id', '=', 'p.id')
                      ->where('sp.store_id', '=', $storeId);
             })
@@ -265,7 +265,7 @@ public function index(Request $request)
             ->groupBy('sl.store_id', 'og.product_id');
 
         return DB::table('tb_products as p')
-            ->join('tb_product_store_prices as sp', 'sp.product_id', '=', 'p.id')
+            ->join('tb_product_store_thresholds as sp', 'sp.product_id', '=', 'p.id')
             ->join('tb_stores as st', 'st.id', '=', 'sp.store_id')
             ->leftJoinSub($incomingSub, 'incoming', function ($join) {
                 $join->on('incoming.product_id', '=', 'p.id')

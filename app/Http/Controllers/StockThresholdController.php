@@ -47,9 +47,9 @@ class StockThresholdController extends Controller
             ->groupBy('og.product_id');
 
         $rows = DB::table('tb_products as p')
-            ->leftJoin('tb_product_store_prices as sp', function ($join) use ($storeId) {
-                $join->on('sp.product_id', '=', 'p.id')
-                     ->where('sp.store_id', '=', $storeId);
+            ->leftJoin('tb_product_store_thresholds as st', function ($join) use ($storeId) {
+                $join->on('st.product_id', '=', 'p.id')
+                     ->where('st.store_id', '=', $storeId);
             })
             ->leftJoinSub($incomingSub, 'incoming', fn ($join) => $join->on('incoming.product_id', '=', 'p.id'))
             ->leftJoinSub($outgoingSub, 'outgoing', fn ($join) => $join->on('outgoing.product_id', '=', 'p.id'))
@@ -57,8 +57,8 @@ class StockThresholdController extends Controller
                 'p.id',
                 'p.product_code',
                 'p.product_name',
-                'sp.min_stock',
-                'sp.max_stock',
+                'st.min_stock',
+                'st.max_stock',
                 DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system')
             )
             ->when($search !== '', function ($q) use ($search) {
@@ -98,43 +98,31 @@ class StockThresholdController extends Controller
                 $minStock = ($min === '' || $min === null) ? null : (int)$min;
                 $maxStock = ($max === '' || $max === null) ? null : (int)$max;
                 if ($minStock !== null && $maxStock !== null && $maxStock < $minStock) {
-                    $maxStock = $minStock;
-                }
+                $maxStock = $minStock;
+            }
 
-                $existing = DB::table('tb_product_store_prices')
-                    ->where('product_id', $pid)
-                    ->where('store_id', $storeId)
-                    ->first();
+            $existing = DB::table('tb_product_store_thresholds')
+                ->where('product_id', $pid)
+                ->where('store_id', $storeId)
+                ->first();
 
-                $base = DB::table('tb_products')
-                    ->where('id', $pid)
-                    ->select('purchase_price', 'selling_price', 'product_discount')
-                    ->first();
-
-                $purchase = $existing->purchase_price ?? $base->purchase_price ?? 0;
-                $selling  = $existing->selling_price ?? $base->selling_price ?? 0;
-                $discount = $existing->product_discount ?? $base->product_discount ?? null;
-
-                if ($existing) {
-                    DB::table('tb_product_store_prices')
-                        ->where('id', $existing->id)
-                        ->update([
-                            'min_stock'      => $minStock,
-                            'max_stock'      => $maxStock,
-                            'updated_at'     => now(),
-                        ]);
-                } else {
-                    DB::table('tb_product_store_prices')->insert([
-                        'product_id'      => $pid,
-                        'store_id'        => $storeId,
-                        'purchase_price'  => $purchase,
-                        'selling_price'   => $selling,
-                        'product_discount'=> $discount,
-                        'min_stock'       => $minStock,
-                        'max_stock'       => $maxStock,
-                        'created_at'      => now(),
-                        'updated_at'      => now(),
+            if ($existing) {
+                DB::table('tb_product_store_thresholds')
+                    ->where('id', $existing->id)
+                    ->update([
+                        'min_stock'      => $minStock,
+                        'max_stock'      => $maxStock,
+                        'updated_at'     => now(),
                     ]);
+            } else {
+                DB::table('tb_product_store_thresholds')->insert([
+                    'product_id'      => $pid,
+                    'store_id'        => $storeId,
+                    'min_stock'       => $minStock,
+                    'max_stock'       => $maxStock,
+                    'created_at'      => now(),
+                    'updated_at'      => now(),
+                ]);
                 }
             }
             DB::commit();

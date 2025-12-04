@@ -8,7 +8,7 @@
                     @if(isset($lowStockItemsGlobal) && $lowStockItemsGlobal->count())
                         <li class="nav-item">
                             <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#lowStockHeaderModal">
-                                Stok Minimum ({{ $lowStockItemsGlobal->count() }})
+                                Perlu PO ({{ $lowStockItemsGlobal->count() }})
                             </button>
                         </li>
                     @endif
@@ -94,8 +94,12 @@
                     @foreach($groups as $storeId => $items)
                         <div class="mb-3 border rounded">
                             @if($hasStore)
-                                <div class="p-2 bg-light fw-bold">
-                                    {{ $items->first()->store_name ?? 'Toko' }}
+                                <div class="p-2 bg-light fw-bold d-flex justify-content-between">
+                                    <span>{{ $items->first()->store_name ?? 'Toko' }}</span>
+                                    <div class="d-flex gap-2">
+                                        <a href="{{ route('order-stock.index', ['store' => $items->first()->store_id]) }}" class="btn btn-sm btn-outline-primary">Order Stock</a>
+                                        <a href="{{ route('order-stock.export', ['store' => $items->first()->store_id]) }}" class="btn btn-sm btn-outline-success">Export Excel</a>
+                                    </div>
                                 </div>
                             @endif
                             <div class="table-responsive">
@@ -107,6 +111,7 @@
                                             <th>Stok</th>
                                             <th>Min</th>
                                             <th>Max</th>
+                                            <th>PO</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -117,13 +122,11 @@
                                                 <td>{{ $item->stock_system }}</td>
                                                 <td>{{ $item->min_stock ?? '-' }}</td>
                                                 <td>{{ $item->max_stock ?? '-' }}</td>
+                                                <td>{{ $item->po_qty ?? 0 }}</td>
                                             </tr>
                                         @endforeach
                                     </tbody>
                                 </table>
-                            </div>
-                            <div class="p-2 text-end">
-                                <a href="{{ route('order-stock.index', $hasStore ? ['store' => $items->first()->store_id] : []) }}" class="btn btn-primary btn-sm">Order Stock</a>
                             </div>
                         </div>
                     @endforeach
