@@ -26,7 +26,7 @@
             <div class="col-md-6">
               <label class="form-label">Cari Produk</label>
               <div class="input-group">
-                <input type="text" class="form-control" name="q" value="{{ $search ?? '' }}" placeholder="Nama atau kode produk">
+                <input type="text" id="threshold-search" class="form-control" name="q" value="{{ $search ?? '' }}" placeholder="Scan barcode / ketik nama atau kode">
                 <button class="btn btn-outline-secondary" type="submit">Cari</button>
               </div>
             </div>
@@ -53,9 +53,9 @@
                     <th>Stok Max</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="threshold-table-body">
                   @foreach($rows as $row)
-                    <tr>
+                    <tr data-name="{{ strtolower($row->product_name) }}" data-code="{{ strtolower($row->product_code) }}">
                       <td>{{ $row->product_code }}</td>
                       <td>{{ $row->product_name }}</td>
                       <td>{{ $row->stock_system }}</td>
@@ -81,3 +81,35 @@
   </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const searchInput = document.getElementById('threshold-search');
+  const body = document.getElementById('threshold-table-body');
+  if (!searchInput || !body) return;
+
+  const rows = Array.from(body.querySelectorAll('tr'));
+  const filter = (term) => {
+    const keyword = (term || '').toLowerCase().trim();
+    let firstMatch = null;
+    rows.forEach(tr => {
+      const name = tr.dataset.name || '';
+      const code = tr.dataset.code || '';
+      const show = !keyword || name.includes(keyword) || code.includes(keyword);
+      tr.style.display = show ? '' : 'none';
+      if (show && !firstMatch) firstMatch = tr;
+    });
+    if (keyword && firstMatch) {
+      firstMatch.classList.add('table-warning');
+      firstMatch.scrollIntoView({behavior:'smooth', block:'center'});
+      setTimeout(() => firstMatch.classList.remove('table-warning'), 900);
+    }
+  };
+
+  searchInput.addEventListener('input', () => filter(searchInput.value));
+  filter(searchInput.value);
+  searchInput.focus();
+});
+</script>
+@endpush

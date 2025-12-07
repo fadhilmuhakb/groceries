@@ -19,6 +19,12 @@
   <hr />
   <div class="card">
     <div class="card-body">
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <label class="form-label">Cari cepat (kode / nama)</label>
+          <input type="text" id="product-search" class="form-control" placeholder="Scan barcode atau ketik kode/nama produk">
+        </div>
+      </div>
       <div class="table-responsive">
         <table id="table-brand" class="table table-striped table-bordered" style="width:100%">
           <thead>
@@ -106,7 +112,7 @@
     };
 
     $(document).ready(function () {
-  $('#table-brand').DataTable({
+  const table = $('#table-brand').DataTable({
     processing: true,
     serverSide: false,        // <— ganti ke false
     ajax: {
@@ -149,6 +155,15 @@
       }
     ]
   });
+
+  // Quick filter for scanner / manual entry on product_code or name
+  const searchInput = document.getElementById('product-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      table.search(searchInput.value).draw();
+    });
+    searchInput.focus();
+  }
 });
 
   </script>
