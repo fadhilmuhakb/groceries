@@ -203,9 +203,15 @@
                     name: 'activity_date',
                     render: (data) => data ? moment(data).format('DD MMM YYYY') : '-'
                 },
+                {
+                    data: 'latest_activity',
+                    name: 'latest_activity',
+                    visible: false,
+                    searchable: false
+                },
                 { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' }
             ],
-            order: [[6, 'desc']],
+            order: [[7, 'desc']],
             pageLength: 25,
             language: {
                 url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/id.json'
