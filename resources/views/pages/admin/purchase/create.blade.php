@@ -89,6 +89,7 @@
             </div>
 
             <h5 class="mt-4">Daftar Produk</h5>
+            <p class="text-muted small">Gunakan scanner/ketik <strong>product_code</strong> di kotak pencarian Select2 untuk menemukan produk lebih cepat.</p>
             <div class="table-responsive">
                 <table class="table table-bordered" id="products-table">
                     <thead class="table-light">
@@ -105,8 +106,8 @@
                                 <select name="products[0][product_id]" class="form-control select2 product-select" required>
                                     <option value="">Pilih Produk</option>
                                     @foreach($products as $product)
-                                        <option value="{{ $product->id }}" data-price="{{ $product->purchase_price }}">
-                                            {{ $product->product_name }}
+                                        <option value="{{ $product->id }}" data-price="{{ $product->purchase_price }}" data-code="{{ $product->product_code }}">
+                                            [{{ $product->product_code }}] {{ $product->product_name }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -134,7 +135,20 @@
 <script src="{{ asset('assets/plugins/select2/js/select2.min.js') }}"></script>
 <script>
     $(document).ready(function () {
-        $('.select2').select2({ width: '100%' });
+        const productMatcher = function (params, data) {
+            if ($.trim(params.term) === '') {
+                return data;
+            }
+            const term = params.term.toLowerCase();
+            const text = (data.text || '').toLowerCase();
+            const code = ($(data.element).data('code') || '').toString().toLowerCase();
+            if (text.includes(term) || code.includes(term)) {
+                return data;
+            }
+            return null;
+        };
+
+        $('.select2').select2({ width: '100%', matcher: productMatcher });
 
         let productIndex = 1;
 
@@ -145,8 +159,8 @@
                         <select name="products[${productIndex}][product_id]" class="form-control select2 product-select" required>
                             <option value="">Pilih Produk</option>
                             @foreach($products as $product)
-                                <option value="{{ $product->id }}" data-price="{{ $product->purchase_price }}">
-                                    {{ $product->product_name }}
+                                <option value="{{ $product->id }}" data-price="{{ $product->purchase_price }}" data-code="{{ $product->product_code }}">
+                                    [{{ $product->product_code }}] {{ $product->product_name }}
                                 </option>
                             @endforeach
                         </select>
@@ -159,7 +173,7 @@
                 </tr>
             `;
             $('#product-list').append(row);
-            $('#product-list tr:last-child .select2').select2({ width: '100%' });
+            $('#product-list tr:last-child .select2').select2({ width: '100%', matcher: productMatcher });
             productIndex++;
         });
 

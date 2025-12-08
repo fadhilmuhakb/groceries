@@ -74,9 +74,9 @@
                                     <td>
                                         <select name="products[{{ $key }}][product_id]" class="form-control select2 product-select" required>
                                             @foreach($products as $product)
-                                                <option value="{{ $product->id }}" data-price="{{ $product->purchase_price }}"
+                                                <option value="{{ $product->id }}" data-price="{{ $product->purchase_price }}" data-code="{{ $product->product_code }}"
                                                     {{ $item->product_id == $product->id ? 'selected' : '' }}>
-                                                    {{ $product->product_name }}
+                                                    [{{ $product->product_code }}] {{ $product->product_name }}
                                                 </option>
                                             @endforeach
                                         </select>
@@ -105,7 +105,20 @@
     <script src="{{ asset('assets/plugins/select2/js/select2.min.js') }}"></script>
     <script>
         $(document).ready(function () {
-            $('.select2').select2({ width: '100%' });
+            const productMatcher = function (params, data) {
+                if ($.trim(params.term) === '') {
+                    return data;
+                }
+                const term = params.term.toLowerCase();
+                const text = (data.text || '').toLowerCase();
+                const code = ($(data.element).data('code') || '').toString().toLowerCase();
+                if (text.includes(term) || code.includes(term)) {
+                    return data;
+                }
+                return null;
+            };
+
+            $('.select2').select2({ width: '100%', matcher: productMatcher });
 
             let productIndex = $('#product-list tr').length; // Hitung jumlah row
 
@@ -116,8 +129,8 @@
                         <select name="products[${productIndex}][product_id]" class="form-control select2 product-select" required>
                             <option value="">Pilih Produk</option>
                             @foreach($products as $product)
-                                <option value="{{ $product->id }}" data-price="{{ $product->purchase_price }}">
-                                    {{ $product->product_name }}
+                                <option value="{{ $product->id }}" data-price="{{ $product->purchase_price }}" data-code="{{ $product->product_code }}">
+                                    [{{ $product->product_code }}] {{ $product->product_name }}
                                 </option>
                             @endforeach
                         </select>
@@ -130,7 +143,7 @@
                 </tr>
                 `;
                 $('#product-list').append(row);
-                $('#product-list tr:last-child .select2').select2({ width: '100%' });
+                $('#product-list tr:last-child .select2').select2({ width: '100%', matcher: productMatcher });
                 productIndex++;
                 updateTotalPrice();
             });
