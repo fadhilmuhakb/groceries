@@ -40,6 +40,13 @@
 <hr />
 <div class="card">
     <div class="card-body">
+        @php
+            $user = Auth::user();
+            $isSuperadmin = $user?->roles === 'superadmin';
+            $userStoreId  = $user?->store_id;
+            $userStoreName = $stores->firstWhere('id', $userStoreId)->store_name ?? '-';
+        @endphp
+
         @if(session('error'))
             <div class="alert alert-danger">{{ session('error') }}</div>
         @endif
@@ -65,21 +72,37 @@
                     </select>
                 </div>
 
-                <div class="col-md-6 mb-3">
-                    <label for="store_id" class="form-label">Toko (Store ID)</label>
-                    @if($stores->count() === 0)
-                        <div class="alert alert-warning">
-                            Tidak ada toko tersedia. Silakan <a href="{{ route('store.create') }}">tambahkan supplier</a> terlebih dahulu.
-                        </div>
-                    @endif
-                    <select class="form-control select2" name="store_id" id="store_id"
-                    {{ $stores->count() === 0 ? 'disabled' : '' }} required>
-                        <option value="">-- Pilih Toko --</option>
-                        @foreach($stores as $store)
-                            <option value="{{ $store->id }}">{{ $store->store_name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+                @if($isSuperadmin)
+                    <div class="col-md-6 mb-3">
+                        <label for="store_id" class="form-label">Toko (Store ID)</label>
+                        @if($stores->count() === 0)
+                            <div class="alert alert-warning">
+                                Tidak ada toko tersedia. Silakan <a href="{{ route('store.create') }}">tambahkan supplier</a> terlebih dahulu.
+                            </div>
+                        @endif
+                        <select class="form-control select2" name="store_id" id="store_id"
+                        {{ $stores->count() === 0 ? 'disabled' : '' }} required>
+                            <option value="">-- Pilih Toko --</option>
+                            @foreach($stores as $store)
+                                <option value="{{ $store->id }}">{{ $store->store_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @else
+                    <input type="hidden" name="store_id" id="store_id" value="{{ $userStoreId }}">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Toko</label>
+                        @if(!$userStoreId)
+                            <div class="alert alert-warning mb-0">
+                                Akun ini belum terhubung ke toko. Hubungi admin untuk memasang store_id.
+                            </div>
+                        @else
+                            <div class="alert alert-info mb-0">
+                                Toko aktif: <strong>{{ $userStoreName }}</strong>
+                            </div>
+                        @endif
+                    </div>
+                @endif
 
                 <div class="col-md-6 mb-3">
                     <label for="total_price" class="form-label">Total Harga</label>

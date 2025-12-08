@@ -98,6 +98,7 @@ class DailySalesReportController extends Controller
                 s.store_id,
                 tb_outgoing_goods.recorded_by,
                 DATE(COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at)) as activity_date,
+                MAX(COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at)) as latest_activity,
                 SUM(tb_outgoing_goods.quantity_out) as quantity_out,
                 SUM(tb_outgoing_goods.discount) as discount,
                 COALESCE(p.selling_price, 0) as unit_price,
@@ -128,7 +129,7 @@ class DailySalesReportController extends Controller
 
         // order by grouped/selected columns only to satisfy ONLY_FULL_GROUP_BY
         $dataQuery = (clone $baseQuery)
-            ->orderByDesc('activity_date')
+            ->orderByDesc('latest_activity')
             ->orderBy('tb_outgoing_goods.recorded_by')
             ->orderBy('p.product_name');
 
