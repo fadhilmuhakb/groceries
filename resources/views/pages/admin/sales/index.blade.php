@@ -841,11 +841,18 @@
             handleData();
         }
 
+        // Flag untuk mencegah double submit
+        let isPaying = false;
+        const setPaymentBusy = (busy) => {
+            isPaying = busy;
+            $('#btn-payment-print, #btn-payment').prop('disabled', busy);
+        };
+
         // API
         const onPayment = () => {
+            if (isPaying) return;
             let token = $("meta[name='csrf-token']").attr("content");
-            $('#btn-payment-print').prop('disabled', true);
-            $('#btn-payment').prop('disabled', true);
+            setPaymentBusy(true);
             $.ajax({
                     url: '{{route('sales.store')}}',
                     type: 'POST',
@@ -876,6 +883,7 @@
                         });
                     },
                     error: function(err) {
+                        setPaymentBusy(false);
                         if(err.responseJSON) {
                             const Toast = Swal.mixin({
                             toast: true,
@@ -891,9 +899,6 @@
                             text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali',
                             background: '#f27474', 
                             color: '#fff' 
-                        }).then(() => {
-                             $('#btn-payment-print').prop('disabled', false);
-                            $('#btn-payment').prop('disabled', false);
                         });
 
                         //     Swal.fire({
@@ -909,9 +914,9 @@
         }
 
         const onPaymentPrint = () => {
+            if (isPaying) return;
             let token = $("meta[name='csrf-token']").attr("content");
-            $('#btn-payment-print').prop('disabled', true);
-            $('#btn-payment').prop('disabled', true);
+            setPaymentBusy(true);
 
             $.ajax({
                     url: '{{route('sales.store')}}',
@@ -980,7 +985,7 @@
                         })
                     },
                     error: function(err) {
-                        
+                        setPaymentBusy(false);
                         if(err.responseJSON) {
                             const Toast = Swal.mixin({
                                 toast: true,
@@ -995,9 +1000,6 @@
                             text: 'Terjadi kesalahan pada pengisian form, harap periksa kembali',
                             background: '#f27474', 
                             color: '#fff' 
-                            }).then(() => {
-                                $('#btn-payment-print').prop('disabled', false);
-                                $('#btn-payment').prop('disabled', false);
                             });
                         }
 
