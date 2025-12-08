@@ -170,10 +170,19 @@
                     d.source_mode = $dataSource.val() || 'online';
                 },
                 dataSrc: function (json) {
-                    totalsFromServer = json?.totals || null;
-                    updateSummary();
-                    renderCashierButtons(json?.cashiers || []);
-                    return json.data || [];
+                    try {
+                        totalsFromServer = json?.totals || null;
+                        updateSummary();
+                        renderCashierButtons(json?.cashiers || []);
+                        return json?.data || [];
+                    } catch (e) {
+                        console.error('DataTables dataSrc error:', e);
+                        return [];
+                    }
+                },
+                error: function (xhr) {
+                    console.error('DataTables AJAX error', xhr.responseText);
+                    alert('Gagal memuat data. Silakan coba lagi.');
                 }
             },
             columns: [
@@ -203,15 +212,9 @@
                     name: 'activity_date',
                     render: (data) => data ? moment(data).format('DD MMM YYYY') : '-'
                 },
-                {
-                    data: 'latest_activity',
-                    name: 'latest_activity',
-                    visible: false,
-                    searchable: false
-                },
                 { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' }
             ],
-            order: [[7, 'desc']],
+            order: [], // pakai urutan dari server (latest_activity desc di controller)
             pageLength: 25,
             language: {
                 url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/id.json'
