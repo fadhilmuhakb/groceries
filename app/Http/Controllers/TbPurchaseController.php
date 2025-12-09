@@ -19,7 +19,9 @@ class TbPurchaseController extends Controller
     public function index(Request $request)
     {
 
-        $purchases = tb_purchase::with(relations: ['supplier','store'])->get();
+        $purchases = tb_purchase::with(relations: ['supplier','store'])
+            ->orderByDesc('id')
+            ->get();
 
 
         if ($request->ajax()) {
