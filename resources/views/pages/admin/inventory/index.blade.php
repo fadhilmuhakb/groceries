@@ -223,6 +223,13 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.hide(); submitForm();
     });
 
+    function readCsrfToken() {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta && meta.content) return meta.content;
+        const hidden = document.querySelector('#stock-form input[name="_token"]');
+        return hidden ? hidden.value : '';
+    }
+
     function submitForm() {
         // KIRIM JSON ke endpoint V3
         const items = [];
@@ -233,20 +240,28 @@ document.addEventListener('DOMContentLoaded', () => {
             items.push({ product_id: productId, store_id: storeId, physical_quantity: physical });
         });
 
+        const csrfToken = readCsrfToken();
+        const xsrfCookie = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+        const xsrfToken = xsrfCookie ? decodeURIComponent(xsrfCookie[1]) : csrfToken;
+
         fetch(form.action, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-XSRF-TOKEN': xsrfToken,
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ items })
+            body: JSON.stringify({ items, _token: csrfToken })
         }).then(async res => {
             const ct = res.headers.get('content-type') || '';
             const payload = ct.includes('application/json') ? await res.json().catch(() => ({})) : await res.text();
             if (!res.ok) {
+                if (res.status === 419) {
+                    throw new Error('Sesi berakhir/CSRF token kedaluwarsa. Mohon refresh halaman lalu kirim lagi.');
+                }
                 const msg = typeof payload === 'string' ? payload : (payload.message || JSON.stringify(payload));
                 throw new Error(msg || `HTTP ${res.status}`);
             }
