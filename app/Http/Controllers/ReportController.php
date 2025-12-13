@@ -69,7 +69,7 @@ class ReportController extends Controller
     $endStr   = $end->toDateString();
 
     // --- Select & base query ---
-    $select = ['id', 'user_id', 'amount', 'date'];
+    $select = ['id', 'user_id', 'amount', 'date', 'created_at'];
     if (\Illuminate\Support\Facades\Schema::hasColumn('tb_daily_revenues', 'store_id')) {
         $select[] = 'store_id';
     }
@@ -91,8 +91,8 @@ class ReportController extends Controller
     // Totals.amount
     $totalAmount = (int) (clone $base)->sum('amount');
 
-    // Agregasi outgoing_goods utk status (tetap sama)
-    $ogRows = \App\Models\tb_outgoing_goods::query()
+    // Ambil outgoing goods mentah (supaya bisa dipecah per sesi kasir berdasar created_at)
+    $ogRaw = \App\Models\tb_outgoing_goods::query()
         ->leftJoin('tb_products as p', 'p.id', '=', 'tb_outgoing_goods.product_id')
         ->when(
             \Illuminate\Support\Facades\Schema::hasColumn('tb_outgoing_goods','store_id'),
@@ -102,63 +102,84 @@ class ReportController extends Controller
             $q->whereBetween(\Illuminate\Support\Facades\DB::raw('DATE(tb_outgoing_goods.date)'), [$startStr, $endStr])
               ->orWhereBetween(\Illuminate\Support\Facades\DB::raw('DATE(tb_outgoing_goods.created_at)'), [$startStr, $endStr]);
         })
-        ->selectRaw("
-            DATE(COALESCE(tb_outgoing_goods.date, tb_outgoing_goods.created_at)) as d,
-            REPLACE(REPLACE(REPLACE(REPLACE(LOWER(TRIM(COALESCE(tb_outgoing_goods.recorded_by,''))), ' ', ''), '.', ''), '-', ''), '_', '') as rec_norm,
-            COALESCE(SUM(GREATEST(0,
-                (COALESCE(p.selling_price,0) * COALESCE(tb_outgoing_goods.quantity_out,0))
-                - COALESCE(tb_outgoing_goods.discount,0)
-            )), 0) as total
-        ")
-        ->groupBy('d','rec_norm')
-        ->get();
+        ->orderBy('tb_outgoing_goods.created_at')
+        ->get([
+            'tb_outgoing_goods.recorded_by',
+            'tb_outgoing_goods.date',
+            'tb_outgoing_goods.created_at',
+            'tb_outgoing_goods.quantity_out',
+            'tb_outgoing_goods.discount',
+            \Illuminate\Support\Facades\DB::raw('COALESCE(p.selling_price,0) as price')
+        ]);
 
-    $ogMap = [];
-    foreach ($ogRows as $r) {
-        $ogMap[$r->d . '|' . $r->rec_norm] = (int) $r->total;
+    // Kelompokkan outgoing per kasir+tanggal, urut created_at
+    $ogBuckets = [];
+    foreach ($ogRaw as $og) {
+        $dateKey = $og->date
+            ? \Carbon\Carbon::parse($og->date)->toDateString()
+            : \Carbon\Carbon::parse($og->created_at)->toDateString();
+        $norm  = $this->normalizeName($og->recorded_by);
+        $total = max(0, ((float)$og->price * (int)$og->quantity_out) - (float)($og->discount ?? 0));
+        $ogBuckets[$dateKey.'|'.$norm][] = [
+            'created_at' => $og->created_at ? \Carbon\Carbon::parse($og->created_at) : \Carbon\Carbon::parse($dateKey.' 23:59:59'),
+            'total'      => (int) $total,
+        ];
     }
 
-    // Totals.status
-    $rowsForTotals = (clone $base)->get(['id','user_id','amount','date']);
-    $totalStatus = 0;
-    $totalOmset  = 0;
+    // State per bucket agar omset per sesi tidak dobel saat kasir logout lebih dari 1x per hari
+    $omsetPerRevenue = [];
+    $bucketState     = []; // key => ['cursor' => int, 'sum' => int]
+
+    $consumeOmset = function (string $key, \Carbon\Carbon $closeAt) use (&$bucketState, $ogBuckets) {
+        if (!isset($bucketState[$key])) {
+            $bucketState[$key] = ['cursor' => 0, 'sum' => 0];
+        }
+
+        $state   = $bucketState[$key];
+        $entries = $ogBuckets[$key] ?? [];
+        $prevSum = $state['sum'];
+
+        while ($state['cursor'] < count($entries) && $entries[$state['cursor']]['created_at']->lte($closeAt)) {
+            $state['sum'] += $entries[$state['cursor']]['total'];
+            $state['cursor']++;
+        }
+
+        $bucketState[$key] = $state;
+        return $state['sum'] - $prevSum;
+    };
+
+    // Totals.status + omset per row (urut tanggal & waktu input)
+    $rowsForTotals = (clone $base)->orderBy('date')->orderBy('created_at')->get(['id','user_id','amount','date','created_at']);
+    $totalStatus   = 0;
+    $totalOmset    = 0;
+
     foreach ($rowsForTotals as $r) {
         $dateKey = $r->date instanceof \Carbon\Carbon
             ? $r->date->toDateString()
             : \Carbon\Carbon::parse($r->date)->toDateString();
         $cashierName = trim(optional($r->user)->name ?? '');
-        $norm = $this->normalizeName($cashierName);
-        $sold = $ogMap[$dateKey.'|'.$norm] ?? 0;
-        $totalOmset += (int)$sold;
-        $totalStatus += ((int)$r->amount - (int)$sold);
+        $norm    = $this->normalizeName($cashierName);
+        $closeAt = $r->created_at
+            ? \Carbon\Carbon::parse($r->created_at)
+            : \Carbon\Carbon::parse($dateKey.' 23:59:59');
+
+        $sessionOmset            = $consumeOmset($dateKey.'|'.$norm, $closeAt);
+        $omsetPerRevenue[$r->id] = $sessionOmset;
+        $totalOmset             += $sessionOmset;
+        $totalStatus            += ((int)$r->amount - $sessionOmset);
     }
 
     return \Yajra\DataTables\Facades\DataTables::eloquent($base)
         ->addIndexColumn()
         ->addColumn('name', fn ($row) => optional($row->user)->name ?? '-')
         ->editColumn('amount', fn ($row) => (int) $row->amount)
-        ->addColumn('omset', function ($row) use ($ogMap) {
-            $dateKey = $row->date instanceof \Carbon\Carbon
-                ? $row->date->toDateString()
-                : \Carbon\Carbon::parse($row->date)->toDateString();
-            $cashierName = trim(optional($row->user)->name ?? '');
-            $norm = $this->normalizeName($cashierName);
-            return (int) ($ogMap[$dateKey.'|'.$norm] ?? 0);
-        })
+        ->addColumn('omset', fn ($row) => (int) ($omsetPerRevenue[$row->id] ?? 0))
         ->editColumn('date', fn ($row) =>
             $row->date instanceof \Carbon\Carbon
                 ? $row->date->toDateString()
                 : (\Carbon\Carbon::parse($row->date)->toDateString())
         )
-        ->addColumn('status', function ($row) use ($ogMap) {
-            $dateKey = $row->date instanceof \Carbon\Carbon
-                ? $row->date->toDateString()
-                : \Carbon\Carbon::parse($row->date)->toDateString();
-            $cashierName = trim(optional($row->user)->name ?? '');
-            $norm = $this->normalizeName($cashierName);
-            $sold = $ogMap[$dateKey.'|'.$norm] ?? 0;
-            return (int) $row->amount - (int) $sold;
-        })
+        ->addColumn('status', fn ($row) => (int) $row->amount - (int) ($omsetPerRevenue[$row->id] ?? 0))
         ->addColumn('action', fn ($row) =>
             '<div class="d-flex justify-content-center">
                 <a href="'.route('report.detail', $row->id).'" class="btn btn-sm btn-success me-1">
