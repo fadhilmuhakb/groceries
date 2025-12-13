@@ -116,7 +116,6 @@ class AppServiceProvider extends ServiceProvider
             ->whereRaw('COALESCE(sp.min_stock,0) > 0')
             ->whereRaw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) <= COALESCE(sp.min_stock, 0)')
             ->orderBy('p.product_name')
-            ->limit(50)
             ->get();
     }
 
