@@ -193,7 +193,12 @@ class OrderStockController extends Controller
             ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
             ->where('sl.store_id', $storeId)
             ->when(Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock'),
-                fn ($q) => $q->where('og.is_pending_stock', false))
+                function ($q) {
+                    $q->where(function ($qq) {
+                        $qq->whereNull('og.is_pending_stock')
+                           ->orWhere('og.is_pending_stock', false);
+                    });
+                })
             ->select('og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))
             ->groupBy('og.product_id');
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use App\Models\tb_stores;
 use App\Models\tb_products;
 use App\Models\tb_stock_opnames;
@@ -26,14 +27,30 @@ class InventoryController extends Controller
         $incomingSub = DB::table('tb_incoming_goods as ig')
             ->join('tb_purchases as p', 'ig.purchase_id', '=', 'p.id')
             ->where('p.store_id', $storeId)
-            ->where('ig.is_pending_stock', false)
+            ->when(
+                Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
+                function ($q) {
+                    $q->where(function ($qq) {
+                        $qq->whereNull('ig.is_pending_stock')
+                           ->orWhere('ig.is_pending_stock', false);
+                    });
+                }
+            )
             ->select('ig.product_id', DB::raw('SUM(ig.stock) AS total_in'))
             ->groupBy('ig.product_id');
 
         $outgoingSub = DB::table('tb_outgoing_goods as og')
             ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
             ->where('sl.store_id', $storeId)
-            ->where('og.is_pending_stock', false)
+            ->when(
+                Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock'),
+                function ($q) {
+                    $q->where(function ($qq) {
+                        $qq->whereNull('og.is_pending_stock')
+                           ->orWhere('og.is_pending_stock', false);
+                    });
+                }
+            )
             ->select('og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))
             ->groupBy('og.product_id');
 

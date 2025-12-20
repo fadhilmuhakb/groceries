@@ -213,11 +213,21 @@ public function index(Request $request)
                 Schema::hasColumn('tb_incoming_goods', 'store_id'),
                 fn ($q) => $q->where('ig.store_id', $storeId)
                              ->when(Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
-                                 fn ($q2) => $q2->where('ig.is_pending_stock', false)),
+                                 function ($q2) {
+                                     $q2->where(function ($qq) {
+                                         $qq->whereNull('ig.is_pending_stock')
+                                            ->orWhere('ig.is_pending_stock', false);
+                                     });
+                                 }),
                 fn ($q) => $q->join('tb_purchases as pur', 'ig.purchase_id', '=', 'pur.id')
                              ->where('pur.store_id', $storeId)
                              ->when(Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
-                                 fn ($q2) => $q2->where('ig.is_pending_stock', false))
+                                 function ($q2) {
+                                     $q2->where(function ($qq) {
+                                         $qq->whereNull('ig.is_pending_stock')
+                                            ->orWhere('ig.is_pending_stock', false);
+                                     });
+                                 })
             )
             ->select('ig.product_id', DB::raw('SUM(ig.stock) AS total_in'))
             ->groupBy('ig.product_id');
@@ -226,7 +236,12 @@ public function index(Request $request)
             ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
             ->where('sl.store_id', $storeId)
             ->when(Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock'),
-                fn ($q) => $q->where('og.is_pending_stock', false))
+                function ($q) {
+                    $q->where(function ($qq) {
+                        $qq->whereNull('og.is_pending_stock')
+                           ->orWhere('og.is_pending_stock', false);
+                    });
+                })
             ->select('og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))
             ->groupBy('og.product_id');
 
@@ -256,11 +271,29 @@ public function index(Request $request)
     {
         $incomingSub = DB::table('tb_incoming_goods as ig')
             ->join('tb_purchases as pur', 'ig.purchase_id', '=', 'pur.id')
+            ->when(
+                Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
+                function ($q) {
+                    $q->where(function ($qq) {
+                        $qq->whereNull('ig.is_pending_stock')
+                           ->orWhere('ig.is_pending_stock', false);
+                    });
+                }
+            )
             ->select('pur.store_id', 'ig.product_id', DB::raw('SUM(ig.stock) AS total_in'))
             ->groupBy('pur.store_id', 'ig.product_id');
 
         $outgoingSub = DB::table('tb_outgoing_goods as og')
             ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
+            ->when(
+                Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock'),
+                function ($q) {
+                    $q->where(function ($qq) {
+                        $qq->whereNull('og.is_pending_stock')
+                           ->orWhere('og.is_pending_stock', false);
+                    });
+                }
+            )
             ->select('sl.store_id', 'og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))
             ->groupBy('sl.store_id', 'og.product_id');
 
