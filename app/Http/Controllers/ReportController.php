@@ -91,52 +91,67 @@ class ReportController extends Controller
     // Totals.amount
     $totalAmount = (int) (clone $base)->sum('amount');
 
-    // Ambil outgoing goods mentah (supaya bisa dipecah per sesi kasir berdasar created_at)
-    $ogRaw = \App\Models\tb_outgoing_goods::query()
-        ->leftJoin('tb_products as p', 'p.id', '=', 'tb_outgoing_goods.product_id')
-        ->when(
-            \Illuminate\Support\Facades\Schema::hasColumn('tb_outgoing_goods','store_id'),
-            fn($q) => $q->where('tb_outgoing_goods.store_id', $storeId)
-        )
-        ->where(function ($q) use ($startStr, $endStr) {
-            $q->whereBetween(\Illuminate\Support\Facades\DB::raw('DATE(tb_outgoing_goods.date)'), [$startStr, $endStr])
-              ->orWhereBetween(\Illuminate\Support\Facades\DB::raw('DATE(tb_outgoing_goods.created_at)'), [$startStr, $endStr]);
-        })
-        ->orderBy('tb_outgoing_goods.created_at')
-        ->get([
-            'tb_outgoing_goods.recorded_by',
-            'tb_outgoing_goods.date',
-            'tb_outgoing_goods.created_at',
-            'tb_outgoing_goods.quantity_out',
-            'tb_outgoing_goods.discount',
-            \Illuminate\Support\Facades\DB::raw('COALESCE(p.selling_price,0) as price')
-        ]);
+    $hasSellerIdColumn = schemaHasColumn('tb_sells', 'seller_id');
+    $hasInvoiceColumn  = schemaHasColumn('tb_sells', 'no_invoice');
 
-    // Kelompokkan outgoing per kasir+tanggal, urut created_at
-    $ogBuckets = [];
-    foreach ($ogRaw as $og) {
-        $dateKey = $og->date
-            ? \Carbon\Carbon::parse($og->date)->toDateString()
-            : \Carbon\Carbon::parse($og->created_at)->toDateString();
-        $norm  = $this->normalizeName($og->recorded_by);
-        $total = max(0, ((float)$og->price * (int)$og->quantity_out) - (float)($og->discount ?? 0));
-        $ogBuckets[$dateKey.'|'.$norm][] = [
-            'created_at' => $og->created_at ? \Carbon\Carbon::parse($og->created_at) : \Carbon\Carbon::parse($dateKey.' 23:59:59'),
+    $excludeStockOpname = function ($query) use ($hasSellerIdColumn, $hasInvoiceColumn) {
+        if ($hasSellerIdColumn) {
+            $query->where('s.seller_id', '!=', 1);
+            return;
+        }
+
+        if ($hasInvoiceColumn) {
+            $query->where(function ($q) {
+                $q->whereNull('s.no_invoice')
+                  ->orWhere('s.no_invoice', 'not like', 'SO-ADJ-%');
+            });
+        }
+    };
+
+    // Ambil transaksi per nota (pakai total_price agar konsisten dengan halaman home)
+    $salesRawQuery = \Illuminate\Support\Facades\DB::table('tb_sells as s')
+        ->join('tb_outgoing_goods as og', 'og.sell_id', '=', 's.id')
+        ->when($storeId, fn ($q) => $q->where('s.store_id', $storeId))
+        ->whereBetween('s.date', [$startStr, $endStr])
+        ->selectRaw('s.id, s.date, s.total_price, s.created_at, MAX(og.created_at) as og_created_at, MAX(og.recorded_by) as recorded_by')
+        ->groupBy('s.id', 's.date', 's.total_price', 's.created_at');
+
+    $excludeStockOpname($salesRawQuery);
+    $salesRaw = $salesRawQuery->get();
+
+    // Kelompokkan transaksi per kasir+tanggal, urut created_at
+    $salesBuckets = [];
+    foreach ($salesRaw as $sale) {
+        $dateKey = $sale->date
+            ? \Carbon\Carbon::parse($sale->date)->toDateString()
+            : \Carbon\Carbon::parse($sale->created_at)->toDateString();
+        $norm  = $this->normalizeName($sale->recorded_by);
+        $total = (float) $sale->total_price;
+        $createdAt = $sale->og_created_at
+            ? \Carbon\Carbon::parse($sale->og_created_at)
+            : ($sale->created_at ? \Carbon\Carbon::parse($sale->created_at) : \Carbon\Carbon::parse($dateKey.' 23:59:59'));
+        $salesBuckets[$dateKey.'|'.$norm][] = [
+            'created_at' => $createdAt,
             'total'      => (int) $total,
         ];
     }
+
+    foreach ($salesBuckets as &$entries) {
+        usort($entries, fn ($a, $b) => $a['created_at']->getTimestamp() <=> $b['created_at']->getTimestamp());
+    }
+    unset($entries);
 
     // State per bucket agar omset per sesi tidak dobel saat kasir logout lebih dari 1x per hari
     $omsetPerRevenue = [];
     $bucketState     = []; // key => ['cursor' => int, 'sum' => int]
 
-    $consumeOmset = function (string $key, \Carbon\Carbon $closeAt) use (&$bucketState, $ogBuckets) {
+    $consumeOmset = function (string $key, \Carbon\Carbon $closeAt) use (&$bucketState, $salesBuckets) {
         if (!isset($bucketState[$key])) {
             $bucketState[$key] = ['cursor' => 0, 'sum' => 0];
         }
 
         $state   = $bucketState[$key];
-        $entries = $ogBuckets[$key] ?? [];
+        $entries = $salesBuckets[$key] ?? [];
         $prevSum = $state['sum'];
 
         while ($state['cursor'] < count($entries) && $entries[$state['cursor']]['created_at']->lte($closeAt)) {
