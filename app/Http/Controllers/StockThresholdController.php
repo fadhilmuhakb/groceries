@@ -31,15 +31,29 @@ class StockThresholdController extends Controller
         }
 
         $incomingSub = DB::table('tb_incoming_goods as ig')
-            ->join('tb_purchases as pur', 'ig.purchase_id', '=', 'pur.id')
-            ->where('pur.store_id', $storeId)
-            ->when(Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
-                function ($q) {
-                    $q->where(function ($qq) {
-                        $qq->whereNull('ig.is_pending_stock')
-                           ->orWhere('ig.is_pending_stock', false);
-                    });
-                })
+            ->when(
+                Schema::hasColumn('tb_incoming_goods', 'store_id'),
+                fn ($q) => $q->where(function ($qq) use ($storeId) {
+                    $qq->where('ig.store_id', $storeId)
+                       ->orWhereExists(function ($ex) use ($storeId) {
+                           $ex->select(DB::raw(1))
+                              ->from('tb_purchases as pur')
+                              ->whereColumn('pur.id', 'ig.purchase_id')
+                              ->where('pur.store_id', $storeId);
+                       });
+                })->when(Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
+                    fn ($q2) => $q2->where(function ($w) {
+                        $w->whereNull('ig.is_pending_stock')
+                          ->orWhere('ig.is_pending_stock', false);
+                    })),
+                fn ($q) => $q->join('tb_purchases as pur', 'ig.purchase_id', '=', 'pur.id')
+                             ->where('pur.store_id', $storeId)
+                             ->when(Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
+                                 fn ($q2) => $q2->where(function ($w) {
+                                     $w->whereNull('ig.is_pending_stock')
+                                       ->orWhere('ig.is_pending_stock', false);
+                                 }))
+            )
             ->select('ig.product_id', DB::raw('SUM(ig.stock) AS total_in'))
             ->groupBy('ig.product_id');
 
