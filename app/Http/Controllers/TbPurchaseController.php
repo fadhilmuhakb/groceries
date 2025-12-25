@@ -9,6 +9,7 @@ use App\Models\tb_incoming_goods;
 use App\Models\tb_stores;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Yajra\DataTables\Facades\DataTables;
 
 class TbPurchaseController extends Controller
@@ -65,17 +66,26 @@ class TbPurchaseController extends Controller
             'total_price' => $request->total_price,
         ]);
         $storeOnline = \App\Models\tb_stores::where('id', $request->store_id)->value('is_online');
+        $storeOnline = $storeOnline === null ? true : (bool) $storeOnline;
         $isPendingStock = !$storeOnline;
+        $hasIncomingStore = Schema::hasColumn('tb_incoming_goods', 'store_id');
+        $hasPendingStock = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock');
         
         // Simpan produk ke tb_incoming_goods
         foreach ($request->products as $product) {
-            tb_incoming_goods::create([
+            $payload = [
                 'purchase_id' => $purchase->id, // ✅ Perbaikan: tambahkan purchase_id
                 'product_id' => $product['product_id'],
                 'stock' => $product['stock'],
                 'description' => $product['description'] ?? null, // Jika null, tetap bisa disimpan
-                'is_pending_stock' => $isPendingStock,
-            ]);
+            ];
+            if ($hasPendingStock) {
+                $payload['is_pending_stock'] = $isPendingStock;
+            }
+            if ($hasIncomingStore) {
+                $payload['store_id'] = $request->store_id;
+            }
+            tb_incoming_goods::create($payload);
         }
 
         DB::commit();
@@ -121,18 +131,31 @@ class TbPurchaseController extends Controller
                 'store_id' => $request->store_id,
                 'total_price' => $request->total_price,
             ]);
+
+            $storeOnline = \App\Models\tb_stores::where('id', $request->store_id)->value('is_online');
+            $storeOnline = $storeOnline === null ? true : (bool) $storeOnline;
+            $isPendingStock = !$storeOnline;
+            $hasIncomingStore = Schema::hasColumn('tb_incoming_goods', 'store_id');
+            $hasPendingStock = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock');
     
             // Hapus semua produk lama sebelum menyimpan yang baru
             tb_incoming_goods::where('purchase_id', $id)->delete();
     
             // Simpan produk baru yang diinputkan user
             foreach ($request->products as $product) {
-                tb_incoming_goods::create([
+                $payload = [
                     'purchase_id' => $id,
                     'product_id' => $product['product_id'],
                     'stock' => $product['stock'],
                     'description' => $product['description'] ?? null,
-                ]);
+                ];
+                if ($hasPendingStock) {
+                    $payload['is_pending_stock'] = $isPendingStock;
+                }
+                if ($hasIncomingStore) {
+                    $payload['store_id'] = $request->store_id;
+                }
+                tb_incoming_goods::create($payload);
             }
     
             DB::commit();

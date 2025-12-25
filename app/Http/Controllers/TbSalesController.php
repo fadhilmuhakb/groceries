@@ -12,6 +12,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -99,7 +100,10 @@ class TbSalesController extends Controller
                 $store_id = $user->store_id;
             }
             $storeOnline = \App\Models\tb_stores::where('id', $store_id)->value('is_online');
+            $storeOnline = $storeOnline === null ? true : (bool) $storeOnline;
             $isPendingStock = !$storeOnline;
+            $hasOutgoingStore = Schema::hasColumn('tb_outgoing_goods', 'store_id');
+            $hasPendingStock = Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock');
 
             $sell = tb_sell::create([
                 'no_invoice' => $request->data['no_invoice'],
@@ -112,16 +116,22 @@ class TbSalesController extends Controller
             ]);
 
             foreach($request->data['products'] as $product) {
-                tb_outgoing_goods::create([
+                $payload = [
                     'product_id' => $product['id'],
                     'sell_id' => $sell->id,
                     'date' => $request->data['transaction_date'],
                     'quantity_out' => $product['qty'],
                     'discount' => $product['discount'],
                     'recorded_by' => $user->name,
-                    'is_pending_stock' => $isPendingStock,
                     // 'description' => $product['description']
-                ]);
+                ];
+                if ($hasPendingStock) {
+                    $payload['is_pending_stock'] = $isPendingStock;
+                }
+                if ($hasOutgoingStore) {
+                    $payload['store_id'] = $store_id;
+                }
+                tb_outgoing_goods::create($payload);
             }
             DB::commit();
             return response()->json([

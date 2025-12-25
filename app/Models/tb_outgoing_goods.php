@@ -13,6 +13,7 @@ class tb_outgoing_goods extends Model
     protected $fillable = [
         'product_id',
         'sell_id',
+        'store_id',
         'date',
         'quantity_out',
         'discount',
