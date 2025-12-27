@@ -149,7 +149,8 @@ class InventoryController extends Controller
         }, $items));
 
         try {
-            DB::transaction(function () use ($items, $ver) {
+            $userId = auth()->id();
+            DB::transaction(function () use ($items, $ver, $userId) {
                 $now = now();
                 // cek status toko
                 $storeId = (int)($items[0]['store_id'] ?? 0);
@@ -270,9 +271,9 @@ class InventoryController extends Controller
                     if ($plus > 0) {
                         if ($purchaseId === null) {
                             DB::insert(
-                                'INSERT INTO tb_purchases (`supplier_id`,`store_id`,`total_price`,`created_at`,`updated_at`)
-                                 VALUES (?,?,?,?,?)',
-                                [$supplierId, $storeId, 0, $now, $now]
+                                'INSERT INTO tb_purchases (`supplier_id`,`store_id`,`total_price`,`created_by`,`created_at`,`updated_at`)
+                                 VALUES (?,?,?,?,?,?)',
+                                [$supplierId, $storeId, 0, $userId, $now, $now]
                             );
                             $purchaseId = (int)DB::getPdo()->lastInsertId();
                         }

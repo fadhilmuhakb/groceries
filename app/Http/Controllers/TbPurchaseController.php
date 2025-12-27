@@ -20,7 +20,7 @@ class TbPurchaseController extends Controller
     public function index(Request $request)
     {
 
-        $purchases = tb_purchase::with(relations: ['supplier','store'])
+        $purchases = tb_purchase::with(relations: ['supplier','store','creator:id,name'])
             ->orderByDesc('id')
             ->get();
 
@@ -64,6 +64,7 @@ class TbPurchaseController extends Controller
             'supplier_id' => $request->supplier_id,
             'store_id' => $request->store_id,
             'total_price' => $request->total_price,
+            'created_by' => auth()->id(),
         ]);
         $storeOnline = \App\Models\tb_stores::where('id', $request->store_id)->value('is_online');
         $storeOnline = $storeOnline === null ? true : (bool) $storeOnline;

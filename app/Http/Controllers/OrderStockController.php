@@ -99,6 +99,7 @@ class OrderStockController extends Controller
                 'supplier_id' => null,
                 'store_id'    => $storeId,
                 'total_price' => 0,
+                'created_by'  => $user?->id,
                 'created_at'  => $now,
                 'updated_at'  => $now,
             ]);

@@ -27,6 +27,7 @@
                             <th>Supplier</th>
                             <th>Total Harga</th>
                             <th>Toko</th>
+                            <th>Dilakukan Oleh</th>
                             <th>Dibuat Pada</th>
                             <th>Aksi</th>
                         </tr>
@@ -60,6 +61,13 @@
                     { data: 'supplier.name', name: 'supplier.name' },
                     { data: 'total_price', name: 'total_price' },
                     { data: 'store.store_name', name: 'store.store_name' },
+                    {
+                        data: 'creator.name',
+                        name: 'creator.name',
+                        render: function (data) {
+                            return data || '-';
+                        }
+                    },
                     {
                         data: 'created_at',
                         name: 'created_at',

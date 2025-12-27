@@ -11,7 +11,7 @@ class tb_purchase extends Model
 
     protected $table = 'tb_purchases';
 
-    protected $fillable = ['supplier_id', 'store_id', 'total_price','uuid'];
+    protected $fillable = ['supplier_id', 'store_id', 'total_price', 'created_by', 'uuid'];
 
     /**
      * Relasi dengan tb_supplier
@@ -23,6 +23,11 @@ class tb_purchase extends Model
     public function store()
     {
         return $this->belongsTo(tb_stores::class, 'store_id', 'id');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
     public function incomingGoods()
 {
