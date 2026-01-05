@@ -113,7 +113,10 @@
             </tfoot>
         </table>
 
-        <button type="submit" class="btn btn-primary mt-3">Adjust Semua</button>
+        <button type="submit" class="btn btn-primary mt-3" id="adjustAllBtn">
+            <span class="btn-label">Adjust Semua</span>
+            <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+        </button>
     </form>
 </div>
 
@@ -130,7 +133,10 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-        <button type="button" class="btn btn-primary" id="confirmSubmitBtn">Ya, Lanjutkan</button>
+        <button type="button" class="btn btn-primary" id="confirmSubmitBtn">
+            <span class="btn-label">Ya, Lanjutkan</span>
+            <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+        </button>
       </div>
     </div>
   </div>
@@ -166,6 +172,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const alertSuccess = document.getElementById('alert-success');
     const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
     const downloadModal = new bootstrap.Modal(document.getElementById('downloadModal'));
+    const adjustAllBtn = document.getElementById('adjustAllBtn');
+    const confirmSubmitBtn = document.getElementById('confirmSubmitBtn');
+    let isSubmitting = false;
 
     const totalMinusQtyEl = document.getElementById('total-minus-qty');
     const totalMinusUnitEl = document.getElementById('total-minus-unit');
@@ -215,12 +224,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateTotals();
 
+    const setButtonBusy = (button, busy, busyLabel = 'Memproses...') => {
+        if (!button) return;
+        button.disabled = busy;
+        const label = button.querySelector('.btn-label');
+        if (label) {
+            if (!label.dataset.original) label.dataset.original = label.textContent;
+            label.textContent = busy ? busyLabel : label.dataset.original;
+        }
+        const spinner = button.querySelector('.spinner-border');
+        if (spinner) spinner.classList.toggle('d-none', !busy);
+    };
+
+    const setSubmitting = (busy) => {
+        isSubmitting = busy;
+        setButtonBusy(adjustAllBtn, busy);
+        setButtonBusy(confirmSubmitBtn, busy);
+    };
+
     form.addEventListener('submit', (e) => {
-        e.preventDefault(); modal.show();
+        e.preventDefault();
+        if (isSubmitting) return;
+        modal.show();
     });
 
-    document.getElementById('confirmSubmitBtn').addEventListener('click', () => {
-        modal.hide(); submitForm();
+    confirmSubmitBtn.addEventListener('click', () => {
+        if (isSubmitting) return;
+        modal.hide();
+        submitForm();
     });
 
     function readCsrfToken() {
@@ -231,6 +262,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function submitForm() {
+        if (isSubmitting) return;
+        setSubmitting(true);
         // KIRIM JSON ke endpoint V3
         const items = [];
         table.querySelectorAll('tbody tr').forEach(tr => {
@@ -272,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             downloadModal.show();
         }).catch(err => {
+            setSubmitting(false);
             alert('Gagal menyimpan stok opname.\n' + err.message);
         });
     }
@@ -287,6 +321,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelector('#downloadModal .btn-secondary').addEventListener('click', () => {
         location.reload();
+    });
+
+    document.getElementById('downloadModal').addEventListener('hidden.bs.modal', () => {
+        if (isSubmitting) setSubmitting(false);
     });
 
     // SEARCH

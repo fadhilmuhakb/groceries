@@ -24,9 +24,22 @@ class InventoryController extends Controller
             return view('pages.admin.inventory.index', compact('query', 'stores', 'storeId'));
         }
 
+        $hasIncomingStore = Schema::hasColumn('tb_incoming_goods', 'store_id');
         $incomingSub = DB::table('tb_incoming_goods as ig')
-            ->join('tb_purchases as p', 'ig.purchase_id', '=', 'p.id')
-            ->where('p.store_id', $storeId)
+            ->when(
+                $hasIncomingStore,
+                fn($q) => $q->where(function ($qq) use ($storeId) {
+                    $qq->where('ig.store_id', $storeId)
+                       ->orWhereExists(function ($ex) use ($storeId) {
+                           $ex->select(DB::raw(1))
+                              ->from('tb_purchases as p')
+                              ->whereColumn('p.id', 'ig.purchase_id')
+                              ->where('p.store_id', $storeId);
+                       });
+                }),
+                fn($q) => $q->join('tb_purchases as p', 'ig.purchase_id', '=', 'p.id')
+                           ->where('p.store_id', $storeId)
+            )
             ->when(
                 Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
                 function ($q) {
