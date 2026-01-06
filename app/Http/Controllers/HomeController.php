@@ -95,7 +95,11 @@ public function index(Request $request)
     $salesQuery = DB::table('tb_sells as s')->select();
     $hppBase = DB::table('tb_outgoing_goods as og')
         ->join('tb_sells as s', 'og.sell_id', '=', 's.id')
-        ->join('tb_products as p', 'og.product_id', '=', 'p.id');
+        ->join('tb_products as p', 'og.product_id', '=', 'p.id')
+        ->when(
+            Schema::hasColumn('tb_outgoing_goods', 'deleted_at'),
+            fn ($q) => $q->whereNull('og.deleted_at')
+        );
 
     $excludeStockOpname($salesQuery);
     $excludeStockOpname($hppBase);
@@ -171,6 +175,10 @@ public function index(Request $request)
     $topProductsQuery = DB::table('tb_outgoing_goods as og')
         ->join('tb_products as p', 'og.product_id', '=', 'p.id')
         ->join('tb_sells as s', 'og.sell_id', '=', 's.id')
+        ->when(
+            Schema::hasColumn('tb_outgoing_goods', 'deleted_at'),
+            fn ($q) => $q->whereNull('og.deleted_at')
+        )
         ->select('p.product_name', DB::raw('SUM(og.quantity_out) as total_sold'))
         ->groupBy('p.product_name')
         ->orderByDesc('total_sold')
@@ -210,6 +218,10 @@ public function index(Request $request)
     {
         $incomingSub = DB::table('tb_incoming_goods as ig')
             ->when(
+                Schema::hasColumn('tb_incoming_goods', 'deleted_at'),
+                fn ($q) => $q->whereNull('ig.deleted_at')
+            )
+            ->when(
                 Schema::hasColumn('tb_incoming_goods', 'store_id'),
                 fn ($q) => $q->where(function ($qq) use ($storeId) {
                         $qq->where('ig.store_id', $storeId)
@@ -243,6 +255,10 @@ public function index(Request $request)
         $outgoingSub = DB::table('tb_outgoing_goods as og')
             ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
             ->where('sl.store_id', $storeId)
+            ->when(
+                Schema::hasColumn('tb_outgoing_goods', 'deleted_at'),
+                fn ($q) => $q->whereNull('og.deleted_at')
+            )
             ->when(Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock'),
                 function ($q) {
                     $q->where(function ($qq) {
@@ -280,6 +296,10 @@ public function index(Request $request)
         $incomingSub = DB::table('tb_incoming_goods as ig')
             ->join('tb_purchases as pur', 'ig.purchase_id', '=', 'pur.id')
             ->when(
+                Schema::hasColumn('tb_incoming_goods', 'deleted_at'),
+                fn ($q) => $q->whereNull('ig.deleted_at')
+            )
+            ->when(
                 Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
                 function ($q) {
                     $q->where(function ($qq) {
@@ -293,6 +313,10 @@ public function index(Request $request)
 
         $outgoingSub = DB::table('tb_outgoing_goods as og')
             ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
+            ->when(
+                Schema::hasColumn('tb_outgoing_goods', 'deleted_at'),
+                fn ($q) => $q->whereNull('og.deleted_at')
+            )
             ->when(
                 Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock'),
                 function ($q) {

@@ -111,6 +111,10 @@ class ReportController extends Controller
     // Ambil transaksi per nota (pakai total_price agar konsisten dengan halaman home)
     $salesRawQuery = \Illuminate\Support\Facades\DB::table('tb_sells as s')
         ->join('tb_outgoing_goods as og', 'og.sell_id', '=', 's.id')
+        ->when(
+            schemaHasColumn('tb_outgoing_goods', 'deleted_at'),
+            fn ($q) => $q->whereNull('og.deleted_at')
+        )
         ->when($storeId, fn ($q) => $q->where('s.store_id', $storeId))
         ->whereBetween('s.date', [$startStr, $endStr])
         ->selectRaw('s.id, s.date, s.total_price, s.created_at, MAX(og.created_at) as og_created_at, MAX(og.recorded_by) as recorded_by')

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\tb_stores;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Yajra\DataTables\Facades\DataTables;
 class TbStoresController extends Controller
@@ -192,6 +193,10 @@ class TbStoresController extends Controller
             ->join('tb_purchases as p', 'p.id', '=', 'ig.purchase_id')
             ->where('p.store_id', $storeId)
             ->where('ig.is_pending_stock', true)
+            ->when(
+                Schema::hasColumn('tb_incoming_goods', 'deleted_at'),
+                fn ($q) => $q->whereNull('ig.deleted_at')
+            )
             ->pluck('ig.id');
 
         if ($incomingIds->isNotEmpty()) {
@@ -208,6 +213,10 @@ class TbStoresController extends Controller
             ->join('tb_sells as s', 's.id', '=', 'og.sell_id')
             ->where('s.store_id', $storeId)
             ->where('og.is_pending_stock', true)
+            ->when(
+                Schema::hasColumn('tb_outgoing_goods', 'deleted_at'),
+                fn ($q) => $q->whereNull('og.deleted_at')
+            )
             ->pluck('og.id');
 
         if ($outgoingIds->isNotEmpty()) {

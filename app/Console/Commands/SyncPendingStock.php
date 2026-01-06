@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class SyncPendingStock extends Command
 {
@@ -44,6 +45,10 @@ class SyncPendingStock extends Command
                 ->join('tb_purchases as p', 'p.id', '=', 'ig.purchase_id')
                 ->where('p.store_id', $sid)
                 ->where('ig.is_pending_stock', true)
+                ->when(
+                    Schema::hasColumn('tb_incoming_goods', 'deleted_at'),
+                    fn ($q) => $q->whereNull('ig.deleted_at')
+                )
                 ->update([
                     'ig.is_pending_stock' => false,
                     'ig.synced_at'        => $now,
@@ -54,6 +59,10 @@ class SyncPendingStock extends Command
                 ->join('tb_sells as s', 's.id', '=', 'og.sell_id')
                 ->where('s.store_id', $sid)
                 ->where('og.is_pending_stock', true)
+                ->when(
+                    Schema::hasColumn('tb_outgoing_goods', 'deleted_at'),
+                    fn ($q) => $q->whereNull('og.deleted_at')
+                )
                 ->update([
                     'og.is_pending_stock' => false,
                     'og.synced_at'        => $now,

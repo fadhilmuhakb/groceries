@@ -223,11 +223,14 @@ class TbIncomingGoodsController extends Controller
     {
         if (empty($productIds)) return [];
 
-        $hasIncomingStore = Schema::hasColumn('tb_incoming_goods', 'store_id');
-        $hasPendingIn     = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock');
-        $hasPendingOut    = Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock');
+        $hasIncomingStore   = Schema::hasColumn('tb_incoming_goods', 'store_id');
+        $hasPendingIn       = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock');
+        $hasPendingOut      = Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock');
+        $hasIncomingDeleted = Schema::hasColumn('tb_incoming_goods', 'deleted_at');
+        $hasOutgoingDeleted = Schema::hasColumn('tb_outgoing_goods', 'deleted_at');
 
         $incoming = DB::table('tb_incoming_goods as ig')
+            ->when($hasIncomingDeleted, fn($q) => $q->whereNull('ig.deleted_at'))
             ->when(
                 $hasIncomingStore,
                 fn($q) => $q->where(function ($qq) use ($storeId) {
@@ -255,6 +258,7 @@ class TbIncomingGoodsController extends Controller
 
         $outgoing = DB::table('tb_outgoing_goods as og')
             ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
+            ->when($hasOutgoingDeleted, fn($q) => $q->whereNull('og.deleted_at'))
             ->where('sl.store_id', $storeId)
             ->whereIn('og.product_id', $productIds)
             ->when($hasPendingOut, function ($q) {

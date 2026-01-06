@@ -165,6 +165,10 @@ class OrderStockController extends Controller
     {
         $incomingSub = DB::table('tb_incoming_goods as ig')
             ->when(
+                Schema::hasColumn('tb_incoming_goods', 'deleted_at'),
+                fn ($q) => $q->whereNull('ig.deleted_at')
+            )
+            ->when(
                 Schema::hasColumn('tb_incoming_goods', 'store_id'),
                 fn ($q) => $q->where(function ($qq) use ($storeId) {
                     $qq->where('ig.store_id', $storeId)
@@ -193,6 +197,10 @@ class OrderStockController extends Controller
         $outgoingSub = DB::table('tb_outgoing_goods as og')
             ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
             ->where('sl.store_id', $storeId)
+            ->when(
+                Schema::hasColumn('tb_outgoing_goods', 'deleted_at'),
+                fn ($q) => $q->whereNull('og.deleted_at')
+            )
             ->when(Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock'),
                 function ($q) {
                     $q->where(function ($qq) {
