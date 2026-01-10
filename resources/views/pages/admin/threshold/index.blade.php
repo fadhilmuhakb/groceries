@@ -37,9 +37,10 @@
       @if(!$storeId)
         <div class="alert alert-info">Pilih toko untuk mengatur batas stok.</div>
       @else
-      <form method="POST" action="{{ route('stock-threshold.save') }}">
+      <form method="POST" action="{{ route('stock-threshold.save') }}" id="threshold-form">
         @csrf
         <input type="hidden" name="store_id" value="{{ $storeId }}">
+        <input type="hidden" name="expected_count" value="{{ $rows->count() }}">
         <div class="card">
           <div class="card-body">
             <div class="table-responsive">
@@ -71,7 +72,10 @@
               </table>
             </div>
             <div class="text-end mt-3">
-              <button type="submit" class="btn btn-primary">Simpan</button>
+              <button type="submit" class="btn btn-primary" id="threshold-submit">
+                <span class="btn-label">Simpan</span>
+                <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+              </button>
             </div>
           </div>
         </div>
@@ -87,7 +91,22 @@
 document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('threshold-search');
   const body = document.getElementById('threshold-table-body');
+  const form = document.getElementById('threshold-form');
+  const submitButton = document.getElementById('threshold-submit');
+  let isSubmitting = false;
   if (!searchInput || !body) return;
+
+  const setButtonBusy = (button, busy, busyLabel = 'Menyimpan...') => {
+    if (!button) return;
+    button.disabled = busy;
+    const label = button.querySelector('.btn-label');
+    if (label) {
+      if (!label.dataset.original) label.dataset.original = label.textContent;
+      label.textContent = busy ? busyLabel : label.dataset.original;
+    }
+    const spinner = button.querySelector('.spinner-border');
+    if (spinner) spinner.classList.toggle('d-none', !busy);
+  };
 
   const rows = Array.from(body.querySelectorAll('tr'));
   const filter = (term) => {
@@ -110,6 +129,17 @@ document.addEventListener('DOMContentLoaded', () => {
   searchInput.addEventListener('input', () => filter(searchInput.value));
   filter(searchInput.value);
   searchInput.focus();
+
+  if (form && submitButton) {
+    form.addEventListener('submit', (e) => {
+      if (isSubmitting) {
+        e.preventDefault();
+        return;
+      }
+      isSubmitting = true;
+      setButtonBusy(submitButton, true);
+    });
+  }
 });
 </script>
 @endpush

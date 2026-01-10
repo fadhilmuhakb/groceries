@@ -120,41 +120,60 @@ class StockThresholdController extends Controller
         if (!$storeId) return back()->with('error', 'Store wajib dipilih.');
 
         $items = $request->input('items', []);
+        $expectedCount = (int) $request->input('expected_count', 0);
+        if ($expectedCount > 0 && count($items) < $expectedCount) {
+            return back()->with('error', 'Koneksi tidak stabil. Data yang diterima tidak lengkap, silakan simpan ulang.');
+        }
+
         DB::beginTransaction();
         try {
             foreach ($items as $pid => $row) {
                 $pid = (int)$pid;
-                if ($pid <= 0) continue;
-                $min = $row['min_stock'] ?? null;
-                $max = $row['max_stock'] ?? null;
-                $minStock = ($min === '' || $min === null) ? null : (int)$min;
-                $maxStock = ($max === '' || $max === null) ? null : (int)$max;
+                if ($pid <= 0 || !is_array($row)) continue;
+
+                $existing = DB::table('tb_product_store_thresholds')
+                    ->where('product_id', $pid)
+                    ->where('store_id', $storeId)
+                    ->first();
+
+                $hasMinKey = array_key_exists('min_stock', $row);
+                $hasMaxKey = array_key_exists('max_stock', $row);
+
+                $minStock = $hasMinKey
+                    ? $this->normalizeStockValue($row['min_stock'] ?? null)
+                    : ($existing->min_stock ?? null);
+                $maxStock = $hasMaxKey
+                    ? $this->normalizeStockValue($row['max_stock'] ?? null)
+                    : ($existing->max_stock ?? null);
+
+                if (!$hasMinKey && !$hasMaxKey) {
+                    continue;
+                }
+
                 if ($minStock !== null && $maxStock !== null && $maxStock < $minStock) {
-                $maxStock = $minStock;
-            }
+                    $maxStock = $minStock;
+                }
 
-            $existing = DB::table('tb_product_store_thresholds')
-                ->where('product_id', $pid)
-                ->where('store_id', $storeId)
-                ->first();
-
-            if ($existing) {
-                DB::table('tb_product_store_thresholds')
-                    ->where('id', $existing->id)
-                    ->update([
-                        'min_stock'      => $minStock,
-                        'max_stock'      => $maxStock,
-                        'updated_at'     => now(),
+                if ($existing) {
+                    DB::table('tb_product_store_thresholds')
+                        ->where('id', $existing->id)
+                        ->update([
+                            'min_stock'      => $minStock,
+                            'max_stock'      => $maxStock,
+                            'updated_at'     => now(),
+                        ]);
+                } else {
+                    if ($minStock === null && $maxStock === null) {
+                        continue;
+                    }
+                    DB::table('tb_product_store_thresholds')->insert([
+                        'product_id'      => $pid,
+                        'store_id'        => $storeId,
+                        'min_stock'       => $minStock,
+                        'max_stock'       => $maxStock,
+                        'created_at'      => now(),
+                        'updated_at'      => now(),
                     ]);
-            } else {
-                DB::table('tb_product_store_thresholds')->insert([
-                    'product_id'      => $pid,
-                    'store_id'        => $storeId,
-                    'min_stock'       => $minStock,
-                    'max_stock'       => $maxStock,
-                    'created_at'      => now(),
-                    'updated_at'      => now(),
-                ]);
                 }
             }
             DB::commit();
@@ -163,5 +182,26 @@ class StockThresholdController extends Controller
             DB::rollBack();
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    private function normalizeStockValue($value): ?int
+    {
+        if ($value === null) {
+            return null;
+        }
+        if (is_array($value)) {
+            return null;
+        }
+        if (is_string($value)) {
+            $value = trim($value);
+            if ($value === '') {
+                return null;
+            }
+        }
+        if (!is_numeric($value)) {
+            return null;
+        }
+        $intValue = (int) $value;
+        return $intValue < 0 ? 0 : $intValue;
     }
 }
