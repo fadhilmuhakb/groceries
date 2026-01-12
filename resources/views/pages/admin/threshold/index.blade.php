@@ -40,7 +40,7 @@
       <form method="POST" action="{{ route('stock-threshold.save') }}" id="threshold-form">
         @csrf
         <input type="hidden" name="store_id" value="{{ $storeId }}">
-        <input type="hidden" name="expected_count" value="{{ $rows->count() }}">
+        <input type="hidden" name="expected_count" value="0">
         <div class="card">
           <div class="card-body">
             <div class="table-responsive">
@@ -56,7 +56,7 @@
                 </thead>
                 <tbody id="threshold-table-body">
                   @foreach($rows as $row)
-                    <tr data-name="{{ strtolower($row->product_name) }}" data-code="{{ strtolower($row->product_code) }}">
+                    <tr data-id="{{ $row->id }}" data-name="{{ strtolower($row->product_name) }}" data-code="{{ strtolower($row->product_code) }}">
                       <td>{{ $row->product_code }}</td>
                       <td>{{ $row->product_name }}</td>
                       <td>{{ $row->stock_system }}</td>
@@ -93,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const body = document.getElementById('threshold-table-body');
   const form = document.getElementById('threshold-form');
   const submitButton = document.getElementById('threshold-submit');
+  const expectedCountInput = form ? form.querySelector('input[name="expected_count"]') : null;
   let isSubmitting = false;
   if (!searchInput || !body) return;
 
@@ -109,6 +110,35 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const rows = Array.from(body.querySelectorAll('tr'));
+  const dirtyIds = new Set();
+
+  const updateRowDirty = (tr) => {
+    const inputs = tr.querySelectorAll('input[type="number"]');
+    let dirty = false;
+    inputs.forEach(input => {
+      if (input.dataset.original === undefined) {
+        input.dataset.original = input.value ?? '';
+      }
+      const current = input.value ?? '';
+      if (current !== input.dataset.original) dirty = true;
+    });
+    const rowId = tr.dataset.id;
+    if (!rowId) return;
+    if (dirty) {
+      dirtyIds.add(rowId);
+    } else {
+      dirtyIds.delete(rowId);
+    }
+  };
+
+  rows.forEach(tr => {
+    tr.querySelectorAll('input[type="number"]').forEach(input => {
+      if (input.dataset.original === undefined) {
+        input.dataset.original = input.value ?? '';
+      }
+      input.addEventListener('input', () => updateRowDirty(tr));
+    });
+  });
   const filter = (term) => {
     const keyword = (term || '').toLowerCase().trim();
     let firstMatch = null;
@@ -135,6 +165,22 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isSubmitting) {
         e.preventDefault();
         return;
+      }
+      if (expectedCountInput) expectedCountInput.value = String(dirtyIds.size);
+      if (dirtyIds.size === 0) {
+        rows.forEach(tr => {
+          tr.querySelectorAll('input[type="number"]').forEach(input => {
+            input.disabled = true;
+          });
+        });
+      } else {
+        rows.forEach(tr => {
+          if (!dirtyIds.has(tr.dataset.id)) {
+            tr.querySelectorAll('input[type="number"]').forEach(input => {
+              input.disabled = true;
+            });
+          }
+        });
       }
       isSubmitting = true;
       setButtonBusy(submitButton, true);

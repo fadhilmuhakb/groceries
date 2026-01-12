@@ -138,19 +138,27 @@ class StockThresholdController extends Controller
 
                 $hasMinKey = array_key_exists('min_stock', $row);
                 $hasMaxKey = array_key_exists('max_stock', $row);
+                $minInput = $hasMinKey ? $row['min_stock'] : null;
+                $maxInput = $hasMaxKey ? $row['max_stock'] : null;
+                $minEmpty = $hasMinKey && $this->isEmptyStockInput($minInput);
+                $maxEmpty = $hasMaxKey && $this->isEmptyStockInput($maxInput);
 
                 $minStock = $hasMinKey
-                    ? $this->normalizeStockValue($row['min_stock'] ?? null)
+                    ? $this->normalizeStockValue($minInput)
                     : ($existing->min_stock ?? null);
                 $maxStock = $hasMaxKey
-                    ? $this->normalizeStockValue($row['max_stock'] ?? null)
+                    ? $this->normalizeStockValue($maxInput)
                     : ($existing->max_stock ?? null);
 
                 if (!$hasMinKey && !$hasMaxKey) {
                     continue;
                 }
 
-                if ($minStock !== null && $maxStock !== null && $maxStock < $minStock) {
+                if (!$existing && $minEmpty && $maxEmpty) {
+                    continue;
+                }
+
+                if (!$minEmpty && !$maxEmpty && $minStock !== null && $maxStock !== null && $maxStock < $minStock) {
                     $maxStock = $minStock;
                 }
 
@@ -184,24 +192,26 @@ class StockThresholdController extends Controller
         }
     }
 
-    private function normalizeStockValue($value): ?int
+    private function normalizeStockValue($value): int
     {
-        if ($value === null) {
-            return null;
-        }
-        if (is_array($value)) {
-            return null;
-        }
         if (is_string($value)) {
             $value = trim($value);
-            if ($value === '') {
-                return null;
-            }
         }
-        if (!is_numeric($value)) {
-            return null;
+        if ($value === null || $value === '' || is_array($value) || !is_numeric($value)) {
+            return 0;
         }
-        $intValue = (int) $value;
+        $intValue = (int)$value;
         return $intValue < 0 ? 0 : $intValue;
+    }
+
+    private function isEmptyStockInput($value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+        if (is_string($value)) {
+            return trim($value) === '';
+        }
+        return false;
     }
 }
