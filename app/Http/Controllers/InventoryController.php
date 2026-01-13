@@ -174,7 +174,7 @@ class InventoryController extends Controller
                 $now = now();
 
                 // cek status toko
-                $storeOnline = DB::table('tb_stores')->where('id', $storeId)->value('is_online') ?? true;
+                $storeOnline = (int) DB::table('tb_stores')->where('id', $storeId)->value('is_online') === 1;
                 $isPending = !$storeOnline;
 
                 $incomingDeletedSql = Schema::hasColumn('tb_incoming_goods', 'deleted_at')

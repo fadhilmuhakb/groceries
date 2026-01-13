@@ -99,8 +99,7 @@ class TbSalesController extends Controller
             } else {
                 $store_id = $user->store_id;
             }
-            $storeOnline = \App\Models\tb_stores::where('id', $store_id)->value('is_online');
-            $storeOnline = $storeOnline === null ? true : (bool) $storeOnline;
+            $storeOnline = (int) \App\Models\tb_stores::where('id', $store_id)->value('is_online') === 1;
             $isPendingStock = !$storeOnline;
             $hasOutgoingStore = Schema::hasColumn('tb_outgoing_goods', 'store_id');
             $hasPendingStock = Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock');

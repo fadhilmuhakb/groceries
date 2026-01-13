@@ -66,8 +66,7 @@ class TbPurchaseController extends Controller
             'total_price' => $request->total_price,
             'created_by' => auth()->id(),
         ]);
-        $storeOnline = \App\Models\tb_stores::where('id', $request->store_id)->value('is_online');
-        $storeOnline = $storeOnline === null ? true : (bool) $storeOnline;
+        $storeOnline = (int) \App\Models\tb_stores::where('id', $request->store_id)->value('is_online') === 1;
         $isPendingStock = !$storeOnline;
         $hasIncomingStore = Schema::hasColumn('tb_incoming_goods', 'store_id');
         $hasPendingStock = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock');
@@ -133,8 +132,7 @@ class TbPurchaseController extends Controller
                 'total_price' => $request->total_price,
             ]);
 
-            $storeOnline = \App\Models\tb_stores::where('id', $request->store_id)->value('is_online');
-            $storeOnline = $storeOnline === null ? true : (bool) $storeOnline;
+            $storeOnline = (int) \App\Models\tb_stores::where('id', $request->store_id)->value('is_online') === 1;
             $isPendingStock = !$storeOnline;
             $hasIncomingStore = Schema::hasColumn('tb_incoming_goods', 'store_id');
             $hasPendingStock = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock');
