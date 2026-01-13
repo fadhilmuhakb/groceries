@@ -32,7 +32,7 @@ class SyncPendingStock extends Command
 
         $stores = DB::table('tb_stores')
             ->when($targetStore, fn($q) => $q->where('id', $targetStore))
-            ->where('is_online', true)
+            ->where('is_online', 1)
             ->pluck('id');
 
         if ($stores->isEmpty()) {
@@ -44,13 +44,13 @@ class SyncPendingStock extends Command
             $updatedIn = DB::table('tb_incoming_goods as ig')
                 ->join('tb_purchases as p', 'p.id', '=', 'ig.purchase_id')
                 ->where('p.store_id', $sid)
-                ->where('ig.is_pending_stock', true)
+                ->where('ig.is_pending_stock', 1)
                 ->when(
                     Schema::hasColumn('tb_incoming_goods', 'deleted_at'),
                     fn ($q) => $q->whereNull('ig.deleted_at')
                 )
                 ->update([
-                    'ig.is_pending_stock' => false,
+                    'ig.is_pending_stock' => 0,
                     'ig.synced_at'        => $now,
                     'ig.updated_at'       => $now,
                 ]);
@@ -58,13 +58,13 @@ class SyncPendingStock extends Command
             $updatedOut = DB::table('tb_outgoing_goods as og')
                 ->join('tb_sells as s', 's.id', '=', 'og.sell_id')
                 ->where('s.store_id', $sid)
-                ->where('og.is_pending_stock', true)
+                ->where('og.is_pending_stock', 1)
                 ->when(
                     Schema::hasColumn('tb_outgoing_goods', 'deleted_at'),
                     fn ($q) => $q->whereNull('og.deleted_at')
                 )
                 ->update([
-                    'og.is_pending_stock' => false,
+                    'og.is_pending_stock' => 0,
                     'og.synced_at'        => $now,
                     'og.updated_at'       => $now,
                 ]);

@@ -24,6 +24,7 @@ class TbSalesController extends Controller
         $store_id = auth()->user()->roles === 'superadmin'
             ? $request->get('store_id')
             : auth()->user()->store_id;
+        $hasPendingIncoming = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock');
         $current_month = Carbon::now()->format('m');
         $current_year = Carbon::now()->format('Y');
         $count_invoice = tb_sell::where('store_id', auth()->user()->store_id)
@@ -38,6 +39,12 @@ class TbSalesController extends Controller
             $customers = tb_customers::all();
             $product = tb_incoming_goods::with(['product.storePrices', 'purchase'])
                         ->when($store_id, fn($q) => $q->whereHas('purchase', fn($p) => $p->where('store_id', $store_id)))
+                        ->when($hasPendingIncoming, function ($q) {
+                            $q->where(function ($qq) {
+                                $qq->whereNull('tb_incoming_goods.is_pending_stock')
+                                   ->orWhere('tb_incoming_goods.is_pending_stock', 0);
+                            });
+                        })
                         ->get();
         }
         else if(auth()->user()->roles == 'staff' || auth()->user()->roles == 'admin') {
@@ -46,7 +53,14 @@ class TbSalesController extends Controller
             $product = tb_incoming_goods::with(['product.storePrices', 'purchase'])
                                         ->whereHas('purchase', function($q) use ($store_id) {
                                             $q->where('store_id', $store_id);
-                                        })->get();
+                                        })
+                                        ->when($hasPendingIncoming, function ($q) {
+                                            $q->where(function ($qq) {
+                                                $qq->whereNull('tb_incoming_goods.is_pending_stock')
+                                                   ->orWhere('tb_incoming_goods.is_pending_stock', 0);
+                                            });
+                                        })
+                                        ->get();
 
         }
 
@@ -99,8 +113,8 @@ class TbSalesController extends Controller
             } else {
                 $store_id = $user->store_id;
             }
-            $storeOnline = (int) \App\Models\tb_stores::where('id', $store_id)->value('is_online') === 1;
-            $isPendingStock = !$storeOnline;
+            $storeOnline = (int) tb_stores::where('id', $store_id)->value('is_online') === 1;
+            $isPendingStock = $storeOnline ? 0 : 1;
             $hasOutgoingStore = Schema::hasColumn('tb_outgoing_goods', 'store_id');
             $hasPendingStock = Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock');
 

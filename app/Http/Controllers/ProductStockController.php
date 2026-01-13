@@ -66,7 +66,7 @@ class ProductStockController extends Controller
                 function ($q) {
                     $q->where(function ($qq) {
                         $qq->whereNull('ig.is_pending_stock')
-                           ->orWhere('ig.is_pending_stock', false);
+                           ->orWhere('ig.is_pending_stock', 0);
                     });
                 }
             )
@@ -85,7 +85,7 @@ class ProductStockController extends Controller
                 function ($q) {
                     $q->where(function ($qq) {
                         $qq->whereNull('og.is_pending_stock')
-                           ->orWhere('og.is_pending_stock', false);
+                           ->orWhere('og.is_pending_stock', 0);
                     });
                 }
             )

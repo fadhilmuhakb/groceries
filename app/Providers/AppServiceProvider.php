@@ -81,14 +81,14 @@ class AppServiceProvider extends ServiceProvider
                 })->when(Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
                     fn ($q2) => $q2->where(function ($w) {
                         $w->whereNull('ig.is_pending_stock')
-                          ->orWhere('ig.is_pending_stock', false);
+                          ->orWhere('ig.is_pending_stock', 0);
                     })),
                 fn ($q) => $q->join('tb_purchases as pur', 'ig.purchase_id', '=', 'pur.id')
                              ->where('pur.store_id', $storeId)
                              ->when(Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
                                  fn ($q2) => $q2->where(function ($w) {
                                      $w->whereNull('ig.is_pending_stock')
-                                       ->orWhere('ig.is_pending_stock', false);
+                                       ->orWhere('ig.is_pending_stock', 0);
                                  }))
             )
             ->select('ig.product_id', DB::raw('SUM(ig.stock) AS total_in'))
@@ -105,7 +105,7 @@ class AppServiceProvider extends ServiceProvider
                 function ($q) {
                     $q->where(function ($qq) {
                         $qq->whereNull('og.is_pending_stock')
-                           ->orWhere('og.is_pending_stock', false);
+                           ->orWhere('og.is_pending_stock', 0);
                     });
                 })
             ->select('og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))

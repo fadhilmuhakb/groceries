@@ -78,7 +78,7 @@ class DailySalesReportController extends Controller
             // filter mode toko: online (potong stok) vs offline (pending stok opname)
             ->when(
                 Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock') && $sourceMode !== 'all',
-                fn ($q) => $q->where('tb_outgoing_goods.is_pending_stock', $sourceMode === 'offline')
+                fn ($q) => $q->where('tb_outgoing_goods.is_pending_stock', $sourceMode === 'offline' ? 1 : 0)
             )
             ->where(function ($query) use ($startDate, $endDate) {
                 $query->whereBetween(
@@ -226,7 +226,7 @@ class DailySalesReportController extends Controller
             ->whereRaw('LOWER(COALESCE(TRIM(tb_outgoing_goods.recorded_by), "")) != ?', ['stock opname'])
             ->when(
                 Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock') && $sourceMode !== 'all',
-                fn ($q) => $q->where('tb_outgoing_goods.is_pending_stock', $sourceMode === 'offline')
+                fn ($q) => $q->where('tb_outgoing_goods.is_pending_stock', $sourceMode === 'offline' ? 1 : 0)
             )
             ->whereNotNull('recorded_by')
             ->where(function ($query) use ($start, $end) {

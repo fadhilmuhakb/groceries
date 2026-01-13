@@ -76,6 +76,8 @@ class OrderStockController extends Controller
         $restockRows   = [];
         $totalPurchase = 0;
         $now           = now();
+        $storeOnline   = (int) DB::table('tb_stores')->where('id', $storeId)->value('is_online') === 1;
+        $isPendingStock = $storeOnline ? 0 : 1;
 
         foreach ($products as $row) {
             $needed = (int)$row->po_qty;
@@ -118,7 +120,7 @@ class OrderStockController extends Controller
                     $payload['store_id'] = $storeId;
                 }
                 if (Schema::hasColumn('tb_incoming_goods', 'is_pending_stock')) {
-                    $payload['is_pending_stock'] = false;
+                    $payload['is_pending_stock'] = $isPendingStock;
                 }
                 $rows[] = $payload;
             }
@@ -181,14 +183,14 @@ class OrderStockController extends Controller
                 })->when(Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
                     fn ($q2) => $q2->where(function ($w) {
                         $w->whereNull('ig.is_pending_stock')
-                          ->orWhere('ig.is_pending_stock', false);
+                          ->orWhere('ig.is_pending_stock', 0);
                     })),
                 fn ($q) => $q->join('tb_purchases as pur', 'ig.purchase_id', '=', 'pur.id')
                              ->where('pur.store_id', $storeId)
                              ->when(Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
                                  fn ($q2) => $q2->where(function ($w) {
                                      $w->whereNull('ig.is_pending_stock')
-                                       ->orWhere('ig.is_pending_stock', false);
+                                       ->orWhere('ig.is_pending_stock', 0);
                                  }))
             )
             ->select('ig.product_id', DB::raw('SUM(ig.stock) AS total_in'))
@@ -205,7 +207,7 @@ class OrderStockController extends Controller
                 function ($q) {
                     $q->where(function ($qq) {
                         $qq->whereNull('og.is_pending_stock')
-                           ->orWhere('og.is_pending_stock', false);
+                           ->orWhere('og.is_pending_stock', 0);
                     });
                 })
             ->select('og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))

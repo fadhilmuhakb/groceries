@@ -137,6 +137,10 @@ class TbIncomingGoodsController extends Controller
             'description' => 'nullable',
             'paid_of_date' => 'required|date'
         ]);
+        if (Schema::hasColumn('tb_incoming_goods', 'is_pending_stock')) {
+            $storeOnline = (int) tb_stores::where('id', $data['store_id'])->value('is_online') === 1;
+            $data['is_pending_stock'] = $storeOnline ? 0 : 1;
+        }
 
         DB::beginTransaction();
         try {
@@ -181,6 +185,10 @@ class TbIncomingGoodsController extends Controller
             'description' => 'nullable',
             'paid_of_date' => 'required|date'
         ]);
+        if (Schema::hasColumn('tb_incoming_goods', 'is_pending_stock')) {
+            $storeOnline = (int) tb_stores::where('id', $data['store_id'])->value('is_online') === 1;
+            $data['is_pending_stock'] = $storeOnline ? 0 : 1;
+        }
 
         DB::beginTransaction();
         try {
@@ -249,7 +257,7 @@ class TbIncomingGoodsController extends Controller
             ->when($hasPendingIn, function ($q) {
                 $q->where(function ($qq) {
                     $qq->whereNull('ig.is_pending_stock')
-                       ->orWhere('ig.is_pending_stock', false);
+                       ->orWhere('ig.is_pending_stock', 0);
                 });
             })
             ->select('ig.product_id', DB::raw('SUM(ig.stock) as total_in'))
@@ -264,7 +272,7 @@ class TbIncomingGoodsController extends Controller
             ->when($hasPendingOut, function ($q) {
                 $q->where(function ($qq) {
                     $qq->whereNull('og.is_pending_stock')
-                       ->orWhere('og.is_pending_stock', false);
+                       ->orWhere('og.is_pending_stock', 0);
                 });
             })
             ->select('og.product_id', DB::raw('SUM(og.quantity_out) as total_out'))

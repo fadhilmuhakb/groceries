@@ -50,7 +50,7 @@ class InventoryController extends Controller
                 function ($q) {
                     $q->where(function ($qq) {
                         $qq->whereNull('ig.is_pending_stock')
-                           ->orWhere('ig.is_pending_stock', false);
+                           ->orWhere('ig.is_pending_stock', 0);
                     });
                 }
             )
@@ -69,7 +69,7 @@ class InventoryController extends Controller
                 function ($q) {
                     $q->where(function ($qq) {
                         $qq->whereNull('og.is_pending_stock')
-                           ->orWhere('og.is_pending_stock', false);
+                           ->orWhere('og.is_pending_stock', 0);
                     });
                 }
             )
@@ -175,13 +175,19 @@ class InventoryController extends Controller
 
                 // cek status toko
                 $storeOnline = (int) DB::table('tb_stores')->where('id', $storeId)->value('is_online') === 1;
-                $isPending = !$storeOnline;
+                $isPending = $storeOnline ? 0 : 1;
 
                 $incomingDeletedSql = Schema::hasColumn('tb_incoming_goods', 'deleted_at')
                     ? ' AND ig.deleted_at IS NULL'
                     : '';
                 $outgoingDeletedSql = Schema::hasColumn('tb_outgoing_goods', 'deleted_at')
                     ? ' AND og.deleted_at IS NULL'
+                    : '';
+                $incomingPendingSql = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock')
+                    ? ' AND (ig.is_pending_stock IS NULL OR ig.is_pending_stock = 0)'
+                    : '';
+                $outgoingPendingSql = Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock')
+                    ? ' AND (og.is_pending_stock IS NULL OR og.is_pending_stock = 0)'
                     : '';
 
                 $supplier = DB::select('SELECT id FROM tb_suppliers WHERE code = ? LIMIT 1', ['SO-ADJ']);
@@ -205,7 +211,7 @@ class InventoryController extends Controller
                     'SELECT ig.product_id, SUM(ig.stock) AS total_in
                        FROM tb_incoming_goods ig
                        JOIN tb_purchases p ON ig.purchase_id = p.id
-                      WHERE p.store_id = ? AND ig.product_id IN ('.$ph(count($productIds)).')'.$incomingDeletedSql.'
+                      WHERE p.store_id = ? AND ig.product_id IN ('.$ph(count($productIds)).')'.$incomingDeletedSql.$incomingPendingSql.'
                    GROUP BY ig.product_id',
                     $paramsIn
                 );
@@ -217,7 +223,7 @@ class InventoryController extends Controller
                     'SELECT og.product_id, SUM(og.quantity_out) AS total_out
                        FROM tb_outgoing_goods og
                        JOIN tb_sells sl ON og.sell_id = sl.id
-                      WHERE sl.store_id = ? AND og.product_id IN ('.$ph(count($productIds)).')'.$outgoingDeletedSql.'
+                      WHERE sl.store_id = ? AND og.product_id IN ('.$ph(count($productIds)).')'.$outgoingDeletedSql.$outgoingPendingSql.'
                    GROUP BY og.product_id',
                     $paramsOut
                 );
@@ -449,6 +455,12 @@ class InventoryController extends Controller
         $outgoingDeletedSql = Schema::hasColumn('tb_outgoing_goods', 'deleted_at')
             ? ' AND og.deleted_at IS NULL'
             : '';
+        $incomingPendingSql = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock')
+            ? ' AND (ig.is_pending_stock IS NULL OR ig.is_pending_stock = 0)'
+            : '';
+        $outgoingPendingSql = Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock')
+            ? ' AND (og.is_pending_stock IS NULL OR og.is_pending_stock = 0)'
+            : '';
 
         $storeRow = DB::table('tb_stores')
             ->select('store_name')
@@ -480,7 +492,7 @@ class InventoryController extends Controller
             'SELECT ig.product_id, SUM(ig.stock) AS total_in
                FROM tb_incoming_goods ig
                JOIN tb_purchases p ON ig.purchase_id = p.id
-              WHERE p.store_id = ? AND ig.product_id IN ('.$ph(count($productIds)).')'.$incomingDeletedSql.'
+              WHERE p.store_id = ? AND ig.product_id IN ('.$ph(count($productIds)).')'.$incomingDeletedSql.$incomingPendingSql.'
            GROUP BY ig.product_id',
             $paramsIn
         );
@@ -492,7 +504,7 @@ class InventoryController extends Controller
             'SELECT og.product_id, SUM(og.quantity_out) AS total_out
                FROM tb_outgoing_goods og
                JOIN tb_sells sl ON og.sell_id = sl.id
-              WHERE sl.store_id = ? AND og.product_id IN ('.$ph(count($productIds)).')'.$outgoingDeletedSql.'
+              WHERE sl.store_id = ? AND og.product_id IN ('.$ph(count($productIds)).')'.$outgoingDeletedSql.$outgoingPendingSql.'
            GROUP BY og.product_id',
             $paramsOut
         );
