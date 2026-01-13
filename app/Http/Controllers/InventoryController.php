@@ -21,7 +21,8 @@ class InventoryController extends Controller
         if ($getRoles === 'superadmin' && !$storeId) {
             $query  = collect();
             $stores = tb_stores::all();
-            return view('pages.admin.inventory.index', compact('query', 'stores', 'storeId'));
+            $draftQuantities = [];
+            return view('pages.admin.inventory.index', compact('query', 'stores', 'storeId', 'draftQuantities'));
         }
 
         $hasIncomingStore = Schema::hasColumn('tb_incoming_goods', 'store_id');
@@ -108,7 +109,16 @@ class InventoryController extends Controller
             ->get();
 
         $stores = $getRoles === 'superadmin' ? tb_stores::all() : [];
-        return view('pages.admin.inventory.index', compact('query', 'stores', 'storeId'));
+        $draftQuantities = [];
+        if ($request->boolean('back')) {
+            $preview = $request->session()->pull('inventory.stock_opname_preview');
+            if ($preview && (int)($preview['store_id'] ?? 0) === (int)$storeId) {
+                foreach (($preview['items'] ?? []) as $item) {
+                    $draftQuantities[(int)$item['product_id']] = (int)$item['physical_quantity'];
+                }
+            }
+        }
+        return view('pages.admin.inventory.index', compact('query', 'stores', 'storeId', 'draftQuantities'));
     }
 
     public function adjustStock(Request $request)

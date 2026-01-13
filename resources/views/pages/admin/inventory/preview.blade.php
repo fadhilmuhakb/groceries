@@ -16,7 +16,7 @@
         </div>
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-secondary"
-               href="{{ route('inventory.index', !empty($summary['store_id']) ? ['store_id' => $summary['store_id']] : []) }}">
+               href="{{ route('inventory.index', array_filter(['store_id' => $summary['store_id'] ?? null, 'back' => 1])) }}">
                 Kembali
             </a>
             <form method="POST" action="{{ route('inventory.adjustStockBulkV3') }}">
