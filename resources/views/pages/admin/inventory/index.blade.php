@@ -84,11 +84,9 @@
                         <input type="hidden" name="product_id[]" value="{{ $row->product_id }}">
                         <input type="hidden" name="store_id[]" value="{{ $row->store_id }}">
 
-                        {{-- Prefill fisik = nilai draft jika ada; kalau tidak pakai SO atau stok sistem --}}
+                        {{-- Prefill fisik = nilai draft jika ada; kalau tidak pakai stok sistem --}}
                         @php
-                            $defaultPhysical = is_null($row->physical_quantity)
-                                ? (int)$row->system_stock_raw
-                                : (int)$row->physical_quantity;
+                            $defaultPhysical = (int)$row->system_stock_raw;
                             $physicalValue = array_key_exists($row->product_id, $draftQuantities ?? [])
                                 ? (int)$draftQuantities[$row->product_id]
                                 : $defaultPhysical;
