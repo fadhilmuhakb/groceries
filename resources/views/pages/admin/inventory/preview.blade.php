@@ -23,7 +23,7 @@
                 @csrf
                 <input type="hidden" name="use_session_items" value="1">
                 <button type="submit" class="btn btn-primary">
-                    Ya, Simpan
+                    Adjust
                 </button>
             </form>
         </div>
