@@ -267,25 +267,15 @@ class InventoryController extends Controller
                         );
                     }
 
-                    $exists = DB::select(
-                        'SELECT 1 FROM tb_stock_opnames WHERE product_id = ? AND store_id = ? LIMIT 1',
-                        [$pid, $storeId]
+                    DB::statement(
+                        'INSERT INTO tb_stock_opnames
+                          (`product_id`,`store_id`,`physical_quantity`,`created_at`,`updated_at`)
+                          VALUES (?,?,?,?,?)
+                          ON DUPLICATE KEY UPDATE
+                          physical_quantity = VALUES(physical_quantity),
+                          updated_at = VALUES(updated_at)',
+                        [$pid, $storeId, $phys, $now, $now]
                     );
-                    if ($exists) {
-                        DB::update(
-                            'UPDATE tb_stock_opnames
-                                SET physical_quantity = ?, updated_at = ?
-                              WHERE product_id = ? AND store_id = ?',
-                            [$phys, $now, $pid, $storeId]
-                        );
-                    } else {
-                        DB::insert(
-                            'INSERT INTO tb_stock_opnames
-                              (`product_id`,`store_id`,`physical_quantity`,`created_at`,`updated_at`)
-                              VALUES (?,?,?,?,?)',
-                            [$pid, $storeId, $phys, $now, $now]
-                        );
-                    }
 
                     $plus = max(0, $phys - $system);
                     if ($plus > 0) {
