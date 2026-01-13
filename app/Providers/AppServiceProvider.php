@@ -41,7 +41,10 @@ class AppServiceProvider extends ServiceProvider
                     $view->with('lowStockItemsGlobal', collect());
                     return;
                 }
-                $storeId = $user->roles === 'superadmin' ? null : ($user->store_id ?? null);
+                $requestedStoreId = (int) request()->get('store');
+                $storeId = $user->roles === 'superadmin'
+                    ? ($requestedStoreId > 0 ? $requestedStoreId : null)
+                    : ($user->store_id ?? null);
                 $items = $storeId
                     ? $this->lowStockItems((int)$storeId)
                     : $this->lowStockAllStores();
@@ -113,6 +116,7 @@ class AppServiceProvider extends ServiceProvider
                 $join->on('sp.product_id', '=', 'p.id')
                      ->where('sp.store_id', '=', $storeId);
             })
+            ->join('tb_stores as st_store', 'st_store.id', '=', 'sp.store_id')
             ->leftJoinSub($incomingSub, 'incoming', fn ($join) => $join->on('incoming.product_id', '=', 'p.id'))
             ->leftJoinSub($outgoingSub, 'outgoing', fn ($join) => $join->on('outgoing.product_id', '=', 'p.id'))
             ->select(
@@ -120,6 +124,7 @@ class AppServiceProvider extends ServiceProvider
                 'p.product_code',
                 'p.product_name',
                 'sp.store_id',
+                'st_store.store_name',
                 'sp.min_stock',
                 'sp.max_stock',
                 DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system'),
