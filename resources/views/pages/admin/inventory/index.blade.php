@@ -123,32 +123,10 @@
         </table>
 
         <button type="submit" class="btn btn-primary mt-3" id="adjustAllBtn">
-            <span class="btn-label">Adjust Semua</span>
+            <span class="btn-label">Simpan</span>
             <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
         </button>
     </form>
-</div>
-
-<!-- Modal Konfirmasi -->
-<div class="modal fade" id="confirmModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Konfirmasi</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        Lanjutkan untuk melihat ringkasan penyesuaian stok?
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-        <button type="button" class="btn btn-primary" id="confirmSubmitBtn">
-            <span class="btn-label">Ya, Lanjutkan</span>
-            <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
-        </button>
-      </div>
-    </div>
-  </div>
 </div>
 
 @endsection
@@ -158,9 +136,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const table = document.getElementById('stock-table');
     const form = document.getElementById('stock-form');
-    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
     const adjustAllBtn = document.getElementById('adjustAllBtn');
-    const confirmSubmitBtn = document.getElementById('confirmSubmitBtn');
     let isSubmitting = false;
 
     const totalMinusQtyEl = document.getElementById('total-minus-qty');
@@ -226,18 +202,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const setSubmitting = (busy) => {
         isSubmitting = busy;
         setButtonBusy(adjustAllBtn, busy);
-        setButtonBusy(confirmSubmitBtn, busy);
     };
 
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         if (isSubmitting) return;
-        modal.show();
-    });
-
-    confirmSubmitBtn.addEventListener('click', () => {
-        if (isSubmitting) return;
-        modal.hide();
         submitForm();
     });
 

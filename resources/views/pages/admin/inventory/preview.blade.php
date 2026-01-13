@@ -42,9 +42,9 @@
         <div class="col-sm-6 col-lg-3">
             <div class="card">
                 <div class="card-body">
-                    <div class="text-muted">Total Item Dikirim</div>
+                    <div class="text-muted">Total Item Disesuaikan</div>
                     <div class="fs-5 fw-semibold">
-                        {{ number_format((int)($summary['total_items'] ?? 0), 0, ',', '.') }}
+                        {{ number_format((int)($summary['changed_items'] ?? 0), 0, ',', '.') }}
                     </div>
                 </div>
             </div>
@@ -52,9 +52,9 @@
         <div class="col-sm-6 col-lg-3">
             <div class="card">
                 <div class="card-body">
-                    <div class="text-muted">Item Selisih</div>
+                    <div class="text-muted">Total Produk Toko</div>
                     <div class="fs-5 fw-semibold">
-                        {{ number_format((int)($summary['changed_items'] ?? 0), 0, ',', '.') }}
+                        {{ number_format((int)($summary['total_items'] ?? 0), 0, ',', '.') }}
                     </div>
                 </div>
             </div>
