@@ -21,7 +21,8 @@ class InventoryController extends Controller
         if ($getRoles === 'superadmin' && !$storeId) {
             $query  = collect();
             $stores = tb_stores::all();
-            return view('pages.admin.inventory.index', compact('query', 'stores', 'storeId'));
+            $draftQuantities = [];
+            return view('pages.admin.inventory.index', compact('query', 'stores', 'storeId', 'draftQuantities'));
         }
 
         $hasIncomingStore = Schema::hasColumn('tb_incoming_goods', 'store_id');
@@ -108,8 +109,15 @@ class InventoryController extends Controller
             ->get();
 
         $stores = $getRoles === 'superadmin' ? tb_stores::all() : [];
+        $draftQuantities = [];
+        $preview = $request->session()->get('inventory.stock_opname_preview');
+        if ($preview && (int)($preview['store_id'] ?? 0) === (int)$storeId) {
+            foreach (($preview['items'] ?? []) as $item) {
+                $draftQuantities[(int)$item['product_id']] = (int)$item['physical_quantity'];
+            }
+        }
 
-        return view('pages.admin.inventory.index', compact('query', 'stores', 'storeId'));
+        return view('pages.admin.inventory.index', compact('query', 'stores', 'storeId', 'draftQuantities'));
     }
 
     public function adjustStock(Request $request)
@@ -139,56 +147,41 @@ class InventoryController extends Controller
     {
         $ver = 'adj-v15-nobuilder';
 
-        $items = $request->input('items');
-        if (!$items) {
-            $pids = (array)$request->input('product_id', []);
-            $sids = (array)$request->input('store_id', []);
-            $phys = (array)$request->input('physical_quantity', []);
-            if (count($pids) !== count($sids) || count($pids) !== count($phys)) {
-                return response()->json(['message' => "[$ver] Payload tidak valid"], 422);
+        try {
+            $items = $this->parseStockItems($request);
+        } catch (\InvalidArgumentException $e) {
+            $message = "[$ver] ".$e->getMessage();
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 422);
             }
-            $items = [];
-            foreach ($pids as $i => $pid) {
-                $items[] = [
-                    'product_id'        => (int)$pid,
-                    'store_id'          => (int)($sids[$i] ?? 0),
-                    'physical_quantity' => max(0, (int)($phys[$i] ?? 0)),
-                ];
-            }
+            return redirect()->back()->with('error', $message);
         }
 
-        if (!is_array($items) || empty($items)) {
-            return response()->json(['message' => "[$ver] Payload tidak valid (items)"], 422);
+        $storeIds = array_values(array_unique(array_filter(array_column($items, 'store_id'))));
+        if (count($storeIds) !== 1) {
+            $message = "[$ver] Multiple/invalid store_id";
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+            return redirect()->back()->with('error', $message);
         }
-        $items = array_values(array_map(function ($row) {
-            if (is_object($row)) $row = (array)$row;
-            return [
-                'product_id'        => (int)($row['product_id'] ?? 0),
-                'store_id'          => (int)($row['store_id'] ?? 0),
-                'physical_quantity' => max(0, (int)($row['physical_quantity'] ?? 0)),
-            ];
-        }, $items));
+        $storeId = (int)$storeIds[0];
 
         try {
             $userId = auth()->id();
-            DB::transaction(function () use ($items, $ver, $userId) {
+            DB::transaction(function () use ($items, $userId, $storeId) {
                 $now = now();
+
                 // cek status toko
-                $storeId = (int)($items[0]['store_id'] ?? 0);
                 $storeOnline = DB::table('tb_stores')->where('id', $storeId)->value('is_online') ?? true;
                 $isPending = !$storeOnline;
+
                 $incomingDeletedSql = Schema::hasColumn('tb_incoming_goods', 'deleted_at')
                     ? ' AND ig.deleted_at IS NULL'
                     : '';
                 $outgoingDeletedSql = Schema::hasColumn('tb_outgoing_goods', 'deleted_at')
                     ? ' AND og.deleted_at IS NULL'
                     : '';
-
-                $storeIds = array_values(array_unique(array_filter(array_column($items, 'store_id'))));
-                if (count($storeIds) !== 1) {
-                    throw new \RuntimeException("[$ver] Multiple/invalid store_id");
-                }
-                $storeId = (int)$storeIds[0];
 
                 $supplier = DB::select('SELECT id FROM tb_suppliers WHERE code = ? LIMIT 1', ['SO-ADJ']);
                 $supplierId = $supplier ? (int)$supplier[0]->id : null;
@@ -253,6 +246,7 @@ class InventoryController extends Controller
 
                     $system = (int)($incoming[$pid] ?? 0) - (int)($outgoing[$pid] ?? 0);
                     $minus  = max(0, $system - $phys);
+                    $price  = (int)($prices[$pid] ?? 0);
 
                     if ($minus > 0) {
                         if ($sellId === null) {
@@ -263,8 +257,7 @@ class InventoryController extends Controller
                             );
                             $sellId = (int)DB::getPdo()->lastInsertId();
                         }
-                        $priceMinus = (int)($prices[$pid] ?? 0);
-                        $totalSell += $minus * $priceMinus;
+                        $totalSell += $minus * $price;
 
                             DB::insert(
                                 'INSERT INTO tb_outgoing_goods
@@ -305,7 +298,6 @@ class InventoryController extends Controller
                             $purchaseId = (int)DB::getPdo()->lastInsertId();
                         }
 
-                        $price = (int)($prices[$pid] ?? 0);
                         $totalPurchase += $plus * $price;
 
                         DB::insert(
@@ -332,16 +324,250 @@ class InventoryController extends Controller
                 }
             });
 
-            return response()->json([
-                'message' => "[$ver] Stock opname tersimpan. Pembelian dibuat jika ada penambahan stok."
-            ]);
+            $message = "[$ver] Stock opname tersimpan. Pembelian dibuat jika ada penambahan stok.";
+            $request->session()->forget('inventory.stock_opname_preview');
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $message,
+                ]);
+            }
+
+            return redirect()
+                ->route('inventory.index', ['store_id' => $storeId])
+                ->with('success', $message);
         } catch (\Throwable $e) {
             Log::error('adjustStockBulkV3 error', [
                 'ver' => $ver, 'err' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine(),
             ]);
-            return response()->json([
-                'message' => "[$ver] Gagal menyimpan: ".$e->getMessage()." @ ".$e->getFile().":".$e->getLine()
-            ], 500);
+            $message = "[$ver] Gagal menyimpan: ".$e->getMessage()." @ ".$e->getFile().":".$e->getLine();
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $message
+                ], 500);
+            }
+            return redirect()->back()->with('error', $message);
         }
+    }
+
+    public function adjustStockPreview(Request $request)
+    {
+        $ver = 'adj-v15-nobuilder';
+        try {
+            $items = $this->parseStockItems($request);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => "[$ver] ".$e->getMessage()], 422);
+        }
+
+        $storeIds = array_values(array_unique(array_filter(array_column($items, 'store_id'))));
+        if (count($storeIds) !== 1) {
+            return response()->json(['message' => "[$ver] Multiple/invalid store_id"], 422);
+        }
+        $storeId = (int)$storeIds[0];
+
+        $summary = $this->buildStockSummary($items, $storeId);
+        $request->session()->put('inventory.stock_opname_preview', [
+            'items' => $items,
+            'summary' => $summary,
+            'store_id' => $storeId,
+        ]);
+
+        return response()->json([
+            'redirect_url' => route('inventory.adjustStockPreviewPage'),
+        ]);
+    }
+
+    public function adjustStockPreviewPage(Request $request)
+    {
+        $preview = $request->session()->get('inventory.stock_opname_preview');
+        if (!$preview) {
+            return redirect()->route('inventory.index');
+        }
+
+        $summary = $preview['summary'] ?? [];
+
+        return view('pages.admin.inventory.preview', [
+            'summary' => $summary,
+            'changes' => $summary['changes'] ?? [],
+            'items' => $preview['items'] ?? [],
+        ]);
+    }
+
+    private function parseStockItems(Request $request): array
+    {
+        if ($request->boolean('use_session_items')) {
+            $previewItems = $request->session()->get('inventory.stock_opname_preview.items');
+            if (!is_array($previewItems) || empty($previewItems)) {
+                throw new \InvalidArgumentException('Data preview tidak ditemukan atau sudah kedaluwarsa');
+            }
+            return array_values(array_map(function ($row) {
+                if (is_object($row)) $row = (array)$row;
+                return [
+                    'product_id'        => (int)($row['product_id'] ?? 0),
+                    'store_id'          => (int)($row['store_id'] ?? 0),
+                    'physical_quantity' => max(0, (int)($row['physical_quantity'] ?? 0)),
+                ];
+            }, $previewItems));
+        }
+
+        $items = $request->input('items');
+        if (is_string($items)) {
+            $decoded = json_decode($items, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $items = $decoded;
+            }
+        }
+
+        if (!$items) {
+            $pids = (array)$request->input('product_id', []);
+            $sids = (array)$request->input('store_id', []);
+            $phys = (array)$request->input('physical_quantity', []);
+            if (count($pids) !== count($sids) || count($pids) !== count($phys)) {
+                throw new \InvalidArgumentException('Payload tidak valid');
+            }
+            $items = [];
+            foreach ($pids as $i => $pid) {
+                $items[] = [
+                    'product_id'        => (int)$pid,
+                    'store_id'          => (int)($sids[$i] ?? 0),
+                    'physical_quantity' => max(0, (int)($phys[$i] ?? 0)),
+                ];
+            }
+        }
+
+        if (!is_array($items) || empty($items)) {
+            throw new \InvalidArgumentException('Payload tidak valid (items)');
+        }
+
+        return array_values(array_map(function ($row) {
+            if (is_object($row)) $row = (array)$row;
+            return [
+                'product_id'        => (int)($row['product_id'] ?? 0),
+                'store_id'          => (int)($row['store_id'] ?? 0),
+                'physical_quantity' => max(0, (int)($row['physical_quantity'] ?? 0)),
+            ];
+        }, $items));
+    }
+
+    private function buildStockSummary(array $items, int $storeId): array
+    {
+        $now = now();
+        $incomingDeletedSql = Schema::hasColumn('tb_incoming_goods', 'deleted_at')
+            ? ' AND ig.deleted_at IS NULL'
+            : '';
+        $outgoingDeletedSql = Schema::hasColumn('tb_outgoing_goods', 'deleted_at')
+            ? ' AND og.deleted_at IS NULL'
+            : '';
+
+        $storeRow = DB::table('tb_stores')
+            ->select('store_name')
+            ->where('id', $storeId)
+            ->first();
+
+        $summary = [
+            'store_id' => $storeId,
+            'store_name' => $storeRow ? $storeRow->store_name : null,
+            'submitted_at' => $now->toDateTimeString(),
+            'changes' => [],
+            'total_items' => count($items),
+            'changed_items' => 0,
+            'total_minus_qty' => 0,
+            'total_plus_qty' => 0,
+            'total_minus_value' => 0,
+            'total_plus_value' => 0,
+        ];
+
+        $productIds = array_values(array_unique(array_filter(array_column($items, 'product_id'))));
+        if (empty($productIds)) {
+            return $summary;
+        }
+
+        $ph = fn($n) => implode(',', array_fill(0, $n, '?'));
+
+        $paramsIn = array_merge([$storeId], $productIds);
+        $rowsIn = DB::select(
+            'SELECT ig.product_id, SUM(ig.stock) AS total_in
+               FROM tb_incoming_goods ig
+               JOIN tb_purchases p ON ig.purchase_id = p.id
+              WHERE p.store_id = ? AND ig.product_id IN ('.$ph(count($productIds)).')'.$incomingDeletedSql.'
+           GROUP BY ig.product_id',
+            $paramsIn
+        );
+        $incoming = [];
+        foreach ($rowsIn as $r) { $incoming[(int)$r->product_id] = (int)$r->total_in; }
+
+        $paramsOut = array_merge([$storeId], $productIds);
+        $rowsOut = DB::select(
+            'SELECT og.product_id, SUM(og.quantity_out) AS total_out
+               FROM tb_outgoing_goods og
+               JOIN tb_sells sl ON og.sell_id = sl.id
+              WHERE sl.store_id = ? AND og.product_id IN ('.$ph(count($productIds)).')'.$outgoingDeletedSql.'
+           GROUP BY og.product_id',
+            $paramsOut
+        );
+        $outgoing = [];
+        foreach ($rowsOut as $r) { $outgoing[(int)$r->product_id] = (int)$r->total_out; }
+
+        $rowsProduct = DB::select(
+            'SELECT id, product_code, product_name
+               FROM tb_products
+              WHERE id IN ('.$ph(count($productIds)).')',
+            $productIds
+        );
+        $products = [];
+        foreach ($rowsProduct as $r) {
+            $products[(int)$r->id] = [
+                'product_code' => $r->product_code,
+                'product_name' => $r->product_name,
+            ];
+        }
+
+        $rowsPrice = DB::select(
+            'SELECT p.id, COALESCE(sp.purchase_price, p.purchase_price) AS purchase_price
+               FROM tb_products p
+               LEFT JOIN tb_product_store_prices sp
+                 ON sp.product_id = p.id AND sp.store_id = ?
+              WHERE p.id IN ('.$ph(count($productIds)).')',
+            array_merge([$storeId], $productIds)
+        );
+        $prices = [];
+        foreach ($rowsPrice as $r) { $prices[(int)$r->id] = (int)$r->purchase_price; }
+
+        foreach ($items as $it) {
+            $pid  = (int)$it['product_id'];
+            $phys = (int)$it['physical_quantity'];
+            if ($pid <= 0) continue;
+
+            $system = (int)($incoming[$pid] ?? 0) - (int)($outgoing[$pid] ?? 0);
+            $minus  = max(0, $system - $phys);
+            $plus   = max(0, $phys - $system);
+            $price  = (int)($prices[$pid] ?? 0);
+
+            $summary['total_minus_qty'] += $minus;
+            $summary['total_plus_qty'] += $plus;
+            $summary['total_minus_value'] += $minus * $price;
+            $summary['total_plus_value'] += $plus * $price;
+
+            if ($minus > 0 || $plus > 0) {
+                $product = $products[$pid] ?? ['product_code' => null, 'product_name' => 'Produk #'.$pid];
+                $summary['changes'][] = [
+                    'product_id' => $pid,
+                    'product_code' => $product['product_code'],
+                    'product_name' => $product['product_name'],
+                    'system_stock' => $system,
+                    'physical_quantity' => $phys,
+                    'minus_qty' => $minus,
+                    'plus_qty' => $plus,
+                    'purchase_price' => $price,
+                    'minus_value' => $minus * $price,
+                    'plus_value' => $plus * $price,
+                ];
+                $summary['changed_items']++;
+            }
+        }
+
+        $summary['net_value'] = $summary['total_plus_value'] - $summary['total_minus_value'];
+
+        return $summary;
     }
 }

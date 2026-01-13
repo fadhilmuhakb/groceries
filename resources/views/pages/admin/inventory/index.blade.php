@@ -17,6 +17,10 @@
 <div class="container">
     <h4 class="mb-4">Kelola Stok Fisik Produk Per Toko</h4>
 
+    @if(session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+
     @if(Auth::user()->roles == 'superadmin')
     <form method="GET" action="{{ route('inventory.index') }}" class="mb-3 w-auto">
         <select name="store_id" class="form-select" onchange="this.form.submit()">
@@ -37,10 +41,7 @@
     </div>
     @endif
 
-    <div id="alert-success" class="alert alert-success d-none"></div>
-
-    {{-- perhatikan: action ke V3 --}}
-    <form id="stock-form" action="{{ route('inventory.adjustStockBulkV3') }}" method="POST">
+    <form id="stock-form" action="{{ route('inventory.adjustStockPreview') }}" method="POST">
         @csrf
 
         <table class="table table-bordered table-striped" id="stock-table">
@@ -83,9 +84,17 @@
                         <input type="hidden" name="product_id[]" value="{{ $row->product_id }}">
                         <input type="hidden" name="store_id[]" value="{{ $row->store_id }}">
 
-                        {{-- Prefill fisik = nilai SO jika ada; kalau null pakai stok sistem --}}
+                        {{-- Prefill fisik = nilai draft jika ada; kalau tidak pakai SO atau stok sistem --}}
+                        @php
+                            $defaultPhysical = is_null($row->physical_quantity)
+                                ? (int)$row->system_stock_raw
+                                : (int)$row->physical_quantity;
+                            $physicalValue = array_key_exists($row->product_id, $draftQuantities ?? [])
+                                ? (int)$draftQuantities[$row->product_id]
+                                : $defaultPhysical;
+                        @endphp
                         <input type="number" name="physical_quantity[]"
-                               value="{{ is_null($row->physical_quantity) ? (int)$row->system_stock_raw : (int)$row->physical_quantity }}"
+                               value="{{ $physicalValue }}"
                                min="0" class="form-control physical-qty" required>
                     </td>
 
@@ -129,7 +138,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        Apakah Anda yakin ingin melakukan penyesuaian stock?
+        Lanjutkan untuk melihat ringkasan penyesuaian stok?
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
@@ -142,36 +151,14 @@
   </div>
 </div>
 
-<!-- Modal Download Excel -->
-<div class="modal fade" id="downloadModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Download Excel</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        Apakah Anda ingin mendownload hasil stock opname ke Excel?
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tidak</button>
-        <button type="button" class="btn btn-success" id="downloadExcelBtn">Ya, Download</button>
-      </div>
-    </div>
-  </div>
-</div>
 @endsection
 
 @section('scripts')
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const table = document.getElementById('stock-table');
     const form = document.getElementById('stock-form');
-    const alertSuccess = document.getElementById('alert-success');
     const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
-    const downloadModal = new bootstrap.Modal(document.getElementById('downloadModal'));
     const adjustAllBtn = document.getElementById('adjustAllBtn');
     const confirmSubmitBtn = document.getElementById('confirmSubmitBtn');
     let isSubmitting = false;
@@ -264,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function submitForm() {
         if (isSubmitting) return;
         setSubmitting(true);
-        // KIRIM JSON ke endpoint V3
+        // KIRIM JSON ke endpoint preview
         const items = [];
         table.querySelectorAll('tbody tr').forEach(tr => {
             const productId = parseInt(tr.querySelector('input[name="product_id[]"]').value);
@@ -300,32 +287,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return payload;
         }).then(data => {
-            alertSuccess.textContent = data.message || 'Berhasil menyimpan.';
-            alertSuccess.classList.remove('d-none');
-
-            downloadModal.show();
+            if (data && data.redirect_url) {
+                window.location.assign(data.redirect_url);
+                return;
+            }
+            throw new Error('Redirect ringkasan tidak tersedia.');
         }).catch(err => {
             setSubmitting(false);
-            alert('Gagal menyimpan stok opname.\n' + err.message);
+            alert('Gagal menyiapkan ringkasan.\n' + err.message);
         });
     }
-
-    document.getElementById('downloadExcelBtn').addEventListener('click', () => {
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.table_to_sheet(table);
-        XLSX.utils.book_append_sheet(wb, ws, 'Stock Opname');
-        XLSX.writeFile(wb, 'Stock_Opname_' + new Date().toISOString().slice(0,10) + '.xlsx');
-
-        setTimeout(() => { location.reload(); }, 800);
-    });
-
-    document.querySelector('#downloadModal .btn-secondary').addEventListener('click', () => {
-        location.reload();
-    });
-
-    document.getElementById('downloadModal').addEventListener('hidden.bs.modal', () => {
-        if (isSubmitting) setSubmitting(false);
-    });
 
     // SEARCH
     const searchInput = document.getElementById('search-product');
