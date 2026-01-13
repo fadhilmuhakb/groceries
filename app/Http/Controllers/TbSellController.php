@@ -15,10 +15,13 @@ class TbSellController extends Controller
     {
         $user = auth()->user();
         if ($user->roles == 'superadmin') {
-            $sells = tb_sell::with('store')->get();
+            $sells = tb_sell::with('store')
+                ->orderByDesc('id')
+                ->get();
         } else {
             $sells = tb_sell::with('store')
                 ->where('store_id', $user->store_id)
+                ->orderByDesc('id')
                 ->get();
         }
 
