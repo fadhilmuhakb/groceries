@@ -150,7 +150,7 @@ class InventoryController extends Controller
 
         if ($request->boolean('use_session_items')) {
             $token = (string) $request->input('preview_token');
-            $sessionToken = (string) $request->session()->pull('inventory.stock_opname_preview.token');
+            $sessionToken = (string) $request->session()->get('inventory.stock_opname_preview.token');
             if ($token === '' || $sessionToken === '' || !hash_equals($sessionToken, $token)) {
                 $message = "[$ver] Token ringkasan tidak valid atau sudah diproses";
                 if ($request->expectsJson()) {
@@ -158,11 +158,22 @@ class InventoryController extends Controller
                 }
                 return redirect()->back()->with('error', $message);
             }
+            if ($request->session()->get('inventory.stock_opname_preview.processing')) {
+                $message = "[$ver] Ringkasan sedang diproses. Silakan tunggu.";
+                if ($request->expectsJson()) {
+                    return response()->json(['message' => $message], 422);
+                }
+                return redirect()->back()->with('error', $message);
+            }
+            $request->session()->put('inventory.stock_opname_preview.processing', true);
         }
 
         try {
             $items = $this->parseStockItems($request);
         } catch (\InvalidArgumentException $e) {
+            if ($request->boolean('use_session_items')) {
+                $request->session()->forget('inventory.stock_opname_preview.processing');
+            }
             $message = "[$ver] ".$e->getMessage();
             if ($request->expectsJson()) {
                 return response()->json(['message' => $message], 422);
@@ -172,6 +183,9 @@ class InventoryController extends Controller
 
         $storeIds = array_values(array_unique(array_filter(array_column($items, 'store_id'))));
         if (count($storeIds) !== 1) {
+            if ($request->boolean('use_session_items')) {
+                $request->session()->forget('inventory.stock_opname_preview.processing');
+            }
             $message = "[$ver] Multiple/invalid store_id";
             if ($request->expectsJson()) {
                 return response()->json(['message' => $message], 422);
@@ -346,6 +360,9 @@ class InventoryController extends Controller
                 ->route('inventory.index', ['store_id' => $storeId])
                 ->with('success', $message);
         } catch (\Throwable $e) {
+            if ($request->boolean('use_session_items')) {
+                $request->session()->forget('inventory.stock_opname_preview.processing');
+            }
             Log::error('adjustStockBulkV3 error', [
                 'ver' => $ver, 'err' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine(),
             ]);

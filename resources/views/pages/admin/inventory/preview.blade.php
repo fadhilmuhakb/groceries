@@ -108,6 +108,7 @@
                         <th>Produk</th>
                         <th class="text-end">Stok Sistem</th>
                         <th class="text-end">Stok Fisik</th>
+                        <th class="text-end">Selisih (+/-)</th>
                         <th class="text-end">Minus (unit)</th>
                         <th class="text-end">Plus (unit)</th>
                         <th class="text-end">Harga Beli</th>
@@ -128,6 +129,11 @@
                             </td>
                             <td class="text-end">{{ number_format((int)($row['system_stock'] ?? 0), 0, ',', '.') }}</td>
                             <td class="text-end">{{ number_format((int)($row['physical_quantity'] ?? 0), 0, ',', '.') }}</td>
+                            @php
+                                $diffQty = (int)($row['physical_quantity'] ?? 0) - (int)($row['system_stock'] ?? 0);
+                                $diffText = ($diffQty > 0 ? '+' : '').number_format($diffQty, 0, ',', '.');
+                            @endphp
+                            <td class="text-end">{{ $diffText }}</td>
                             <td class="text-end">{{ number_format((int)($row['minus_qty'] ?? 0), 0, ',', '.') }}</td>
                             <td class="text-end">{{ number_format((int)($row['plus_qty'] ?? 0), 0, ',', '.') }}</td>
                             <td class="text-end">
@@ -145,6 +151,11 @@
                 <tfoot>
                     <tr class="fw-bold">
                         <td colspan="4" class="text-end">TOTAL</td>
+                        @php
+                            $totalDiffQty = (int)($summary['total_plus_qty'] ?? 0) - (int)($summary['total_minus_qty'] ?? 0);
+                            $totalDiffText = ($totalDiffQty > 0 ? '+' : '').number_format($totalDiffQty, 0, ',', '.');
+                        @endphp
+                        <td class="text-end">{{ $totalDiffText }}</td>
                         <td class="text-end">
                             {{ number_format((int)($summary['total_minus_qty'] ?? 0), 0, ',', '.') }}
                         </td>

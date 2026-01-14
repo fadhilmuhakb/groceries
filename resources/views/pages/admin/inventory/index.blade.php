@@ -74,7 +74,7 @@
                     <th class="text-end">Harga Jual (toko)</th>
                     <th class="text-end">Jumlah Sistem</th>
                     <th>Jumlah Fisik</th>
-                    <th class="text-end">Jumlah Minus</th>
+                    <th class="text-end">Selisih (+/-)</th>
                     <th class="text-end">Minus Barang (unit)</th>
                     <th class="text-end">Total Minus (Rp)</th>
                     <th class="text-end">Plus Barang (unit)</th>
@@ -116,7 +116,7 @@
                                min="0" class="form-control physical-qty" required>
                     </td>
 
-                    <td class="text-end minus-qty">0</td>
+                    <td class="text-end diff-qty">0</td>
                     <td class="text-end minus-qty">0</td>
                     <td class="text-end minus-value">Rp 0</td>
                     <td class="text-end plus-qty">0</td>
@@ -127,7 +127,7 @@
             <tfoot>
                 <tr class="fw-bold">
                     <td colspan="7" class="text-end">TOTAL</td>
-                    <td class="text-end" id="total-minus-qty">0</td>
+                    <td class="text-end" id="total-diff-qty">0</td>
                     <td class="text-end" id="total-minus-unit">0</td>
                     <td class="text-end" id="total-minus-value">Rp 0</td>
                     <td class="text-end" id="total-plus-unit">0</td>
@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    const totalMinusQtyEl = document.getElementById('total-minus-qty');
+    const totalDiffQtyEl = document.getElementById('total-diff-qty');
     const totalMinusUnitEl = document.getElementById('total-minus-unit');
     const totalMinusValueEl = document.getElementById('total-minus-value');
     const totalPlusUnitEl = document.getElementById('total-plus-unit');
@@ -218,18 +218,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalPlusMinusEl = document.getElementById('total-plus-minus');
     let highlightTimeout = null;
 
+    const parseSignedInt = (text) => {
+        const cleaned = (text || '')
+            .replace(/\./g, '')
+            .replace(/[^0-9+-]/g, '');
+        const parsed = parseInt(cleaned, 10);
+        return Number.isNaN(parsed) ? 0 : parsed;
+    };
+
+    const formatSignedNumber = (value) => {
+        if (!Number.isFinite(value)) return '0';
+        if (value === 0) return '0';
+        const absText = Math.abs(value).toLocaleString('id-ID');
+        return (value > 0 ? '+' : '-') + absText;
+    };
+
     function updateTotals() {
-        let totalMinusQty = 0, totalMinusUnit = 0, totalMinusValue = 0, totalPlusUnit = 0, totalPlusValue = 0;
+        let totalDiffQty = 0, totalMinusUnit = 0, totalMinusValue = 0, totalPlusUnit = 0, totalPlusValue = 0;
         table.querySelectorAll('tbody tr').forEach(tr => {
-            const minusQty = parseInt(tr.querySelectorAll('.minus-qty')[0].textContent.replace(/\./g, '')) || 0;
-            const minusUnit = parseInt(tr.querySelectorAll('.minus-qty')[1].textContent.replace(/\./g, '')) || 0;
+            const diffQty = parseSignedInt(tr.querySelector('.diff-qty')?.textContent);
+            const minusUnit = parseSignedInt(tr.querySelector('.minus-qty')?.textContent);
             const minusValue = parseInt(tr.querySelector('.minus-value').textContent.replace(/[^\d]/g, '')) || 0;
-            const plusQty = parseInt(tr.querySelector('.plus-qty').textContent.replace(/\./g, '')) || 0;
+            const plusQty = parseSignedInt(tr.querySelector('.plus-qty')?.textContent);
             const plusValue = parseInt(tr.querySelector('.plus-value').textContent.replace(/[^\d]/g, '')) || 0;
-            totalMinusQty += minusQty; totalMinusUnit += minusUnit; totalMinusValue += minusValue;
+            totalDiffQty += diffQty; totalMinusUnit += minusUnit; totalMinusValue += minusValue;
             totalPlusUnit += plusQty; totalPlusValue += plusValue;
         });
-        totalMinusQtyEl.textContent = totalMinusQty.toLocaleString('id-ID');
+        totalDiffQtyEl.textContent = formatSignedNumber(totalDiffQty);
         totalMinusUnitEl.textContent = totalMinusUnit.toLocaleString('id-ID');
         totalMinusValueEl.textContent = 'Rp ' + totalMinusValue.toLocaleString('id-ID');
         totalPlusUnitEl.textContent = totalPlusUnit.toLocaleString('id-ID');
@@ -246,8 +261,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const minusQty = Math.max(0, systemStock - physicalQty);
             const plusQty  = Math.max(0, physicalQty - systemStock);
+            const diffQty = physicalQty - systemStock;
 
-            tr.querySelectorAll('.minus-qty').forEach(td => td.textContent = minusQty.toLocaleString('id-ID'));
+            const diffEl = tr.querySelector('.diff-qty');
+            if (diffEl) diffEl.textContent = formatSignedNumber(diffQty);
+            const minusEl = tr.querySelector('.minus-qty');
+            if (minusEl) minusEl.textContent = minusQty.toLocaleString('id-ID');
             tr.querySelector('.minus-value').textContent = 'Rp ' + (minusQty * purchasePrice).toLocaleString('id-ID');
             tr.querySelector('.plus-qty').textContent = plusQty.toLocaleString('id-ID');
             tr.querySelector('.plus-value').textContent = 'Rp ' + (plusQty * purchasePrice).toLocaleString('id-ID');
