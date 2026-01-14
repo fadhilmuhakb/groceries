@@ -22,6 +22,7 @@
             <form method="POST" action="{{ route('inventory.adjustStockBulkV3') }}">
                 @csrf
                 <input type="hidden" name="use_session_items" value="1">
+                <input type="hidden" name="preview_token" value="{{ $previewToken ?? '' }}">
                 <button type="submit" class="btn btn-primary">
                     Adjust
                 </button>

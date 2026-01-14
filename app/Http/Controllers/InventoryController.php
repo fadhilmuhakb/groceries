@@ -148,6 +148,18 @@ class InventoryController extends Controller
     {
         $ver = 'adj-v15-nobuilder';
 
+        if ($request->boolean('use_session_items')) {
+            $token = (string) $request->input('preview_token');
+            $sessionToken = (string) $request->session()->pull('inventory.stock_opname_preview.token');
+            if ($token === '' || $sessionToken === '' || !hash_equals($sessionToken, $token)) {
+                $message = "[$ver] Token ringkasan tidak valid atau sudah diproses";
+                if ($request->expectsJson()) {
+                    return response()->json(['message' => $message], 422);
+                }
+                return redirect()->back()->with('error', $message);
+            }
+        }
+
         try {
             $items = $this->parseStockItems($request);
         } catch (\InvalidArgumentException $e) {
@@ -363,10 +375,12 @@ class InventoryController extends Controller
         $storeId = (int)$storeIds[0];
 
         $summary = $this->buildStockSummary($items, $storeId);
+        $token = bin2hex(random_bytes(16));
         $request->session()->put('inventory.stock_opname_preview', [
             'items' => $items,
             'summary' => $summary,
             'store_id' => $storeId,
+            'token' => $token,
         ]);
 
         return response()->json([
@@ -387,7 +401,160 @@ class InventoryController extends Controller
             'summary' => $summary,
             'changes' => $summary['changes'] ?? [],
             'items' => $preview['items'] ?? [],
+            'previewToken' => $preview['token'] ?? null,
         ]);
+    }
+
+    public function normalizeNegativeStock(Request $request)
+    {
+        $user = $request->user();
+        $storeId = $user?->roles === 'superadmin'
+            ? (int) $request->input('store_id')
+            : (int) ($user?->store_id);
+
+        if (!$storeId) {
+            return redirect()->back()->with('error', 'Pilih toko terlebih dahulu.');
+        }
+
+        $storeOnline = (int) DB::table('tb_stores')->where('id', $storeId)->value('is_online') === 1;
+        if (!$storeOnline) {
+            return redirect()->back()->with('error', 'Toko offline. Set online dulu untuk normalisasi stok minus.');
+        }
+
+        $incomingSub = DB::table('tb_incoming_goods as ig')
+            ->join('tb_purchases as p', 'ig.purchase_id', '=', 'p.id')
+            ->where('p.store_id', $storeId)
+            ->when(
+                Schema::hasColumn('tb_incoming_goods', 'deleted_at'),
+                fn ($q) => $q->whereNull('ig.deleted_at')
+            )
+            ->when(
+                Schema::hasColumn('tb_incoming_goods', 'is_pending_stock'),
+                function ($q) {
+                    $q->where(function ($qq) {
+                        $qq->whereNull('ig.is_pending_stock')
+                           ->orWhere('ig.is_pending_stock', 0);
+                    });
+                }
+            )
+            ->select('ig.product_id', DB::raw('SUM(ig.stock) AS total_in'))
+            ->groupBy('ig.product_id');
+
+        $outgoingSub = DB::table('tb_outgoing_goods as og')
+            ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
+            ->where('sl.store_id', $storeId)
+            ->when(
+                Schema::hasColumn('tb_outgoing_goods', 'deleted_at'),
+                fn ($q) => $q->whereNull('og.deleted_at')
+            )
+            ->when(
+                Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock'),
+                function ($q) {
+                    $q->where(function ($qq) {
+                        $qq->whereNull('og.is_pending_stock')
+                           ->orWhere('og.is_pending_stock', 0);
+                    });
+                }
+            )
+            ->select('og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))
+            ->groupBy('og.product_id');
+
+        $negativeRows = DB::table('tb_products as p')
+            ->leftJoinSub($incomingSub, 'incoming', fn ($join) => $join->on('incoming.product_id', '=', 'p.id'))
+            ->leftJoinSub($outgoingSub, 'outgoing', fn ($join) => $join->on('outgoing.product_id', '=', 'p.id'))
+            ->leftJoin('tb_product_store_prices as sp', function ($join) use ($storeId) {
+                $join->on('sp.product_id', '=', 'p.id')
+                     ->where('sp.store_id', '=', $storeId);
+            })
+            ->select(
+                'p.id',
+                DB::raw('COALESCE(incoming.total_in, 0) as total_in'),
+                DB::raw('COALESCE(outgoing.total_out, 0) as total_out'),
+                DB::raw('COALESCE(sp.purchase_price, p.purchase_price) as purchase_price')
+            )
+            ->whereRaw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) < 0')
+            ->get();
+
+        if ($negativeRows->isEmpty()) {
+            return redirect()
+                ->route('inventory.index', ['store_id' => $storeId])
+                ->with('success', 'Tidak ada stok minus untuk dinormalisasi.');
+        }
+
+        $now = now();
+        DB::transaction(function () use ($negativeRows, $storeId, $now) {
+            $supplier = DB::table('tb_suppliers')->select('id')->where('code', 'SO-ADJ')->first();
+            $supplierId = $supplier ? (int) $supplier->id : null;
+            if (!$supplierId) {
+                DB::table('tb_suppliers')->insert([
+                    'code' => 'SO-ADJ',
+                    'name' => 'Stock Opname Adjustment',
+                    'address' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $supplierId = (int) DB::getPdo()->lastInsertId();
+            }
+
+            $purchaseId = DB::table('tb_purchases')->insertGetId([
+                'supplier_id' => $supplierId,
+                'store_id' => $storeId,
+                'total_price' => 0,
+                'created_by' => auth()->id(),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $hasIncomingStore = Schema::hasColumn('tb_incoming_goods', 'store_id');
+            $hasPendingStock = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock');
+            $rows = [];
+            $totalPurchase = 0;
+
+            foreach ($negativeRows as $row) {
+                $net = (int) $row->total_in - (int) $row->total_out;
+                if ($net >= 0) {
+                    continue;
+                }
+                $qty = abs($net);
+                $price = (int) ($row->purchase_price ?? 0);
+                $totalPurchase += $qty * $price;
+
+                $payload = [
+                    'purchase_id' => $purchaseId,
+                    'product_id' => (int) $row->id,
+                    'stock' => $qty,
+                    'description' => 'Normalisasi stok minus',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+                if ($hasPendingStock) {
+                    $payload['is_pending_stock'] = 0;
+                }
+                if ($hasIncomingStore) {
+                    $payload['store_id'] = $storeId;
+                }
+                $rows[] = $payload;
+            }
+
+            if (!empty($rows)) {
+                DB::table('tb_incoming_goods')->insert($rows);
+            }
+
+            DB::table('tb_purchases')->where('id', $purchaseId)->update([
+                'total_price' => $totalPurchase,
+                'updated_at' => $now,
+            ]);
+        });
+
+        $productCount = $negativeRows->count();
+        $totalQty = $negativeRows->sum(function ($row) {
+            $net = (int) $row->total_in - (int) $row->total_out;
+            return $net < 0 ? abs($net) : 0;
+        });
+
+        return redirect()
+            ->route('inventory.index', ['store_id' => $storeId])
+            ->with('success', "Normalisasi selesai: {$productCount} produk, total {$totalQty} unit ditambahkan.");
     }
 
     private function parseStockItems(Request $request): array

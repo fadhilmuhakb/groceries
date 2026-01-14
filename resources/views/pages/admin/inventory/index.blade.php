@@ -20,6 +20,9 @@
     @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
+    @if(session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
 
     @if(Auth::user()->roles == 'superadmin')
     <form method="GET" action="{{ route('inventory.index') }}" class="mb-3 w-auto">
@@ -32,6 +35,22 @@
             @endforeach
         </select>
     </form>
+    @endif
+
+    @if($storeId)
+    <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
+        <form method="POST" action="{{ route('inventory.normalizeNegativeStock') }}"
+              onsubmit="return confirm('Normalisasi akan menambahkan stok untuk semua produk yang minus. Lanjutkan?');">
+            @csrf
+            @if(Auth::user()->roles == 'superadmin')
+                <input type="hidden" name="store_id" value="{{ $storeId }}">
+            @endif
+            <button type="submit" class="btn btn-warning">
+                Normalisasi Stok Minus
+            </button>
+        </form>
+        <span class="text-muted small">Gunakan jika stok sistem sudah negatif.</span>
+    </div>
     @endif
 
     @if(!$query->isEmpty())
