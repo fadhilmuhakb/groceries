@@ -405,6 +405,14 @@ class InventoryController extends Controller
         ]);
     }
 
+    public function refreshCsrf(Request $request)
+    {
+        return response()
+            ->json(['token' => csrf_token()])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
+    }
+
     public function normalizeNegativeStock(Request $request)
     {
         $user = $request->user();

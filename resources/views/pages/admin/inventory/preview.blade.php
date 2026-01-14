@@ -19,7 +19,7 @@
                href="{{ route('inventory.index', array_filter(['store_id' => $summary['store_id'] ?? null, 'back' => 1])) }}">
                 Kembali
             </a>
-            <form method="POST" action="{{ route('inventory.adjustStockBulkV3') }}">
+            <form method="POST" action="{{ route('inventory.adjustStockBulkV3') }}" data-csrf-refresh="1">
                 @csrf
                 <input type="hidden" name="use_session_items" value="1">
                 <input type="hidden" name="preview_token" value="{{ $previewToken ?? '' }}">
@@ -174,6 +174,58 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    const csrfRefreshUrl = "{{ route('inventory.refreshCsrf') }}";
+    let csrfRefreshPromise = null;
+    const setCsrfToken = (token) => {
+        if (!token) return;
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) meta.setAttribute('content', token);
+        document.querySelectorAll('input[name="_token"]').forEach(input => {
+            input.value = token;
+        });
+    };
+    const refreshCsrfToken = () => {
+        if (csrfRefreshPromise) return csrfRefreshPromise;
+        csrfRefreshPromise = fetch(csrfRefreshUrl, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        }).then(async res => {
+            if (!res.ok) {
+                throw new Error('Gagal memperbarui CSRF token.');
+            }
+            const data = await res.json().catch(() => ({}));
+            if (!data || !data.token) {
+                throw new Error('Response token tidak valid.');
+            }
+            setCsrfToken(data.token);
+            return data.token;
+        }).finally(() => {
+            csrfRefreshPromise = null;
+        });
+        return csrfRefreshPromise;
+    };
+
+    const keepAliveIntervalMs = 5 * 60 * 1000;
+    setInterval(() => {
+        refreshCsrfToken().catch(() => {});
+    }, keepAliveIntervalMs);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            refreshCsrfToken().catch(() => {});
+        }
+    });
+    document.querySelectorAll('form[data-csrf-refresh="1"]').forEach(formEl => {
+        formEl.addEventListener('submit', (e) => {
+            if (e.defaultPrevented || formEl.dataset.csrfRefreshing === '1') return;
+            e.preventDefault();
+            formEl.dataset.csrfRefreshing = '1';
+            refreshCsrfToken().catch(() => {}).finally(() => {
+                formEl.submit();
+            });
+        });
+    });
+
     const btn = document.getElementById('downloadExcelBtn');
     const table = document.getElementById('result-table');
     const searchInput = document.getElementById('search-preview');

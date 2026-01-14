@@ -40,6 +40,7 @@
     @if($storeId)
     <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
         <form method="POST" action="{{ route('inventory.normalizeNegativeStock') }}"
+              data-csrf-refresh="1"
               onsubmit="return confirm('Normalisasi akan menambahkan stok untuk semua produk yang minus. Lanjutkan?');">
             @csrf
             @if(Auth::user()->roles == 'superadmin')
@@ -155,6 +156,59 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('stock-form');
     const adjustAllBtn = document.getElementById('adjustAllBtn');
     let isSubmitting = false;
+    const csrfRefreshUrl = "{{ route('inventory.refreshCsrf') }}";
+    let csrfRefreshPromise = null;
+
+    const setCsrfToken = (token) => {
+        if (!token) return;
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) meta.setAttribute('content', token);
+        document.querySelectorAll('input[name="_token"]').forEach(input => {
+            input.value = token;
+        });
+    };
+
+    const refreshCsrfToken = () => {
+        if (csrfRefreshPromise) return csrfRefreshPromise;
+        csrfRefreshPromise = fetch(csrfRefreshUrl, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        }).then(async res => {
+            if (!res.ok) {
+                throw new Error('Gagal memperbarui CSRF token.');
+            }
+            const data = await res.json().catch(() => ({}));
+            if (!data || !data.token) {
+                throw new Error('Response token tidak valid.');
+            }
+            setCsrfToken(data.token);
+            return data.token;
+        }).finally(() => {
+            csrfRefreshPromise = null;
+        });
+        return csrfRefreshPromise;
+    };
+
+    const keepAliveIntervalMs = 5 * 60 * 1000;
+    setInterval(() => {
+        refreshCsrfToken().catch(() => {});
+    }, keepAliveIntervalMs);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            refreshCsrfToken().catch(() => {});
+        }
+    });
+    document.querySelectorAll('form[data-csrf-refresh="1"]').forEach(formEl => {
+        formEl.addEventListener('submit', (e) => {
+            if (e.defaultPrevented || formEl.dataset.csrfRefreshing === '1') return;
+            e.preventDefault();
+            formEl.dataset.csrfRefreshing = '1';
+            refreshCsrfToken().catch(() => {}).finally(() => {
+                formEl.submit();
+            });
+        });
+    });
 
     const totalMinusQtyEl = document.getElementById('total-minus-qty');
     const totalMinusUnitEl = document.getElementById('total-minus-unit');
@@ -234,9 +288,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return hidden ? hidden.value : '';
     }
 
-    function submitForm() {
-        if (isSubmitting) return;
-        setSubmitting(true);
+    async function submitForm(retry = false) {
+        if (isSubmitting && !retry) return;
+        if (!retry) {
+            setSubmitting(true);
+            try {
+                await refreshCsrfToken();
+            } catch (_) {}
+        }
+
         // KIRIM JSON ke endpoint preview
         const items = [];
         table.querySelectorAll('tbody tr').forEach(tr => {
@@ -250,38 +310,46 @@ document.addEventListener('DOMContentLoaded', () => {
         const xsrfCookie = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
         const xsrfToken = xsrfCookie ? decodeURIComponent(xsrfCookie[1]) : csrfToken;
 
-        fetch(form.action, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'X-CSRF-TOKEN': csrfToken,
-                'X-XSRF-TOKEN': xsrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ items, _token: csrfToken })
-        }).then(async res => {
+        try {
+            const res = await fetch(form.action, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-XSRF-TOKEN': xsrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ items, _token: csrfToken })
+            });
+
             const ct = res.headers.get('content-type') || '';
             const payload = ct.includes('application/json') ? await res.json().catch(() => ({})) : await res.text();
+
             if (!res.ok) {
-                if (res.status === 419) {
-                    throw new Error('Sesi berakhir/CSRF token kedaluwarsa. Mohon refresh halaman lalu kirim lagi.');
+                if (res.status === 419 && !retry) {
+                    try {
+                        await refreshCsrfToken();
+                    } catch (_) {}
+                    return submitForm(true);
                 }
                 const msg = typeof payload === 'string' ? payload : (payload.message || JSON.stringify(payload));
-                throw new Error(msg || `HTTP ${res.status}`);
+                const statusMessage = res.status === 419
+                    ? 'Sesi berakhir/CSRF token kedaluwarsa. Mohon refresh halaman lalu kirim lagi.'
+                    : (msg || `HTTP ${res.status}`);
+                throw new Error(statusMessage);
             }
-            return payload;
-        }).then(data => {
-            if (data && data.redirect_url) {
-                window.location.assign(data.redirect_url);
+
+            if (payload && payload.redirect_url) {
+                window.location.assign(payload.redirect_url);
                 return;
             }
             throw new Error('Redirect ringkasan tidak tersedia.');
-        }).catch(err => {
+        } catch (err) {
             setSubmitting(false);
-            alert('Gagal menyiapkan ringkasan.\n' + err.message);
-        });
+            alert('Gagal menyiapkan ringkasan.\n' + (err && err.message ? err.message : err));
+        }
     }
 
     // SEARCH

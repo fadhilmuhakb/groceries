@@ -166,6 +166,8 @@ Route::get('/sync/manual', [SyncController::class, 'manual'])->name('sync.manual
             ->name('inventory.adjustStockPreview');
         Route::get('/adjust-stock-preview', [InventoryController::class, 'adjustStockPreviewPage'])
             ->name('inventory.adjustStockPreviewPage');
+        Route::get('/csrf-refresh', [InventoryController::class, 'refreshCsrf'])
+            ->name('inventory.refreshCsrf');
         Route::post('/normalize-negative-stock', [InventoryController::class, 'normalizeNegativeStock'])
             ->name('inventory.normalizeNegativeStock');
     });
