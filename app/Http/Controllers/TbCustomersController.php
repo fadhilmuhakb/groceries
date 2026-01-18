@@ -15,7 +15,18 @@ class TbCustomersController extends Controller
      */
     public function index(Request $request)
     {
-        $customers = tb_customers::with('store')->get();
+        $user = auth()->user();
+        $isSuperadmin = strtolower((string) ($user?->roles)) === 'superadmin';
+        $customers = tb_customers::with('store')
+            ->when(!$isSuperadmin, function ($query) use ($user) {
+                $allowed = store_access_ids($user);
+                if (!empty($allowed)) {
+                    $query->whereIn('store_id', $allowed);
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
+            })
+            ->get();
         if($request->ajax()) {
             return DataTables::of($customers)
                     ->addColumn('action', function ($customers) {
@@ -36,7 +47,7 @@ class TbCustomersController extends Controller
      */
     public function create()
     {
-        $stores = tb_stores::all();
+        $stores = store_access_list(auth()->user());
         return view('pages.admin.manage_customer.create', compact('stores'));
     }
 
@@ -45,17 +56,16 @@ class TbCustomersController extends Controller
      */
     public function store(Request $request)
     {
-        $getRoles = auth()->user()->roles;
-        if($getRoles == 'superadmin') {
-            $store_id = $request->store_id;
-        } else {
-            $store_id = auth()->user()->store_id;
-        }
-
         $validated = $request->validate([
             'customer_name' => 'required',
-            'phone_number' => 'nullable|min:8|numeric'
+            'phone_number' => 'nullable|min:8|numeric',
+            'store_id' => 'nullable|integer|exists:tb_stores,id',
         ]);
+        $user = auth()->user();
+        $store_id = store_access_resolve_id($request, $user, ['store_id']);
+        if (!$store_id) {
+            return back()->with('error', 'Store wajib dipilih.');
+        }
 
         DB::beginTransaction();
         try {
@@ -82,7 +92,7 @@ class TbCustomersController extends Controller
     public function edit(Request $request, $id)
     {
         $customer = tb_customers::findOrFail($id);
-        $stores = tb_stores::all();
+        $stores = store_access_list(auth()->user());
         return view('pages.admin.manage_customer.create', compact('customer', 'stores'));
     }
 
@@ -91,18 +101,16 @@ class TbCustomersController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $getRoles = auth()->user()->roles;
-
-        if($getRoles == 'superadmin') {
-            $store_id = $request->store_id;
-        } else {
-            $store_id = auth()->user()->store_id;
-        }
-
         $validated = $request->validate([
             'customer_name' => 'required',
-            'phone_number' => 'nullable|min:8|numeric'
+            'phone_number' => 'nullable|min:8|numeric',
+            'store_id' => 'nullable|integer|exists:tb_stores,id',
         ]);
+        $user = auth()->user();
+        $store_id = store_access_resolve_id($request, $user, ['store_id']);
+        if (!$store_id) {
+            return back()->with('error', 'Store wajib dipilih.');
+        }
         
         DB::beginTransaction();
         try {

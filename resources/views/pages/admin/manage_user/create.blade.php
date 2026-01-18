@@ -68,13 +68,13 @@
       @endif
         <div class="col-6 mb-3">
           <label for="roles">Role</label>
-          <select class="form-select" name="roles">
+          <select class="form-select" name="roles" id="role-select">
           <option value="">Pilih Role</option>
-          @if(auth()->user()->roles === 'superadmin')
-        <option value="superadmin" {{ (isset($user) && $user->roles == 'superadmin') || old('roles') == 'superadmin' ? 'selected' : '' }}>Superadmin</option>
+          @if(strtolower((string) auth()->user()->roles) === 'superadmin')
+        <option value="superadmin" {{ (isset($user) && strtolower((string) $user->roles) == 'superadmin') || old('roles') == 'superadmin' ? 'selected' : '' }}>Superadmin</option>
       @endif
-          <option value="admin" {{ (isset($user) && $user->roles == 'admin') || old('roles') == 'admin' ? 'selected' : '' }}>Admin</option>
-          <option value="staff" {{ (isset($user) && $user->roles == 'staff') || old('roles') == 'staff' ? 'selected' : '' }}>Staff</option>
+          <option value="admin" {{ (isset($user) && strtolower((string) $user->roles) == 'admin') || old('roles') == 'admin' ? 'selected' : '' }}>Admin</option>
+          <option value="staff" {{ (isset($user) && strtolower((string) $user->roles) == 'staff') || old('roles') == 'staff' ? 'selected' : '' }}>Staff</option>
           </select>
 
 
@@ -84,13 +84,48 @@
         </div>
         <div class="col-6 mb-3">
           <label for="name">Store</label>
-          <select name="store_id" class="form-select">
-          <option value="">Pilih Toko</option>
-          @foreach ($stores as $store)
-        <option value="{{$store->id}}" {{(isset($user) && $user->store_id == $store->id) || old('store_id') == $store->id ? 'selected' : ''}}>{{$store->store_name}}</option>
-      @endforeach
-          </select>
+          @php
+            $selectedStoreIds = collect(old('store_ids', $selectedStoreIds ?? []))
+                ->filter()
+                ->map(fn ($id) => (int) $id);
+            if ($selectedStoreIds->isEmpty() && old('store_id')) {
+                $selectedStoreIds = collect([(int) old('store_id')]);
+            }
+            if ($selectedStoreIds->isEmpty() && isset($user) && $user->store_id) {
+                $selectedStoreIds = collect([(int) $user->store_id]);
+            }
+            $selectedStoreIdSingle = $selectedStoreIds->first();
+          @endphp
+          <div id="store-multi-wrap" class="border rounded p-2" style="max-height: 220px; overflow: auto;">
+            @foreach ($stores as $store)
+              <div class="form-check">
+                <input class="form-check-input store-checkbox"
+                       type="checkbox"
+                       name="store_ids[]"
+                       id="store-check-{{ $store->id }}"
+                       value="{{ $store->id }}"
+                       {{ $selectedStoreIds->contains((int) $store->id) ? 'checked' : '' }}>
+                <label class="form-check-label" for="store-check-{{ $store->id }}">
+                  {{ $store->store_name }}
+                </label>
+              </div>
+            @endforeach
+          </div>
+          <div id="store-single-wrap" class="d-none">
+            <select name="store_ids[]" class="form-select" id="store-single">
+              <option value="">Pilih Toko</option>
+              @foreach ($stores as $store)
+                <option value="{{ $store->id }}" {{ (int) $selectedStoreIdSingle === (int) $store->id ? 'selected' : '' }}>
+                  {{ $store->store_name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
+          <small class="text-muted" id="store-help">Admin bisa pilih lebih dari satu toko (klik satu-satu).</small>
 
+          @error('store_ids')
+        <div class="text-danger">{{ $message }}</div>
+      @enderror
           @error('store_id')
         <div class="text-danger">{{ $message }}</div>
       @enderror
@@ -140,6 +175,61 @@
 
   @section('scripts')
     <script>
+    const roleSelect = document.getElementById('role-select');
+    const storeMultiWrap = document.getElementById('store-multi-wrap');
+    const storeSingleWrap = document.getElementById('store-single-wrap');
+    const storeSingleSelect = document.getElementById('store-single');
+    const storeCheckboxes = document.querySelectorAll('.store-checkbox');
+    const storeHelp = document.getElementById('store-help');
+
+    const setStoreMode = (role) => {
+      if (!storeHelp || !storeMultiWrap || !storeSingleWrap || !storeSingleSelect) return;
+      const normalized = String(role || '').toLowerCase();
+      const isAdmin = normalized === 'admin';
+      const isStaff = ['staff', 'kasir', 'cashier'].includes(normalized);
+      const isSuperadmin = normalized === 'superadmin';
+
+      if (isSuperadmin) {
+        storeMultiWrap.classList.add('d-none');
+        storeSingleWrap.classList.add('d-none');
+        storeCheckboxes.forEach((cb) => { cb.disabled = true; });
+        storeSingleSelect.disabled = true;
+        storeHelp.textContent = 'Superadmin otomatis akses semua toko.';
+      } else if (isAdmin) {
+        storeMultiWrap.classList.remove('d-none');
+        storeSingleWrap.classList.add('d-none');
+        storeCheckboxes.forEach((cb) => { cb.disabled = false; });
+        storeSingleSelect.disabled = true;
+        const selectedValue = storeSingleSelect.value;
+        if (selectedValue) {
+          const match = Array.from(storeCheckboxes).find((cb) => cb.value === selectedValue);
+          if (match) match.checked = true;
+        }
+        storeHelp.textContent = 'Admin bisa pilih lebih dari satu toko (klik satu-satu).';
+      } else if (isStaff) {
+        storeMultiWrap.classList.add('d-none');
+        storeSingleWrap.classList.remove('d-none');
+        storeCheckboxes.forEach((cb) => { cb.disabled = true; });
+        storeSingleSelect.disabled = false;
+        const firstChecked = Array.from(storeCheckboxes).find((cb) => cb.checked);
+        if (firstChecked) {
+          storeSingleSelect.value = firstChecked.value;
+        }
+        storeHelp.textContent = 'Staff hanya boleh 1 toko.';
+      } else {
+        storeMultiWrap.classList.add('d-none');
+        storeSingleWrap.classList.remove('d-none');
+        storeCheckboxes.forEach((cb) => { cb.disabled = true; });
+        storeSingleSelect.disabled = false;
+        storeHelp.textContent = 'Pilih satu toko.';
+      }
+    };
+
+    if (roleSelect) {
+      setStoreMode(roleSelect.value);
+      roleSelect.addEventListener('change', (e) => setStoreMode(e.target.value));
+    }
+
     @if(session('success'))
     Swal.fire({
     icon: 'success',

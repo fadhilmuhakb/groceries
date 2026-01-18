@@ -14,11 +14,12 @@ class OrderStockController extends Controller
     public function index(Request $request)
     {
         $user         = $request->user();
-        $isSuperadmin = $user?->roles === 'superadmin';
-        $storeId      = $isSuperadmin ? (int)$request->get('store') : (int)($user?->store_id);
+        $isSuperadmin = strtolower((string) ($user?->roles)) === 'superadmin';
+        $storeId      = store_access_resolve_id($request, $user, ['store']);
+        $canSelectStore = store_access_can_select($user);
 
-        $stores = $isSuperadmin
-            ? DB::table('tb_stores')->select('id', 'store_name')->orderBy('store_name')->get()
+        $stores = $canSelectStore
+            ? store_access_list($user)
             : collect();
 
         if ($isSuperadmin && !$storeId) {
@@ -26,7 +27,7 @@ class OrderStockController extends Controller
                 'stores'       => $stores,
                 'selected'     => null,
                 'items'        => collect(),
-                'isSuperadmin' => $isSuperadmin,
+                'isSuperadmin' => $canSelectStore,
                 'currentStore' => null,
             ]);
         }
@@ -45,7 +46,7 @@ class OrderStockController extends Controller
             'stores'       => $stores,
             'selected'     => $storeId,
             'items'        => $items,
-            'isSuperadmin' => $isSuperadmin,
+            'isSuperadmin' => $canSelectStore,
             'currentStore' => $currentStore,
         ]);
     }
@@ -53,8 +54,7 @@ class OrderStockController extends Controller
     public function restock(Request $request)
     {
         $user         = $request->user();
-        $isSuperadmin = $user?->roles === 'superadmin';
-        $storeId      = $isSuperadmin ? (int)$request->input('store_id') : (int)($user?->store_id);
+        $storeId      = store_access_resolve_id($request, $user, ['store_id']);
         if (!$storeId) return back()->with('error', 'Pilih toko terlebih dahulu.');
 
         $items = array_filter($request->input('items', []), fn ($v) => $v !== null && $v !== '');
@@ -142,8 +142,7 @@ class OrderStockController extends Controller
     public function export(Request $request)
     {
         $user         = $request->user();
-        $isSuperadmin = $user?->roles === 'superadmin';
-        $storeId      = $isSuperadmin ? (int)$request->get('store') : (int)($user?->store_id);
+        $storeId      = store_access_resolve_id($request, $user, ['store']);
         if (!$storeId) return back()->with('error', 'Pilih toko terlebih dahulu.');
 
         $items = $this->lowStockQuery($storeId)->get()->map(function ($row) {

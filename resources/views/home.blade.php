@@ -19,7 +19,7 @@
 
                 <!-- Filter Form -->
              <form method="GET" action="{{ route('home') }}" class="d-flex gap-2 mb-4 align-items-center">
-    @if(Auth::user()->roles == 'superadmin')
+    @if(store_access_can_select(Auth::user()))
         <select name="store" class="form-select" onchange="this.form.submit()">
             <option value="">-- Semua Toko --</option>
             @foreach($stores as $store)

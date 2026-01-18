@@ -30,10 +30,13 @@ public function index(Request $request)
     }
 
     $user = Auth::user();
-    $isSuperadmin = $user && $user->roles === 'superadmin';
-    $storeId = $isSuperadmin ? $selectedStoreId : $user->store_id;
+    $isSuperadmin = $user && strtolower((string) ($user->roles ?? '')) === 'superadmin';
+    $storeId = store_access_resolve_id($request, $user, ['store']);
+    $selectedStoreId = $storeId;
 
-    $stores = $isSuperadmin ? DB::table('tb_stores')->get() : collect();
+    $stores = store_access_can_select($user)
+        ? store_access_list($user)
+        : collect();
 
     $usingSpecificRange = $dateFrom && $dateTo;
     $hasSellerIdColumn  = Schema::hasColumn('tb_sells', 'seller_id');

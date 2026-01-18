@@ -20,23 +20,26 @@ class TbSalesController extends Controller
 {
     public function index(Request $request)
     {
-        $user_id = auth()->user()->id;
-        $store_id = auth()->user()->roles === 'superadmin'
-            ? $request->get('store_id')
-            : auth()->user()->store_id;
+        $user = auth()->user();
+        $user_id = $user->id;
+        $role = strtolower((string) ($user->roles ?? ''));
+        $store_id = store_access_resolve_id($request, $user, ['store_id']);
         $hasPendingIncoming = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock');
         $current_month = Carbon::now()->format('m');
         $current_year = Carbon::now()->format('Y');
-        $count_invoice = tb_sell::where('store_id', auth()->user()->store_id)
-                                    ->whereMonth('date', $current_month)
-                                    ->whereYear('date', $current_year)
-                        ->count();
+        $count_invoice = 0;
+        if ($store_id) {
+            $count_invoice = tb_sell::where('store_id', $store_id)
+                ->whereMonth('date', $current_month)
+                ->whereYear('date', $current_year)
+                ->count();
+        }
         $invoce_number = 'INV-'.$current_year.$current_month.str_pad($count_invoice+1, 4, '0', STR_PAD_LEFT);
         
         // dd($invoce_number);
         $user = User::where('id', $user_id)->with('store')->first();
-        if(auth()->user()->roles == 'superadmin') {
-            $customers = tb_customers::all();
+        if($role === 'superadmin') {
+            $customers = $store_id ? tb_customers::where('store_id', $store_id)->get() : tb_customers::all();
             $product = tb_incoming_goods::with(['product.storePrices', 'purchase'])
                         ->when($store_id, fn($q) => $q->whereHas('purchase', fn($p) => $p->where('store_id', $store_id)))
                         ->when($hasPendingIncoming, function ($q) {
@@ -47,8 +50,8 @@ class TbSalesController extends Controller
                         })
                         ->get();
         }
-        else if(auth()->user()->roles == 'staff' || auth()->user()->roles == 'admin') {
-            $customers = tb_customers::where('store_id', auth()->user()->store_id)->get();
+        else if(in_array($role, ['staff', 'admin', 'kasir', 'cashier'], true)) {
+            $customers = $store_id ? tb_customers::where('store_id', $store_id)->get() : collect();
 
             $product = tb_incoming_goods::with(['product.storePrices', 'purchase'])
                                         ->whereHas('purchase', function($q) use ($store_id) {
@@ -63,8 +66,12 @@ class TbSalesController extends Controller
                                         ->get();
 
         }
+        else {
+            $customers = collect();
+            $product = collect();
+        }
 
-        $stores = tb_stores::all();
+        $stores = store_access_list($user);
         if($request->ajax()) {
             $products = $product->map(function($row) use ($store_id) {
                             $pricing = optional($row->product)->priceForStore($store_id);
@@ -87,7 +94,13 @@ class TbSalesController extends Controller
                         ->make(true);
         };
         
-        return view('pages.admin.sales.index', ['user' => $user, 'invoice_number' => $invoce_number, 'customers'=> $customers, 'stores' => $stores]);
+        return view('pages.admin.sales.index', [
+            'user' => $user,
+            'invoice_number' => $invoce_number,
+            'customers'=> $customers,
+            'stores' => $stores,
+            'selectedStoreId' => $store_id,
+        ]);
     }
 
     public function store(Request $request)
@@ -105,14 +118,16 @@ class TbSalesController extends Controller
             // dd($validator->errors());
             return response()->json($validator->errors(), 422);
         }
+        $user = auth()->user();
+        $store_id = store_access_resolve_id($request, $user, ['data.store_id', 'store_id']);
+        if (!$store_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Store wajib dipilih.'
+            ], 422);
+        }
         DB::beginTransaction();
         try {
-            $user = auth()->user();
-            if($user->roles === 'superadmin') {
-                $store_id = $request->data['store_id'];
-            } else {
-                $store_id = $user->store_id;
-            }
             $storeOnline = (int) tb_stores::where('id', $store_id)->value('is_online') === 1;
             $isPendingStock = $storeOnline ? 0 : 1;
             $hasOutgoingStore = Schema::hasColumn('tb_outgoing_goods', 'store_id');

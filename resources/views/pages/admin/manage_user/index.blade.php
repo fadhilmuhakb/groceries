@@ -50,10 +50,48 @@
 @section('scripts')
 <script src="{{asset('assets/plugins/datatable/js/jquery.dataTables.min.js')}}"></script>
 <script src="{{asset('assets/plugins/datatable/js/dataTables.bootstrap5.min.js')}}"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     const confirmDelete = (id) => {
     let token = $("meta[name='csrf-token']").attr("content");
+    const runDelete = () => {
+        $.ajax({
+            url: `/user/delete/${id}`,
+            type: 'POST',
+            headers: { 'X-CSRF-TOKEN': token },
+            data: {
+                _method: 'DELETE',
+                _token: token,
+            },
+            success: function(response) {
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sukses',
+                        text: response.message,
+                    });
+                }
+                $('#table-type').DataTable().ajax.reload();
+            },
+            error: function(err) {
+                const message = err.responseJSON?.message || 'Terjadi kesalahan saat menghapus data!';
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops...',
+                        text: message,
+                    });
+                } else {
+                    alert(message);
+                }
+            }
+        });
+    };
+    if (!window.Swal) {
+        if (confirm('Data akan dihapus permanen! Lanjutkan?')) runDelete();
+        return;
+    }
     Swal.fire({
         title: 'Apakah Anda yakin?',
         text: "Data akan dihapus permanen!",
@@ -65,28 +103,7 @@
         cancelButtonText: 'Batal'
     }).then((result) => {
         if (result.isConfirmed) {
-            $.ajax({
-                url: `/user/delete/${id}`,
-                type: 'DELETE',
-                data: {
-                    _token: token,
-                },
-                success: function(response) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Sukses',
-                        text: response.message,
-                    });
-                    $('#table-type').DataTable().ajax.reload();
-                },
-                error: function(err) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: err.responseJSON.message || 'Terjadi kesalahan saat menghapus data!',
-                    });
-                }
-            });
+            runDelete();
         }
     });
 };
@@ -104,7 +121,7 @@
                 {data:'name', name:'name'},
                 {data:'email', name:'email'},
                 {data:'roles', name:'roles'},
-                {data:'store.store_name', name:'store.store_name', defaultContent: '-',},
+                {data:'store_names', name:'store_names', defaultContent: '-',},
                 {data: 'action', name: 'action', orderable: false, searchable: false, className:'text-end'}
 
             ]

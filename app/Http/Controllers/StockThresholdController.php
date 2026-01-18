@@ -11,11 +11,13 @@ class StockThresholdController extends Controller
     public function index(Request $request)
     {
         $user         = $request->user();
-        $isSuperadmin = $user?->roles === 'superadmin';
-        $storeId      = $isSuperadmin ? (int)$request->get('store') : (int)($user?->store_id);
+        $isSuperadmin = strtolower((string) ($user?->roles)) === 'superadmin';
+        $storeId      = store_access_resolve_id($request, $user, ['store']);
         $search       = trim((string)$request->get('q', ''));
 
-        $stores = DB::table('tb_stores')->select('id', 'store_name')->orderBy('store_name')->get();
+        $stores = store_access_can_select($user)
+            ? store_access_list($user)
+            : collect();
 
         if (!$storeId && $isSuperadmin) {
             return view('pages.admin.threshold.index', [
@@ -114,8 +116,7 @@ class StockThresholdController extends Controller
     public function save(Request $request)
     {
         $user         = $request->user();
-        $isSuperadmin = $user?->roles === 'superadmin';
-        $storeId      = $isSuperadmin ? (int)$request->input('store_id') : (int)($user?->store_id);
+        $storeId      = store_access_resolve_id($request, $user, ['store_id']);
 
         if (!$storeId) return back()->with('error', 'Store wajib dipilih.');
 

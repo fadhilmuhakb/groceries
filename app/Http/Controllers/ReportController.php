@@ -12,19 +12,12 @@ class ReportController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $isSuperadmin = $user?->roles === 'superadmin';
+        $isSuperadmin = strtolower((string) ($user?->roles)) === 'superadmin';
 
-        // Ambil daftar toko untuk superadmin
-        $stores = collect();
-        $selectedStoreId = $request->query('store');
-
-        if ($isSuperadmin) {
-            // sesuaikan model & kolom: tb_stores(id, store_name)
-            $stores = \App\Models\tb_stores::select('id','store_name')->orderBy('store_name')->get();
-        } else {
-            // non-superadmin: pakai toko user
-            $selectedStoreId = $user?->store_id;
-        }
+        $stores = store_access_can_select($user)
+            ? store_access_list($user)
+            : collect();
+        $selectedStoreId = store_access_resolve_id($request, $user, ['store']);
 
         // untuk badge tampilan
         $currentStoreName = null;
@@ -42,15 +35,18 @@ class ReportController extends Controller
  public function indexData(Request $request)
 {
     $user         = auth()->user();
-    $isSuperadmin = $user?->roles === 'superadmin';
-    $storeId      = $request->get('store');
+    $isSuperadmin = strtolower((string) ($user?->roles)) === 'superadmin';
+    $storeId      = store_access_resolve_id($request, $user, ['store']);
 
     if ($isSuperadmin && empty($storeId)) {
         return \Yajra\DataTables\Facades\DataTables::of(collect())
             ->with(['totals' => ['amount' => 0, 'status' => 0]])
             ->toJson();
-    } elseif (!$isSuperadmin) {
-        $storeId = $user?->store_id;
+    }
+    if (!$storeId) {
+        return \Yajra\DataTables\Facades\DataTables::of(collect())
+            ->with(['totals' => ['amount' => 0, 'status' => 0]])
+            ->toJson();
     }
 
     // --- Range tanggal (default: hari ini) ---

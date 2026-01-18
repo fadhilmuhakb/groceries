@@ -13,15 +13,20 @@
 
       <div class="card mb-3">
         <div class="card-body">
+          @php $canSelectStore = store_access_can_select(Auth::user()); @endphp
           <form method="GET" action="{{ route('stock-threshold.index') }}" class="row g-2 align-items-end">
             <div class="col-md-6">
               <label class="form-label">Pilih Toko</label>
-              <select name="store" class="form-select" onchange="this.form.submit()">
-                <option value="">-- pilih toko --</option>
-                @foreach($stores as $store)
-                  <option value="{{ $store->id }}" @selected($storeId == $store->id)>{{ $store->store_name }}</option>
-                @endforeach
-              </select>
+              @if($canSelectStore)
+                <select name="store" class="form-select" onchange="this.form.submit()">
+                  <option value="">-- pilih toko --</option>
+                  @foreach($stores as $store)
+                    <option value="{{ $store->id }}" @selected($storeId == $store->id)>{{ $store->store_name }}</option>
+                  @endforeach
+                </select>
+              @else
+                <input type="text" class="form-control" value="{{ optional(Auth::user()->store)->store_name ?? '-' }}" disabled>
+              @endif
             </div>
             <div class="col-md-6">
               <label class="form-label">Cari Produk</label>

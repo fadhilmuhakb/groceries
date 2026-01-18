@@ -13,10 +13,10 @@
 <div class="card mb-3">
   <div class="card-body d-flex gap-2 align-items-center flex-wrap">
     @php
-      $isSuperadmin = auth()->user()?->roles === 'superadmin';
+      $canSelectStore = store_access_can_select(auth()->user());
     @endphp
 
-    @if($isSuperadmin)
+    @if($canSelectStore)
       <div class="d-flex align-items-center gap-2">
         <label for="store_select" class="mb-0">Toko</label>
         <select id="store_select" class="form-select" style="min-width:240px">
@@ -104,7 +104,7 @@ $(function () {
     console.error('DataTables error (index):', message);
   });
 
-  const isSuperadmin = @json(auth()->user()?->roles === 'superadmin');
+  const isSuperadmin = @json(store_access_can_select(auth()->user()));
   let dt;
 
   const formatCurrency = (v) => 'Rp ' + Number(v ?? 0).toLocaleString('id-ID');

@@ -15,12 +15,13 @@ class InventoryController extends Controller
     public function index(Request $request)
     {
         $user     = auth()->user();
-        $getRoles = $user->roles;
-        $storeId  = $getRoles === 'superadmin' ? $request->get('store_id') : $user->store_id;
+        $role = strtolower((string) ($user->roles ?? ''));
+        $storeId  = store_access_resolve_id($request, $user, ['store_id']);
+        $canSelectStore = store_access_can_select($user);
 
-        if ($getRoles === 'superadmin' && !$storeId) {
+        if ($role === 'superadmin' && !$storeId) {
             $query  = collect();
-            $stores = tb_stores::all();
+            $stores = $canSelectStore ? store_access_list($user) : collect();
             $draftQuantities = [];
             return view('pages.admin.inventory.index', compact('query', 'stores', 'storeId', 'draftQuantities'));
         }
@@ -108,7 +109,7 @@ class InventoryController extends Controller
             ->orderBy('pr.product_name')
             ->get();
 
-        $stores = $getRoles === 'superadmin' ? tb_stores::all() : [];
+        $stores = $canSelectStore ? store_access_list($user) : collect();
         $draftQuantities = [];
         if ($request->boolean('back')) {
             $preview = $request->session()->pull('inventory.stock_opname_preview');
@@ -433,9 +434,7 @@ class InventoryController extends Controller
     public function normalizeNegativeStock(Request $request)
     {
         $user = $request->user();
-        $storeId = $user?->roles === 'superadmin'
-            ? (int) $request->input('store_id')
-            : (int) ($user?->store_id);
+        $storeId = store_access_resolve_id($request, $user, ['store_id']);
 
         if (!$storeId) {
             return redirect()->back()->with('error', 'Pilih toko terlebih dahulu.');

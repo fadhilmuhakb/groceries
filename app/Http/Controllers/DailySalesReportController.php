@@ -16,14 +16,12 @@ class DailySalesReportController extends Controller
     public function index(Request $request)
     {
         $user         = $request->user();
-        $isSuperadmin = $user?->roles === 'superadmin';
-        $stores       = $isSuperadmin
-            ? tb_stores::select('id', 'store_name')->orderBy('store_name')->get()
+        $isSuperadmin = strtolower((string) ($user?->roles)) === 'superadmin';
+        $stores       = store_access_can_select($user)
+            ? store_access_list($user)
             : collect();
 
-        $selectedStoreId = $isSuperadmin
-            ? $request->query('store')
-            : ($user?->store_id);
+        $selectedStoreId = store_access_resolve_id($request, $user, ['store']);
 
         $currentStoreName = $selectedStoreId
             ? tb_stores::where('id', $selectedStoreId)->value('store_name')
@@ -38,7 +36,7 @@ class DailySalesReportController extends Controller
 
         return view('pages.admin.report.sales-today', [
             'stores'           => $stores,
-            'isSuperadmin'     => $isSuperadmin,
+            'isSuperadmin'     => store_access_can_select($user),
             'selectedStoreId'  => $selectedStoreId,
             'currentStoreName' => $currentStoreName,
             'defaultDateFrom'  => $defaultDateFrom,
@@ -51,9 +49,7 @@ class DailySalesReportController extends Controller
     public function data(Request $request)
     {
         $user         = $request->user();
-        $isSuperadmin = $user?->roles === 'superadmin';
-        $storeId      = $isSuperadmin ? $request->get('store') : ($user?->store_id);
-        $storeId      = $storeId === '' ? null : $storeId;
+        $storeId      = store_access_resolve_id($request, $user, ['store']);
 
         [$startDate, $endDate] = $this->resolveDateRange($request->get('date_from'), $request->get('date_to'));
         $cashier      = $request->get('cashier');

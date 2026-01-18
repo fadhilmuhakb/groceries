@@ -10,6 +10,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\Traits\Syncable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class User extends Authenticatable
 {
     use HasApiTokens,Syncable,SoftDeletes, HasFactory, Notifiable, HasUlids;
@@ -51,5 +52,11 @@ class User extends Authenticatable
 
     public function store() {
         return $this->belongsTo(tb_stores::class, 'store_id');
+    }
+
+    public function stores(): BelongsToMany
+    {
+        return $this->belongsToMany(tb_stores::class, 'user_stores', 'user_id', 'store_id')
+            ->withTimestamps();
     }
 }

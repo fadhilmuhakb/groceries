@@ -1,6 +1,16 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+  .order-stock-table .po-cell {
+    min-width: 140px;
+  }
+
+  .order-stock-table .po-input {
+    min-width: 120px;
+    text-align: right;
+  }
+</style>
 <div class="container">
   <div class="row justify-content-center">
     <div class="col-lg-10">
@@ -51,7 +61,7 @@
               <a href="{{ route('order-stock.export', ['store' => $selected]) }}" class="btn btn-sm btn-outline-success">Export Excel</a>
             </div>
             <div class="table-responsive">
-              <table class="table table-striped">
+              <table class="table table-striped order-stock-table">
                 <thead>
                   <tr>
                     <th style="width:30px"><input type="checkbox" id="check-all"></th>
@@ -75,10 +85,10 @@
                       <td>{{ $item->min_stock ?? '-' }}</td>
                       <td>{{ $item->max_stock ?? '-' }}</td>
                       <td>{{ number_format($item->purchase_price ?? 0, 0, ',', '.') }}</td>
-                      <td style="width:120px">
+                      <td class="po-cell">
                         <input type="number"
                                name="po_qty[{{ $item->id }}]"
-                               class="form-control form-control-sm"
+                               class="form-control form-control-sm po-input"
                                min="0"
                                value="{{ $item->po_qty ?? 0 }}">
                       </td>

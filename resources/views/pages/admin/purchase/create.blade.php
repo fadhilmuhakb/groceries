@@ -42,8 +42,9 @@
     <div class="card-body">
         @php
             $user = Auth::user();
-            $isSuperadmin = $user?->roles === 'superadmin';
+            $canSelectStore = store_access_can_select($user);
             $userStoreId  = $user?->store_id;
+            $selectedStoreId = old('store_id', $userStoreId);
             $userStoreName = $stores->firstWhere('id', $userStoreId)->store_name ?? '-';
         @endphp
 
@@ -72,7 +73,7 @@
                     </select>
                 </div>
 
-                @if($isSuperadmin)
+                @if($canSelectStore)
                     <div class="col-md-6 mb-3">
                         <label for="store_id" class="form-label">Toko (Store ID)</label>
                         @if($stores->count() === 0)
@@ -84,7 +85,7 @@
                         {{ $stores->count() === 0 ? 'disabled' : '' }} required>
                             <option value="">-- Pilih Toko --</option>
                             @foreach($stores as $store)
-                                <option value="{{ $store->id }}">{{ $store->store_name }}</option>
+                                <option value="{{ $store->id }}" {{ (int)($selectedStoreId ?? 0) === (int)$store->id ? 'selected' : '' }}>{{ $store->store_name }}</option>
                             @endforeach
                         </select>
                     </div>

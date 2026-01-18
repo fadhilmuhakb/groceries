@@ -23,7 +23,8 @@ class TbIncomingGoodsController extends Controller
             $userId = auth()->user()->id;
             $user   = User::where('id', $userId)->with('store')->first();
 
-            if(auth()->user()->roles == 'superadmin') {
+            $role = strtolower((string) (auth()->user()->roles ?? ''));
+            if($role === 'superadmin') {
                 $storeId = (int)$request->get('store_id');
                 if (!$storeId) {
                     if ($draw) {
@@ -32,7 +33,13 @@ class TbIncomingGoodsController extends Controller
                     return response()->json(['success' => true, 'data' => []]);
                 }
             } else {
-                $storeId = auth()->user()->store_id;
+                $storeId = store_access_resolve_id($request, auth()->user(), ['store_id']);
+                if (!$storeId) {
+                    if ($draw) {
+                        return DataTables::of(collect())->make(true);
+                    }
+                    return response()->json(['success' => true, 'data' => []]);
+                }
             }
 
             $products = tb_products::with(['unit', 'type', 'brand', 'storePrices'])
@@ -113,7 +120,10 @@ class TbIncomingGoodsController extends Controller
     public function create()
 
     {
-        $stores = tb_stores::all();
+        $actor = auth()->user();
+        $stores = strtolower((string) ($actor?->roles)) === 'superadmin'
+            ? tb_stores::all()
+            : store_access_list($actor);
         $products = tb_products:: all();
         $suppliers = tb_suppliers::all();
         return view('pages.admin.manage_incoming_good.create', [
@@ -137,6 +147,13 @@ class TbIncomingGoodsController extends Controller
             'description' => 'nullable',
             'paid_of_date' => 'required|date'
         ]);
+        $actor = auth()->user();
+        if (strtolower((string) ($actor?->roles)) !== 'superadmin') {
+            $allowed = store_access_ids($actor);
+            if (!in_array((int) $data['store_id'], $allowed, true)) {
+                return redirect()->back()->with('error', 'Store tidak diizinkan.');
+            }
+        }
         if (Schema::hasColumn('tb_incoming_goods', 'is_pending_stock')) {
             $storeOnline = (int) tb_stores::where('id', $data['store_id'])->value('is_online') === 1;
             $data['is_pending_stock'] = $storeOnline ? 0 : 1;
@@ -158,7 +175,10 @@ class TbIncomingGoodsController extends Controller
      */
     public function edit($id)
     {
-        $stores = tb_stores::all();
+        $actor = auth()->user();
+        $stores = strtolower((string) ($actor?->roles)) === 'superadmin'
+            ? tb_stores::all()
+            : store_access_list($actor);
         $products = tb_products:: all();
         $suppliers = tb_suppliers::all();
         $incomingGood = tb_incoming_goods::where('id', $id)->first();
@@ -185,6 +205,13 @@ class TbIncomingGoodsController extends Controller
             'description' => 'nullable',
             'paid_of_date' => 'required|date'
         ]);
+        $actor = auth()->user();
+        if (strtolower((string) ($actor?->roles)) !== 'superadmin') {
+            $allowed = store_access_ids($actor);
+            if (!in_array((int) $data['store_id'], $allowed, true)) {
+                return redirect()->back()->with('error', 'Store tidak diizinkan.');
+            }
+        }
         if (Schema::hasColumn('tb_incoming_goods', 'is_pending_stock')) {
             $storeOnline = (int) tb_stores::where('id', $data['store_id'])->value('is_online') === 1;
             $data['is_pending_stock'] = $storeOnline ? 0 : 1;

@@ -19,8 +19,17 @@ class TbPurchaseController extends Controller
      */
     public function index(Request $request)
     {
-
+        $user = auth()->user();
+        $isSuperadmin = strtolower((string) ($user?->roles)) === 'superadmin';
         $purchases = tb_purchase::with(relations: ['supplier','store','creator:id,name'])
+            ->when(!$isSuperadmin, function ($query) use ($user) {
+                $allowed = store_access_ids($user);
+                if (!empty($allowed)) {
+                    $query->whereIn('store_id', $allowed);
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
+            })
             ->orderByDesc('id')
             ->get();
 
@@ -48,7 +57,7 @@ class TbPurchaseController extends Controller
     {
         $suppliers = tb_suppliers::all();
         $products = tb_products::all();
-        $stores = tb_stores::all(); 
+        $stores = store_access_list(auth()->user()); 
     
      
     
@@ -57,16 +66,21 @@ class TbPurchaseController extends Controller
     
     public function store(Request $request)
 {
+    $user = auth()->user();
+    $storeId = store_access_resolve_id($request, $user, ['store_id']);
+    if (!$storeId) {
+        return back()->with('error', 'Store wajib dipilih.');
+    }
     DB::beginTransaction();
     try {
         // Simpan ke tb_purchase
         $purchase = tb_purchase::create([
             'supplier_id' => $request->supplier_id,
-            'store_id' => $request->store_id,
+            'store_id' => $storeId,
             'total_price' => $request->total_price,
             'created_by' => auth()->id(),
         ]);
-        $storeOnline = (int) tb_stores::where('id', $request->store_id)->value('is_online') === 1;
+        $storeOnline = (int) tb_stores::where('id', $storeId)->value('is_online') === 1;
         $isPendingStock = $storeOnline ? 0 : 1;
         $hasIncomingStore = Schema::hasColumn('tb_incoming_goods', 'store_id');
         $hasPendingStock = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock');
@@ -83,7 +97,7 @@ class TbPurchaseController extends Controller
                 $payload['is_pending_stock'] = $isPendingStock;
             }
             if ($hasIncomingStore) {
-                $payload['store_id'] = $request->store_id;
+                $payload['store_id'] = $storeId;
             }
             tb_incoming_goods::create($payload);
         }
@@ -108,7 +122,7 @@ class TbPurchaseController extends Controller
         $purchase = tb_purchase::with('incomingGoods')->findOrFail($id);
 
         $suppliers = tb_suppliers::all();
-        $stores = tb_stores::all();
+        $stores = store_access_list(auth()->user());
         $products = tb_products::all();
     
         return view('pages.admin.purchase.edit', compact('purchase', 'suppliers', 'stores', 'products'));
@@ -120,6 +134,11 @@ class TbPurchaseController extends Controller
      */
     public function update(Request $request, $id)
     {
+        $user = auth()->user();
+        $storeId = store_access_resolve_id($request, $user, ['store_id']);
+        if (!$storeId) {
+            return back()->with('error', 'Store wajib dipilih.');
+        }
         DB::beginTransaction();
         try {
             // Ambil data pembelian yang ingin diperbarui
@@ -128,11 +147,11 @@ class TbPurchaseController extends Controller
             // Update data pembelian
             $purchase->update([
                 'supplier_id' => $request->supplier_id,
-                'store_id' => $request->store_id,
+                'store_id' => $storeId,
                 'total_price' => $request->total_price,
             ]);
 
-            $storeOnline = (int) tb_stores::where('id', $request->store_id)->value('is_online') === 1;
+            $storeOnline = (int) tb_stores::where('id', $storeId)->value('is_online') === 1;
             $isPendingStock = $storeOnline ? 0 : 1;
             $hasIncomingStore = Schema::hasColumn('tb_incoming_goods', 'store_id');
             $hasPendingStock = Schema::hasColumn('tb_incoming_goods', 'is_pending_stock');
@@ -152,7 +171,7 @@ class TbPurchaseController extends Controller
                     $payload['is_pending_stock'] = $isPendingStock;
                 }
                 if ($hasIncomingStore) {
-                    $payload['store_id'] = $request->store_id;
+                    $payload['store_id'] = $storeId;
                 }
                 tb_incoming_goods::create($payload);
             }

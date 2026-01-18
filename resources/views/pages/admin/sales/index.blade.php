@@ -102,7 +102,7 @@
                                 </div>
 
                             </div>
-                            @if(Auth::user()->roles === "superadmin")
+                            @if(store_access_can_select(Auth::user()))
                             <div class="row mb-2">
                                 <div class="d-flex align-items-center gap-2">
                                     <label for="date" style="width:24%">Toko</label>
@@ -111,7 +111,7 @@
                                         <select class="form-select form-select-sm form-transaction" id="store-id">
                                             <option value="">Pilih Toko</option>
                                             @foreach ($stores as $store)
-                                                <option value="{{$store->id}}">{{$store->store_name}}</option>
+                                                <option value="{{$store->id}}" {{ (int)($selectedStoreId ?? 0) === (int)$store->id ? 'selected' : '' }}>{{$store->store_name}}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -335,6 +335,19 @@
 
         $(document).ready(function() {
             $('#transaction-date').val(getToday());
+            const $storeSelect = $('#store-id');
+            if ($storeSelect.length) {
+                $storeSelect.on('change', function () {
+                    const val = $(this).val() || '';
+                    const url = new URL(window.location.href);
+                    if (val) {
+                        url.searchParams.set('store_id', val);
+                    } else {
+                        url.searchParams.delete('store_id');
+                    }
+                    window.location = url.toString();
+                });
+            }
         });
 
         $('#qty-modal').on('keydown', function(e) {

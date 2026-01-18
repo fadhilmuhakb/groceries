@@ -13,18 +13,18 @@ class ProductStockController extends Controller
     public function index(Request $request)
     {
         $user         = $request->user();
-        $isSuperadmin = $user?->roles === 'superadmin';
-        $stores       = $isSuperadmin
-            ? tb_stores::select('id', 'store_name')->orderBy('store_name')->get()
+        $isSuperadmin = strtolower((string) ($user?->roles)) === 'superadmin';
+        $stores       = store_access_can_select($user)
+            ? store_access_list($user)
             : collect();
 
-        $selectedStoreId = $isSuperadmin ? $request->query('store') : ($user?->store_id);
+        $selectedStoreId = store_access_resolve_id($request, $user, ['store']);
         $currentStore    = $selectedStoreId
             ? tb_stores::where('id', $selectedStoreId)->value('store_name')
             : null;
 
         return view('pages.admin.master.stock-overview', [
-            'isSuperadmin'    => $isSuperadmin,
+            'isSuperadmin'    => store_access_can_select($user),
             'stores'          => $stores,
             'selectedStoreId' => $selectedStoreId,
             'currentStore'    => $currentStore,
@@ -34,8 +34,7 @@ class ProductStockController extends Controller
     public function data(Request $request)
     {
         $user         = $request->user();
-        $isSuperadmin = $user?->roles === 'superadmin';
-        $storeId      = $isSuperadmin ? $request->get('store') : ($user?->store_id);
+        $storeId      = store_access_resolve_id($request, $user, ['store']);
 
         if (!$storeId) {
             return DataTables::of(collect())->toJson();

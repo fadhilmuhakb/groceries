@@ -14,19 +14,27 @@ class TbSellController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        if ($user->roles == 'superadmin') {
-            $sells = tb_sell::with('store')
-                ->orderByDesc('id')
-                ->get();
-        } else {
-            $sells = tb_sell::with('store')
-                ->where('store_id', $user->store_id)
-                ->orderByDesc('id')
-                ->get();
+        $role = strtolower((string) ($user->roles ?? ''));
+        $query = tb_sell::with('store')
+            ->orderByDesc('id');
+        if ($role !== 'superadmin') {
+            $allowed = store_access_ids($user);
+            $query->when(!empty($allowed), fn ($q) => $q->whereIn('store_id', $allowed))
+                ->when(empty($allowed), fn ($q) => $q->whereRaw('1 = 0'));
         }
 
         if ($request->ajax()) {
-            return DataTables::of($sells)
+            return DataTables::eloquent($query)
+                ->filterColumn('store.store_name', function ($query, $keyword) {
+                    $query->whereHas('store', function ($q) use ($keyword) {
+                        $q->where('store_name', 'like', '%' . $keyword . '%');
+                    });
+                })
+                ->orderColumn('store.store_name', function ($query, $order) {
+                    $query->leftJoin('tb_stores as stores', 'tb_sells.store_id', '=', 'stores.id')
+                        ->orderBy('stores.store_name', $order)
+                        ->select('tb_sells.*');
+                })
                 ->addColumn('action', function ($sells) {
                     return '
                 <div class="d-flex justify-content-center">
@@ -45,10 +53,16 @@ class TbSellController extends Controller
     public function detail($id)
     {
         $user = auth()->user();
+        $role = strtolower((string) ($user->roles ?? ''));
+        $allowed = store_access_ids($user);
 
         $sell = tb_sell::with('store')
-            ->when($user->roles != 'superadmin', function ($query) use ($user) {
-                $query->where('store_id', $user->store_id);
+            ->when($role !== 'superadmin', function ($query) use ($allowed) {
+                if (!empty($allowed)) {
+                    $query->whereIn('store_id', $allowed);
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
             })
             ->findOrFail($id);
 

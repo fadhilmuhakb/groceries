@@ -50,14 +50,14 @@
         <div class="text-danger">{{ $message}}</div>
         @enderror
         </div>
-        @if(Auth::user()->roles === 'superadmin')
+        @if(store_access_can_select(Auth::user()))
           <div class="col-6 mb-3">
             <label for="store">Store</label>
             <select name="store_id" class="form-select">
               <option value="">Pilih Toko</option>
               @foreach ($stores as $store)
                 <option value="{{$store->id}}"
-                  {{ (isset($customer) && $customer->store_id == $store->id) ? 'selected' : '' }} 
+                  {{ (int) old('store_id', $customer->store_id ?? 0) === (int) $store->id ? 'selected' : '' }} 
                   >{{$store->store_name}}</option>
               @endforeach
             </select>

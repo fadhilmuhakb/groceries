@@ -8,6 +8,11 @@
     text-align: right;
   }
 
+  #stock-table .money-col {
+    min-width: 140px;
+    white-space: nowrap;
+  }
+
   @media (max-width: 768px) {
     #stock-table td, #stock-table th {
       white-space: nowrap;
@@ -24,12 +29,12 @@
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
 
-    @if(Auth::user()->roles == 'superadmin')
+    @if(store_access_can_select(Auth::user()))
     <form method="GET" action="{{ route('inventory.index') }}" class="mb-3 w-auto">
         <select name="store_id" class="form-select" onchange="this.form.submit()">
             <option value="">-- Pilih Toko --</option>
             @foreach($stores as $store)
-                <option value="{{ $store->id }}" {{ (int)request('store_id') === $store->id ? 'selected' : '' }}>
+                <option value="{{ $store->id }}" {{ (int)($storeId ?? 0) === $store->id ? 'selected' : '' }}>
                     {{ $store->store_name }}
                 </option>
             @endforeach
@@ -43,7 +48,7 @@
               data-csrf-refresh="1"
               onsubmit="return confirm('Normalisasi akan menambahkan stok untuk semua produk yang minus. Lanjutkan?');">
             @csrf
-            @if(Auth::user()->roles == 'superadmin')
+            @if(store_access_can_select(Auth::user()))
                 <input type="hidden" name="store_id" value="{{ $storeId }}">
             @endif
             <button type="submit" class="btn btn-warning">
@@ -64,81 +69,83 @@
     <form id="stock-form" action="{{ route('inventory.adjustStockPreview') }}" method="POST">
         @csrf
 
-        <table class="table table-bordered table-striped" id="stock-table">
-            <thead>
-                <tr>
-                    <th style="width:40px;">No.</th>
-                    <th>Nama Produk</th>
-                    <th>Nama Toko</th>
-                    <th class="text-end">Harga Beli (toko)</th>
-                    <th class="text-end">Harga Jual (toko)</th>
-                    <th class="text-end">Jumlah Sistem</th>
-                    <th>Jumlah Fisik</th>
-                    <th class="text-end">Selisih (+/-)</th>
-                    <th class="text-end">Minus Barang (unit)</th>
-                    <th class="text-end">Total Minus (Rp)</th>
-                    <th class="text-end">Plus Barang (unit)</th>
-                    <th class="text-end">Total Plus (Rp)</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($query as $index => $row)
-                <tr data-price="{{ $row->purchase_price }}"
-                    data-code="{{ strtolower($row->product_code ?? '') }}"
-                    data-name="{{ strtolower($row->product_name ?? '') }}">
-                    <td>{{ $index + 1 }}</td>
-                    <td class="product-name">
-                        <div class="fw-semibold">{{ $row->product_name }}</div>
-                        @if(!empty($row->product_code))
-                            <div class="text-muted small">Kode: {{ $row->product_code }}</div>
-                        @endif
-                    </td>
-                    <td>{{ $row->store_name }}</td>
-                    <td class="text-end">{{ number_format((float)$row->purchase_price, 2, ',', '.') }}</td>
-                    <td class="text-end">{{ number_format((float)$row->selling_price, 2, ',', '.') }}</td>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped" id="stock-table">
+                <thead>
+                    <tr>
+                        <th style="width:40px;">No.</th>
+                        <th>Nama Produk</th>
+                        <th>Nama Toko</th>
+                        <th class="text-end">Harga Beli (toko)</th>
+                        <th class="text-end">Harga Jual (toko)</th>
+                        <th class="text-end">Jumlah Sistem</th>
+                        <th>Jumlah Fisik</th>
+                        <th class="text-end">Selisih (+/-)</th>
+                        <th class="text-end">Minus Barang (unit)</th>
+                        <th class="text-end money-col">Total Minus (Rp)</th>
+                        <th class="text-end">Plus Barang (unit)</th>
+                        <th class="text-end money-col">Total Plus (Rp)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($query as $index => $row)
+                    <tr data-price="{{ $row->purchase_price }}"
+                        data-code="{{ strtolower($row->product_code ?? '') }}"
+                        data-name="{{ strtolower($row->product_name ?? '') }}">
+                        <td>{{ $index + 1 }}</td>
+                        <td class="product-name">
+                            <div class="fw-semibold">{{ $row->product_name }}</div>
+                            @if(!empty($row->product_code))
+                                <div class="text-muted small">Kode: {{ $row->product_code }}</div>
+                            @endif
+                        </td>
+                        <td>{{ $row->store_name }}</td>
+                        <td class="text-end">{{ number_format((float)$row->purchase_price, 2, ',', '.') }}</td>
+                        <td class="text-end">{{ number_format((float)$row->selling_price, 2, ',', '.') }}</td>
 
-                    {{-- GUNAKAN system_stock_raw untuk tampilan stok sistem --}}
-                    <td class="text-end system-stock">{{ number_format((int)$row->system_stock_raw) }}</td>
+                        {{-- GUNAKAN system_stock_raw untuk tampilan stok sistem --}}
+                        <td class="text-end system-stock">{{ number_format((int)$row->system_stock_raw) }}</td>
 
-                    <td>
-                        <input type="hidden" name="product_id[]" value="{{ $row->product_id }}">
-                        <input type="hidden" name="store_id[]" value="{{ $row->store_id }}">
+                        <td>
+                            <input type="hidden" name="product_id[]" value="{{ $row->product_id }}">
+                            <input type="hidden" name="store_id[]" value="{{ $row->store_id }}">
 
-                        {{-- Prefill fisik = nilai draft jika ada; kalau tidak pakai stok sistem --}}
-                        @php
-                            $defaultPhysical = (int)$row->system_stock_raw;
-                            $physicalValue = array_key_exists($row->product_id, $draftQuantities ?? [])
-                                ? (int)$draftQuantities[$row->product_id]
-                                : $defaultPhysical;
-                        @endphp
-                        <input type="number" name="physical_quantity[]"
-                               value="{{ $physicalValue }}"
-                               min="0" class="form-control physical-qty" required>
-                    </td>
+                            {{-- Prefill fisik = nilai draft jika ada; kalau tidak pakai stok sistem --}}
+                            @php
+                                $defaultPhysical = (int)$row->system_stock_raw;
+                                $physicalValue = array_key_exists($row->product_id, $draftQuantities ?? [])
+                                    ? (int)$draftQuantities[$row->product_id]
+                                    : $defaultPhysical;
+                            @endphp
+                            <input type="number" name="physical_quantity[]"
+                                   value="{{ $physicalValue }}"
+                                   min="0" class="form-control physical-qty" required>
+                        </td>
 
-                    <td class="text-end diff-qty">0</td>
-                    <td class="text-end minus-qty">0</td>
-                    <td class="text-end minus-value">Rp 0</td>
-                    <td class="text-end plus-qty">0</td>
-                    <td class="text-end plus-value">Rp 0</td>
-                </tr>
-                @endforeach
-            </tbody>
-            <tfoot>
-                <tr class="fw-bold">
-                    <td colspan="7" class="text-end">TOTAL</td>
-                    <td class="text-end" id="total-diff-qty">0</td>
-                    <td class="text-end" id="total-minus-unit">0</td>
-                    <td class="text-end" id="total-minus-value">Rp 0</td>
-                    <td class="text-end" id="total-plus-unit">0</td>
-                    <td class="text-end" id="total-plus-value">Rp 0</td>
-                </tr>
-                <tr class="fw-bold">
-                    <td colspan="11" class="text-end">TOTAL PLUS - MINUS</td>
-                    <td class="text-end" id="total-plus-minus">Rp 0</td>
-                </tr>
-            </tfoot>
-        </table>
+                        <td class="text-end diff-qty">0</td>
+                        <td class="text-end minus-qty">0</td>
+                        <td class="text-end minus-value money-col">Rp 0</td>
+                        <td class="text-end plus-qty">0</td>
+                        <td class="text-end plus-value money-col">Rp 0</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td colspan="7" class="text-end">TOTAL</td>
+                        <td class="text-end" id="total-diff-qty">0</td>
+                        <td class="text-end" id="total-minus-unit">0</td>
+                        <td class="text-end money-col" id="total-minus-value">Rp 0</td>
+                        <td class="text-end" id="total-plus-unit">0</td>
+                        <td class="text-end money-col" id="total-plus-value">Rp 0</td>
+                    </tr>
+                    <tr class="fw-bold">
+                        <td colspan="11" class="text-end">TOTAL PLUS - MINUS</td>
+                        <td class="text-end money-col" id="total-plus-minus">Rp 0</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
 
         <button type="submit" class="btn btn-primary mt-3" id="adjustAllBtn">
             <span class="btn-label">Simpan</span>

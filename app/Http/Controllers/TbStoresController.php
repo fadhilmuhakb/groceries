@@ -15,7 +15,18 @@ class TbStoresController extends Controller
      */
     public function index(Request $request)
     {
-        $stores = tb_stores::all();
+        $user = auth()->user();
+        $isSuperadmin = strtolower((string) ($user?->roles)) === 'superadmin';
+        $stores = tb_stores::query()
+            ->when(!$isSuperadmin, function ($query) use ($user) {
+                $allowed = store_access_ids($user);
+                if (!empty($allowed)) {
+                    $query->whereIn('id', $allowed);
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
+            })
+            ->get();
         if($request->ajax()) {
             return DataTables::of($stores)
                 ->addColumn('status', function ($store) {
@@ -140,11 +151,17 @@ class TbStoresController extends Controller
             $user = $request->user();
             $role = strtolower((string)($user?->roles));
 
-            // superadmin/admin boleh pilih toko; selain itu pakai toko user dan abaikan ID yang dikirim
-            $storeId = in_array($role, ['superadmin','admin'])
-                ? (int)$id
-                : (int)($user?->store_id);
-            if ($storeId <= 0 || (!in_array($role, ['superadmin','admin']) && !$user?->store_id)) {
+            // superadmin boleh pilih toko; admin hanya toko yang diizinkan
+            if ($role === 'superadmin') {
+                $storeId = (int)$id;
+            } else {
+                $storeId = (int)$id;
+                $allowed = store_access_ids($user);
+                if (!in_array($storeId, $allowed, true)) {
+                    return response()->json(['message' => 'Store tidak valid untuk akun ini'], 422);
+                }
+            }
+            if ($storeId <= 0) {
                 return response()->json(['message' => 'Store tidak valid untuk akun ini'], 422);
             }
 
