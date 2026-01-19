@@ -80,6 +80,46 @@ class StockThresholdController extends Controller
             ->select('og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))
             ->groupBy('og.product_id');
 
+        $avgDays = 30;
+        $avgStart = now('Asia/Jakarta')->subDays($avgDays - 1)->startOfDay();
+        $avgEnd = now('Asia/Jakarta')->endOfDay();
+        $dateExpr = 'COALESCE(og.date, sl.date, og.created_at, sl.created_at)';
+        $hasSellerIdColumn = Schema::hasColumn('tb_sells', 'seller_id');
+        $hasInvoiceColumn = Schema::hasColumn('tb_sells', 'no_invoice');
+
+        $excludeStockOpname = function ($query) use ($hasSellerIdColumn, $hasInvoiceColumn) {
+            if ($hasSellerIdColumn) {
+                $query->where('sl.seller_id', '!=', 1);
+                return;
+            }
+            if ($hasInvoiceColumn) {
+                $query->where(function ($q) {
+                    $q->whereNull('sl.no_invoice')
+                      ->orWhere('sl.no_invoice', 'not like', 'SO-ADJ-%');
+                });
+            }
+        };
+
+        $avgSalesSub = DB::table('tb_outgoing_goods as og')
+            ->join('tb_sells as sl', 'og.sell_id', '=', 'sl.id')
+            ->when($storeId, fn ($q) => $q->where('sl.store_id', $storeId))
+            ->when(
+                Schema::hasColumn('tb_outgoing_goods', 'deleted_at'),
+                fn ($q) => $q->whereNull('og.deleted_at')
+            )
+            ->when(Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock'),
+                function ($q) {
+                    $q->where(function ($qq) {
+                        $qq->whereNull('og.is_pending_stock')
+                           ->orWhere('og.is_pending_stock', 0);
+                    });
+                })
+            ->whereBetween(DB::raw($dateExpr), [$avgStart, $avgEnd])
+            ->select('og.product_id', DB::raw('SUM(og.quantity_out) AS total_sold'))
+            ->groupBy('og.product_id');
+
+        $excludeStockOpname($avgSalesSub);
+
         $rows = DB::table('tb_products as p')
             ->leftJoin('tb_product_store_thresholds as st', function ($join) use ($storeId) {
                 $join->on('st.product_id', '=', 'p.id')
@@ -87,13 +127,15 @@ class StockThresholdController extends Controller
             })
             ->leftJoinSub($incomingSub, 'incoming', fn ($join) => $join->on('incoming.product_id', '=', 'p.id'))
             ->leftJoinSub($outgoingSub, 'outgoing', fn ($join) => $join->on('outgoing.product_id', '=', 'p.id'))
+            ->leftJoinSub($avgSalesSub, 'avg_sales', fn ($join) => $join->on('avg_sales.product_id', '=', 'p.id'))
             ->select(
                 'p.id',
                 'p.product_code',
                 'p.product_name',
                 'st.min_stock',
                 'st.max_stock',
-                DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system')
+                DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0)) as stock_system'),
+                DB::raw('COALESCE(avg_sales.total_sold, 0) / '.$avgDays.' as avg_daily_sales')
             )
             ->when($search !== '', function ($q) use ($search) {
                 $like = '%' . $search . '%';
@@ -145,10 +187,10 @@ class StockThresholdController extends Controller
                 $maxEmpty = $hasMaxKey && $this->isEmptyStockInput($maxInput);
 
                 $minStock = $hasMinKey
-                    ? $this->normalizeStockValue($minInput)
+                    ? ($minEmpty ? ($existing->min_stock ?? null) : $this->normalizeStockValue($minInput))
                     : ($existing->min_stock ?? null);
                 $maxStock = $hasMaxKey
-                    ? $this->normalizeStockValue($maxInput)
+                    ? ($maxEmpty ? ($existing->max_stock ?? null) : $this->normalizeStockValue($maxInput))
                     : ($existing->max_stock ?? null);
 
                 if (!$hasMinKey && !$hasMaxKey) {
@@ -193,13 +235,13 @@ class StockThresholdController extends Controller
         }
     }
 
-    private function normalizeStockValue($value): int
+    private function normalizeStockValue($value): ?int
     {
         if (is_string($value)) {
             $value = trim($value);
         }
         if ($value === null || $value === '' || is_array($value) || !is_numeric($value)) {
-            return 0;
+            return null;
         }
         $intValue = (int)$value;
         return $intValue < 0 ? 0 : $intValue;

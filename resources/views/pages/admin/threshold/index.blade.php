@@ -55,6 +55,7 @@
                     <th>Kode</th>
                     <th>Produk</th>
                     <th>Stok</th>
+                    <th style="width:90px" class="text-end">Avg</th>
                     <th>Stok Min</th>
                     <th>Stok Max</th>
                   </tr>
@@ -65,6 +66,7 @@
                       <td>{{ $row->product_code }}</td>
                       <td>{{ $row->product_name }}</td>
                       <td>{{ $row->stock_system }}</td>
+                      <td class="text-end">{{ number_format((float)($row->avg_daily_sales ?? 0), 0, ',', '.') }}</td>
                       <td style="max-width:150px">
                         <input type="number" min="0" class="form-control" name="items[{{ $row->id }}][min_stock]" value="{{ $row->min_stock }}">
                       </td>
@@ -91,7 +93,7 @@
 </div>
 @endsection
 
-@push('scripts')
+@section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('threshold-search');
@@ -193,4 +195,4 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
-@endpush
+@endsection
