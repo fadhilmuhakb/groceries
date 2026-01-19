@@ -106,7 +106,7 @@
             <th>Transaksi</th>
             <th>Hari Aktif</th>
             <th>Rata-rata per Hari</th>
-            <th>Growth MoM</th>
+            <th>Persentase</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -133,7 +133,10 @@ $(function () {
   let totalsFromServer = null;
   let dt;
 
-  const formatCurrency = (v) => 'Rp ' + Number(v ?? 0).toLocaleString('id-ID');
+  const formatCurrency = (v) => {
+    const rounded = Math.round(Number(v ?? 0));
+    return 'Rp ' + rounded.toLocaleString('id-ID');
+  };
   const formatNumber = (v) => Number(v ?? 0).toLocaleString('id-ID');
 
   function setMonthHint(msg) {
@@ -165,9 +168,11 @@ $(function () {
     if (!Number.isFinite(val)) {
       return '<span class="text-muted">-</span>';
     }
-    const sign = val > 0 ? '+' : '';
-    const cls = val >= 0 ? 'text-success' : 'text-danger';
-    return `<span class="${cls}">${sign}${val.toFixed(1)}%</span>`;
+    const rounded = Math.round(val);
+    const displayVal = rounded === 0 ? 0 : rounded;
+    const sign = displayVal > 0 ? '+' : '';
+    const cls = displayVal >= 0 ? 'text-success' : 'text-danger';
+    return `<span class="${cls}">${sign}${displayVal}%</span>`;
   }
 
   function buildTable() {

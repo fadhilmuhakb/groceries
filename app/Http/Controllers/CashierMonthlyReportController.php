@@ -23,7 +23,7 @@ class CashierMonthlyReportController extends Controller
             : null;
 
         $defaultTo = now('Asia/Jakarta')->startOfMonth();
-        $defaultFrom = (clone $defaultTo)->subMonths(5);
+        $defaultFrom = (clone $defaultTo);
 
         return view('pages.admin.report.cashier-monthly', [
             'stores'           => $stores,
@@ -140,7 +140,7 @@ class CashierMonthlyReportController extends Controller
 
         if (!$start && !$end) {
             $end = $now;
-            $start = (clone $now)->subMonths(5);
+            $start = (clone $now);
         } elseif ($start && !$end) {
             $end = (clone $start);
         } elseif (!$start && $end) {
