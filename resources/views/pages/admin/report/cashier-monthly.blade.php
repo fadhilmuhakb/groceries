@@ -100,13 +100,13 @@
         <thead>
           <tr>
             <th>No</th>
-            <th>Bulan</th>
             <th>Kasir</th>
-            <th>Total Omset</th>
+            <th>Omset <small class="text-muted d-block" id="label_month_from">-</small></th>
+            <th>Omset <small class="text-muted d-block" id="label_month_to">-</small></th>
             <th>Transaksi</th>
-            <th>Hari Aktif</th>
-            <th>Rata-rata per Hari</th>
+            <th>Selisih</th>
             <th>Persentase</th>
+            <th>Aksi</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -132,6 +132,8 @@ $(function () {
 
   let totalsFromServer = null;
   let dt;
+  let currentMonthFromLabel = '-';
+  let currentMonthToLabel = '-';
 
   const formatCurrency = (v) => {
     const rounded = Math.round(Number(v ?? 0));
@@ -149,6 +151,17 @@ $(function () {
     $('#summary_avg_cashier').text(formatCurrency(t.avg_cashier_month || 0));
     $('#summary_cashiers').text(formatNumber(t.cashier_count || 0));
     $('#summary_months').text(formatNumber(t.months_count || 0));
+  }
+
+  function updateMonthLabels() {
+    const fromVal = $monthFrom.val();
+    const toVal = $monthTo.val();
+    const fromLabel = fromVal ? moment(fromVal, 'YYYY-MM').format('MMM YYYY') : '-';
+    const toLabel = toVal ? moment(toVal, 'YYYY-MM').format('MMM YYYY') : '-';
+    currentMonthFromLabel = fromLabel;
+    currentMonthToLabel = toLabel;
+    $('#label_month_from').text(fromLabel);
+    $('#label_month_to').text(toLabel);
   }
 
   function reloadTable() {
@@ -175,6 +188,30 @@ $(function () {
     return `<span class="${cls}">${sign}${displayVal}%</span>`;
   }
 
+  function renderDelta(data, type) {
+    if (type !== 'display' && type !== 'filter') {
+      return data;
+    }
+    const val = Number(data ?? 0);
+    if (!Number.isFinite(val)) {
+      return '<span class="text-muted">-</span>';
+    }
+    const absVal = Math.abs(val);
+    const sign = val >= 0 ? '+' : '-';
+    const cls = val >= 0 ? 'text-success' : 'text-danger';
+    return `<span class="${cls}">${sign} ${formatCurrency(absVal)}</span>`;
+  }
+
+  function renderTransactions(data, type, row) {
+    if (type !== 'display' && type !== 'filter') {
+      return data;
+    }
+    const fromVal = formatNumber(row?.trx_from ?? 0);
+    const toVal = formatNumber(row?.trx_to ?? 0);
+    return `<div><small class="text-muted">${currentMonthFromLabel}</small> ${fromVal}</div>
+            <div><small class="text-muted">${currentMonthToLabel}</small> ${toVal}</div>`;
+  }
+
   function buildTable() {
     dt = $('#table_cashier_monthly').DataTable({
       processing: true,
@@ -189,22 +226,16 @@ $(function () {
         dataSrc: function (json) {
           totalsFromServer = json.totals || null;
           updateSummary();
+          updateMonthLabels();
           return json.data || [];
         }
       },
       columns: [
         { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable:false, searchable:false },
-        {
-          data: 'sale_month',
-          name: 'sale_month',
-          render: function (data) {
-            return data ? moment(data, 'YYYY-MM').format('MMM YYYY') : '-';
-          }
-        },
         { data: 'cashier_name', name: 'cashier_name', defaultContent: '-' },
         {
-          data: 'total_sales',
-          name: 'total_sales',
+          data: 'total_from',
+          name: 'total_from',
           className: 'text-end',
           render: function (data, type) {
             if (type === 'display' || type === 'filter') {
@@ -214,30 +245,8 @@ $(function () {
           }
         },
         {
-          data: 'transactions',
-          name: 'transactions',
-          className: 'text-end',
-          render: function (data, type) {
-            if (type === 'display' || type === 'filter') {
-              return formatNumber(data);
-            }
-            return data;
-          }
-        },
-        {
-          data: 'active_days',
-          name: 'active_days',
-          className: 'text-end',
-          render: function (data, type) {
-            if (type === 'display' || type === 'filter') {
-              return formatNumber(data);
-            }
-            return data;
-          }
-        },
-        {
-          data: 'avg_daily',
-          name: 'avg_daily',
+          data: 'total_to',
+          name: 'total_to',
           className: 'text-end',
           render: function (data, type) {
             if (type === 'display' || type === 'filter') {
@@ -245,15 +254,36 @@ $(function () {
             }
             return data;
           }
+        },
+        {
+          data: 'trx_from',
+          name: 'trx_from',
+          className: 'text-end',
+          orderable: false,
+          searchable: false,
+          render: renderTransactions
+        },
+        {
+          data: 'delta',
+          name: 'delta',
+          className: 'text-end',
+          render: renderDelta
         },
         {
           data: 'mom_growth',
           name: 'mom_growth',
           className: 'text-end',
           render: renderGrowth
+        },
+        {
+          data: 'action',
+          name: 'action',
+          orderable: false,
+          searchable: false,
+          className: 'text-center'
         }
       ],
-      order: [[1, 'desc'], [2, 'asc']],
+      order: [[1, 'asc']],
       pageLength: 25,
       language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/id.json' }
     });
@@ -261,6 +291,7 @@ $(function () {
 
   buildTable();
   $monthTo.attr('min', $monthFrom.val() || '');
+  updateMonthLabels();
 
   if ($store.length) {
     $store.on('change', function () {
@@ -278,6 +309,7 @@ $(function () {
 
     if (!from) {
       $monthTo.val('');
+      updateMonthLabels();
       reloadTable();
       return;
     }
@@ -288,6 +320,7 @@ $(function () {
       $monthTo.val(from);
     }
 
+    updateMonthLabels();
     reloadTable();
   });
 
@@ -308,6 +341,7 @@ $(function () {
       $monthTo.val(from);
     }
 
+    updateMonthLabels();
     reloadTable();
   });
 
@@ -317,6 +351,7 @@ $(function () {
     $monthFrom.val($monthFrom.data('default') || '');
     $monthTo.val($monthTo.data('default') || '');
     $monthTo.attr('min', $monthFrom.val() || '');
+    updateMonthLabels();
     reloadTable();
   });
 });

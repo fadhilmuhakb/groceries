@@ -23,7 +23,7 @@ class CashierMonthlyReportController extends Controller
             : null;
 
         $defaultTo = now('Asia/Jakarta')->startOfMonth();
-        $defaultFrom = (clone $defaultTo);
+        $defaultFrom = (clone $defaultTo)->subMonth();
 
         return view('pages.admin.report.cashier-monthly', [
             'stores'           => $stores,
@@ -50,6 +50,8 @@ class CashierMonthlyReportController extends Controller
             $request->get('month_from'),
             $request->get('month_to')
         );
+        $monthFrom = $startMonth->format('Y-m');
+        $monthTo = $endMonth->format('Y-m');
 
         $startDate = $startMonth->copy()->startOfMonth();
         $endDate = $endMonth->copy()->endOfMonth();
@@ -72,8 +74,8 @@ class CashierMonthlyReportController extends Controller
 
         $dateExpr = 'COALESCE(og.date, s.date, og.created_at, s.created_at)';
         $monthExpr = "DATE_FORMAT($dateExpr, '%Y-%m')";
-        $dayExpr = "DATE($dateExpr)";
         $cashierKeyExpr = "LOWER(TRIM(og.recorded_by))";
+        $targetMonths = array_values(array_unique([$monthFrom, $monthTo]));
 
         $salesBase = DB::table('tb_sells as s')
             ->join('tb_outgoing_goods as og', 'og.sell_id', '=', 's.id')
@@ -83,6 +85,7 @@ class CashierMonthlyReportController extends Controller
             )
             ->when($storeId, fn ($q) => $q->where('s.store_id', $storeId))
             ->whereBetween(DB::raw($dateExpr), [$startDate->startOfDay(), $endDate->endOfDay()])
+            ->whereIn(DB::raw($monthExpr), $targetMonths)
             ->whereNotNull('og.recorded_by')
             ->whereRaw('COALESCE(TRIM(og.recorded_by), "") <> ""')
             ->whereRaw('LOWER(COALESCE(TRIM(og.recorded_by), "")) != ?', ['stock opname']);
@@ -93,7 +96,6 @@ class CashierMonthlyReportController extends Controller
             ->selectRaw("
                 s.id as sell_id,
                 $monthExpr as sale_month,
-                $dayExpr as sale_day,
                 $cashierKeyExpr as cashier_key,
                 MIN(TRIM(og.recorded_by)) as cashier_name,
                 s.total_price as total_price
@@ -101,7 +103,6 @@ class CashierMonthlyReportController extends Controller
             ->groupBy(
                 's.id',
                 DB::raw($monthExpr),
-                DB::raw($dayExpr),
                 DB::raw($cashierKeyExpr),
                 's.total_price'
             );
@@ -109,15 +110,14 @@ class CashierMonthlyReportController extends Controller
         $monthly = DB::query()
             ->fromSub($perSale, 'sales')
             ->selectRaw('
-                sale_month,
                 cashier_key,
                 MIN(cashier_name) as cashier_name,
-                SUM(total_price) as total_sales,
-                COUNT(*) as transactions,
-                COUNT(DISTINCT sale_day) as active_days
-            ')
-            ->groupBy('sale_month', 'cashier_key')
-            ->orderBy('sale_month')
+                SUM(CASE WHEN sale_month = ? THEN total_price ELSE 0 END) as total_from,
+                SUM(CASE WHEN sale_month = ? THEN total_price ELSE 0 END) as total_to,
+                SUM(CASE WHEN sale_month = ? THEN 1 ELSE 0 END) as trx_from,
+                SUM(CASE WHEN sale_month = ? THEN 1 ELSE 0 END) as trx_to
+            ', [$monthFrom, $monthTo, $monthFrom, $monthTo])
+            ->groupBy('cashier_key')
             ->orderBy('cashier_name');
 
         $rows = $monthly->get();
@@ -126,7 +126,128 @@ class CashierMonthlyReportController extends Controller
 
         return DataTables::of($rowsWithMetrics)
             ->addIndexColumn()
+            ->addColumn('action', function ($row) use ($monthFrom, $monthTo, $storeId) {
+                $params = [
+                    'cashier_key' => $row->cashier_key ?? '',
+                    'cashier_name' => $row->cashier_name ?? '',
+                    'month_from' => $monthFrom,
+                    'month_to' => $monthTo,
+                ];
+                if ($storeId) {
+                    $params['store'] = $storeId;
+                }
+                $detailUrl = route('report.cashier.monthly.detail') . '?' . http_build_query($params);
+                return '<a href="' . e($detailUrl) . '" class="btn btn-sm btn-success">Detail</a>';
+            })
+            ->rawColumns(['action'])
             ->with(['totals' => $totals])
+            ->toJson();
+    }
+
+    public function detail(Request $request)
+    {
+        $user = $request->user();
+        $storeId = store_access_resolve_id($request, $user, ['store']);
+        $currentStoreName = $storeId
+            ? tb_stores::where('id', $storeId)->value('store_name')
+            : null;
+
+        $cashierKey = trim(strtolower((string) $request->get('cashier_key')));
+        $cashierName = trim((string) $request->get('cashier_name'));
+
+        [$startMonth, $endMonth] = $this->resolveMonthRange(
+            $request->get('month_from'),
+            $request->get('month_to')
+        );
+
+        return view('pages.admin.report.cashier-monthly-detail', [
+            'cashierKey' => $cashierKey,
+            'cashierName' => $cashierName,
+            'monthFrom' => $startMonth->format('Y-m'),
+            'monthTo' => $endMonth->format('Y-m'),
+            'storeId' => $storeId,
+            'currentStoreName' => $currentStoreName,
+        ]);
+    }
+
+    public function detailData(Request $request)
+    {
+        $user = $request->user();
+        $storeId = store_access_resolve_id($request, $user, ['store']);
+
+        if (!Schema::hasColumn('tb_outgoing_goods', 'recorded_by')) {
+            return DataTables::of(collect())->toJson();
+        }
+
+        $cashierKey = trim(strtolower((string) $request->get('cashier_key')));
+        $monthValue = $request->get('month');
+        $month = $this->tryParseMonth($monthValue, 'Asia/Jakarta');
+
+        if ($cashierKey === '' || !$month) {
+            return DataTables::of(collect())->toJson();
+        }
+
+        $startDate = $month->copy()->startOfMonth();
+        $endDate = $month->copy()->endOfMonth();
+
+        $hasSellerIdColumn = Schema::hasColumn('tb_sells', 'seller_id');
+        $hasInvoiceColumn = Schema::hasColumn('tb_sells', 'no_invoice');
+
+        $excludeStockOpname = function ($query) use ($hasSellerIdColumn, $hasInvoiceColumn) {
+            if ($hasSellerIdColumn) {
+                $query->where('s.seller_id', '!=', 1);
+                return;
+            }
+            if ($hasInvoiceColumn) {
+                $query->where(function ($q) {
+                    $q->whereNull('s.no_invoice')
+                      ->orWhere('s.no_invoice', 'not like', 'SO-ADJ-%');
+                });
+            }
+        };
+
+        $dateExpr = 'COALESCE(og.date, s.date, og.created_at, s.created_at)';
+        $invoiceSelect = $hasInvoiceColumn ? 's.no_invoice' : 'NULL as no_invoice';
+
+        $query = DB::table('tb_sells as s')
+            ->join('tb_outgoing_goods as og', 'og.sell_id', '=', 's.id')
+            ->leftJoin('tb_stores as st', 'st.id', '=', 's.store_id')
+            ->when(
+                Schema::hasColumn('tb_outgoing_goods', 'deleted_at'),
+                fn ($q) => $q->whereNull('og.deleted_at')
+            )
+            ->when($storeId, fn ($q) => $q->where('s.store_id', $storeId))
+            ->whereBetween(DB::raw($dateExpr), [$startDate->startOfDay(), $endDate->endOfDay()])
+            ->whereRaw('LOWER(TRIM(og.recorded_by)) = ?', [$cashierKey])
+            ->selectRaw("
+                s.id as sell_id,
+                $invoiceSelect,
+                st.store_name as store_name,
+                DATE($dateExpr) as sale_date,
+                s.total_price as total_price,
+                MAX(og.created_at) as last_activity
+            ");
+
+        $excludeStockOpname($query);
+
+        $groupBy = [
+            's.id',
+            'st.store_name',
+            DB::raw("DATE($dateExpr)"),
+            's.total_price',
+        ];
+        if ($hasInvoiceColumn) {
+            $groupBy[] = 's.no_invoice';
+        }
+        $query->groupBy($groupBy)->orderByDesc('last_activity');
+
+        return DataTables::of($query)
+            ->addIndexColumn()
+            ->addColumn('action', function ($row) {
+                $url = route('sell.detail', $row->sell_id);
+                return '<a href="' . e($url) . '" class="btn btn-sm btn-primary" target="_blank">Detail</a>';
+            })
+            ->rawColumns(['action'])
             ->toJson();
     }
 
@@ -140,7 +261,7 @@ class CashierMonthlyReportController extends Controller
 
         if (!$start && !$end) {
             $end = $now;
-            $start = (clone $now);
+            $start = (clone $now)->subMonth();
         } elseif ($start && !$end) {
             $end = (clone $start);
         } elseif (!$start && $end) {
@@ -168,31 +289,13 @@ class CashierMonthlyReportController extends Controller
 
     private function applyMetrics($rows)
     {
-        $rows = collect($rows);
-        $withMetrics = collect();
-
-        $grouped = $rows->groupBy('cashier_key');
-        foreach ($grouped as $items) {
-            $sorted = $items->sortBy('sale_month')->values();
-            $prevTotal = null;
-
-            foreach ($sorted as $item) {
-                $total = (float) $item->total_sales;
-                $days = (int) $item->active_days;
-
-                $item->avg_daily = $days > 0 ? ($total / $days) : 0;
-                if ($prevTotal !== null && $prevTotal > 0) {
-                    $item->mom_growth = (($total - $prevTotal) / $prevTotal) * 100;
-                } else {
-                    $item->mom_growth = null;
-                }
-
-                $prevTotal = $total;
-                $withMetrics->push($item);
-            }
-        }
-
-        return $withMetrics->values();
+        return collect($rows)->map(function ($item) {
+            $from = (float) ($item->total_from ?? 0);
+            $to = (float) ($item->total_to ?? 0);
+            $item->delta = $to - $from;
+            $item->mom_growth = $from > 0 ? (($to - $from) / $from) * 100 : null;
+            return $item;
+        })->values();
     }
 
     private function buildTotals($rows, Carbon $startMonth, Carbon $endMonth): array
@@ -200,7 +303,10 @@ class CashierMonthlyReportController extends Controller
         $rows = collect($rows);
 
         $cashierCount = $rows->pluck('cashier_key')->unique()->count();
-        $totalSales = (float) $rows->sum('total_sales');
+        $totalFrom = (float) $rows->sum('total_from');
+        $totalTo = (float) $rows->sum('total_to');
+        $sameMonth = $startMonth->format('Y-m') === $endMonth->format('Y-m');
+        $totalSales = $sameMonth ? $totalFrom : ($totalFrom + $totalTo);
         $monthsCount = $startMonth->diffInMonths($endMonth) + 1;
 
         $avgPerCashierMonth = ($cashierCount > 0 && $monthsCount > 0)
@@ -209,9 +315,13 @@ class CashierMonthlyReportController extends Controller
 
         return [
             'total_sales' => $totalSales,
+            'total_from' => $totalFrom,
+            'total_to' => $totalTo,
             'avg_cashier_month' => $avgPerCashierMonth,
             'cashier_count' => $cashierCount,
             'months_count' => $monthsCount,
+            'month_from' => $startMonth->format('Y-m'),
+            'month_to' => $endMonth->format('Y-m'),
         ];
     }
 
@@ -226,9 +336,13 @@ class CashierMonthlyReportController extends Controller
 
         return [
             'total_sales' => 0,
+            'total_from' => 0,
+            'total_to' => 0,
             'avg_cashier_month' => 0,
             'cashier_count' => 0,
             'months_count' => $monthsCount,
+            'month_from' => $startMonth->format('Y-m'),
+            'month_to' => $endMonth->format('Y-m'),
         ];
     }
 }

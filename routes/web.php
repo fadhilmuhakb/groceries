@@ -229,6 +229,8 @@ Route::prefix('report')->name('report.')->group(function () {
     // Monthly cashier report (penjualan asli)
     Route::get('/cashier-monthly', [CashierMonthlyReportController::class, 'index'])->name('cashier.monthly');
     Route::get('/cashier-monthly/data', [CashierMonthlyReportController::class, 'data'])->name('cashier.monthly.data');
+    Route::get('/cashier-monthly/detail', [CashierMonthlyReportController::class, 'detail'])->name('cashier.monthly.detail');
+    Route::get('/cashier-monthly/detail/data', [CashierMonthlyReportController::class, 'detailData'])->name('cashier.monthly.detail.data');
 
     // Legacy laporan penjualan
     Route::get('/sales-report', [SalesReportController::class, 'index'])->name('sales_report.index');
