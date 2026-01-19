@@ -15,6 +15,7 @@ use App\Http\Controllers\TbPurchaseController;
 use App\Http\Controllers\TbSalesController;
 use App\Http\Controllers\DailySalesReportController;
 use App\Http\Controllers\CashierMonthlyReportController;
+use App\Http\Controllers\StoreMonthlyReportController;
 use App\Http\Controllers\ProductStockController;
 use App\Http\Controllers\TbSellController;
 use App\Http\Controllers\SalesReportController;
@@ -231,6 +232,12 @@ Route::prefix('report')->name('report.')->group(function () {
     Route::get('/cashier-monthly/data', [CashierMonthlyReportController::class, 'data'])->name('cashier.monthly.data');
     Route::get('/cashier-monthly/detail', [CashierMonthlyReportController::class, 'detail'])->name('cashier.monthly.detail');
     Route::get('/cashier-monthly/detail/data', [CashierMonthlyReportController::class, 'detailData'])->name('cashier.monthly.detail.data');
+
+    // Monthly store report (penjualan asli)
+    Route::get('/store-monthly', [StoreMonthlyReportController::class, 'index'])->name('store.monthly');
+    Route::get('/store-monthly/data', [StoreMonthlyReportController::class, 'data'])->name('store.monthly.data');
+    Route::get('/store-monthly/detail', [StoreMonthlyReportController::class, 'detail'])->name('store.monthly.detail');
+    Route::get('/store-monthly/detail/data', [StoreMonthlyReportController::class, 'detailData'])->name('store.monthly.detail.data');
 
     // Legacy laporan penjualan
     Route::get('/sales-report', [SalesReportController::class, 'index'])->name('sales_report.index');
