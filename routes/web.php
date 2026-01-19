@@ -14,6 +14,7 @@ use App\Http\Controllers\TbUserController;
 use App\Http\Controllers\TbPurchaseController;
 use App\Http\Controllers\TbSalesController;
 use App\Http\Controllers\DailySalesReportController;
+use App\Http\Controllers\CashierMonthlyReportController;
 use App\Http\Controllers\ProductStockController;
 use App\Http\Controllers\TbSellController;
 use App\Http\Controllers\SalesReportController;
@@ -224,6 +225,10 @@ Route::prefix('report')->name('report.')->group(function () {
     // Daily sales report (baru)
     Route::get('/sales/today', [DailySalesReportController::class, 'index'])->name('sales.today');
     Route::get('/sales/today/data', [DailySalesReportController::class, 'data'])->name('sales.today.data');
+
+    // Monthly cashier report (penjualan asli)
+    Route::get('/cashier-monthly', [CashierMonthlyReportController::class, 'index'])->name('cashier.monthly');
+    Route::get('/cashier-monthly/data', [CashierMonthlyReportController::class, 'data'])->name('cashier.monthly.data');
 
     // Legacy laporan penjualan
     Route::get('/sales-report', [SalesReportController::class, 'index'])->name('sales_report.index');
