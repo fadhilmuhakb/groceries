@@ -604,12 +604,15 @@
 
         const processBarcode = debounce((barcode) => {
             let scanBarcodeVal = $('#scan-barcode').val();
+            let qty = parseInt($('#qty').val(), 10);
+            if (!Number.isFinite(qty) || qty <= 0) {
+                qty = 1;
+            }
             $.ajax({
                 url:`{{ route('options.incoming_goods') }}`,
                 method:'GET',
                 data: {'search_term': barcode, 'type': 'barcode'},
                 success: function(response) {
-                    let qty = 1;
                     let data = response.data[0];
                     if(data.current_stock < qty) {
                         alert('Stok Tidak Cukup');
@@ -618,7 +621,7 @@
                     data = {...data, qty: qty, discount: 0, total:0};
                     let findIndex = selectedRowData.findIndex(item => data.id == item.id);
                     if(findIndex !== -1) {
-                        selectedRowData[findIndex].qty = parseInt(selectedRowData[findIndex].qty) + 1;
+                        selectedRowData[findIndex].qty = parseInt(selectedRowData[findIndex].qty) + qty;
                     } else {
                         selectedRowData.push(data);
                     }
