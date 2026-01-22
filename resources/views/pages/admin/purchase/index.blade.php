@@ -58,16 +58,10 @@
                             return meta.row + meta.settings._iDisplayStart + 1;
                         }
                     },
-                    { data: 'supplier.name', name: 'supplier.name' },
+                    { data: 'supplier_name', name: 'supplier_name' },
                     { data: 'total_price', name: 'total_price' },
-                    { data: 'store.store_name', name: 'store.store_name' },
-                    {
-                        data: 'creator.name',
-                        name: 'creator.name',
-                        render: function (data) {
-                            return data || '-';
-                        }
-                    },
+                    { data: 'store_name', name: 'store_name' },
+                    { data: 'creator_name', name: 'creator_name' },
                     {
                         data: 'created_at',
                         name: 'created_at',

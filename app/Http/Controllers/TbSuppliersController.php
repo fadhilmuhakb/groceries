@@ -14,7 +14,10 @@ class TbSuppliersController extends Controller
      */
     public function index(Request $request)
     {
-        $suppliers = tb_suppliers::all();
+        $suppliers = tb_suppliers::query()
+            ->where('code', '!=', 'SO-ADJ')
+            ->orderBy('name')
+            ->get();
         if($request->ajax()) {
             return DataTables::of($suppliers)
                     ->addColumn('action', function ($supplier) {

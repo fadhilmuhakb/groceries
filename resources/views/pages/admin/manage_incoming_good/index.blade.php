@@ -50,7 +50,7 @@
                 ajax: "{{ route('purchase.index') }}",
                 columns: [
                     { data: 'id', name: 'id' },
-                    { data: 'supplier.name', name: 'supplier.name' },
+                    { data: 'supplier_name', name: 'supplier_name' },
                     { data: 'total_price', name: 'total_price' },
                     { data: 'paid_date', name: 'paid_date' },
                     { data: 'created_at', name: 'created_at' },

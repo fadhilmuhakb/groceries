@@ -36,6 +36,19 @@ class TbPurchaseController extends Controller
 
         if ($request->ajax()) {
             return DataTables::of($purchases)
+            ->addColumn('supplier_name', function ($purchase) {
+                $supplier = $purchase->supplier;
+                if (!$supplier) {
+                    return '-';
+                }
+                return ($supplier->code ?? null) === 'SO-ADJ' ? '-' : $supplier->name;
+            })
+            ->addColumn('store_name', function ($purchase) {
+                return $purchase->store?->store_name ?? '-';
+            })
+            ->addColumn('creator_name', function ($purchase) {
+                return $purchase->creator?->name ?? '-';
+            })
             ->addColumn('action', function ($purchases) {
                 return '
                 <div class="d-flex justify-content-center">
@@ -55,7 +68,10 @@ class TbPurchaseController extends Controller
      */
     public function create()
     {
-        $suppliers = tb_suppliers::all();
+        $suppliers = tb_suppliers::query()
+            ->where('code', '!=', 'SO-ADJ')
+            ->orderBy('name')
+            ->get();
         $products = tb_products::all();
         $stores = store_access_list(auth()->user()); 
     
@@ -119,9 +135,12 @@ class TbPurchaseController extends Controller
      */
     public function edit($id)
     {
-        $purchase = tb_purchase::with('incomingGoods')->findOrFail($id);
+        $purchase = tb_purchase::with(['incomingGoods', 'supplier'])->findOrFail($id);
 
-        $suppliers = tb_suppliers::all();
+        $suppliers = tb_suppliers::query()
+            ->where('code', '!=', 'SO-ADJ')
+            ->orderBy('name')
+            ->get();
         $stores = store_access_list(auth()->user());
         $products = tb_products::all();
     
