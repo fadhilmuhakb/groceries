@@ -170,6 +170,17 @@
                             Rp {{ number_format((int)($summary['total_plus_value'] ?? 0), 0, ',', '.') }}
                         </td>
                     </tr>
+                    <tr class="fw-bold">
+                        <td colspan="9" class="text-end">TOTAL PLUS - MINUS</td>
+                        @php
+                            $netValue = array_key_exists('net_value', $summary ?? [])
+                                ? (int)$summary['net_value']
+                                : ((int)($summary['total_plus_value'] ?? 0) - (int)($summary['total_minus_value'] ?? 0));
+                        @endphp
+                        <td class="text-end">
+                            Rp {{ number_format($netValue, 0, ',', '.') }}
+                        </td>
+                    </tr>
                 </tfoot>
             </table>
         </div>

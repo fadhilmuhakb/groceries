@@ -5,12 +5,28 @@
   /* Buat kolom jumlah fisik cukup lebar untuk layar kecil */
   #stock-table input.physical-qty {
     min-width: 110px;
+    width: 100%;
+    box-sizing: border-box;
     text-align: right;
   }
 
   #stock-table .money-col {
     min-width: 140px;
     white-space: nowrap;
+  }
+
+  #stock-table td.physical-col {
+    min-width: 140px;
+  }
+
+  #stock-table td,
+  #stock-table th {
+    vertical-align: middle;
+  }
+
+  .stockopname-table {
+    overflow-x: auto;
+    overflow-y: visible;
   }
 
   @media (max-width: 768px) {
@@ -69,7 +85,7 @@
     <form id="stock-form" action="{{ route('inventory.adjustStockPreview') }}" method="POST">
         @csrf
 
-        <div class="table-responsive">
+        <div class="table-responsive stockopname-table">
             <table class="table table-bordered table-striped" id="stock-table">
                 <thead>
                     <tr>
@@ -106,7 +122,7 @@
                         {{-- GUNAKAN system_stock_raw untuk tampilan stok sistem --}}
                         <td class="text-end system-stock">{{ number_format((int)$row->system_stock_raw) }}</td>
 
-                        <td>
+                        <td class="physical-col">
                             <input type="hidden" name="product_id[]" value="{{ $row->product_id }}">
                             <input type="hidden" name="store_id[]" value="{{ $row->store_id }}">
 
