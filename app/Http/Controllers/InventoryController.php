@@ -170,7 +170,7 @@ class InventoryController extends Controller
         }
 
         try {
-            $items = $this->parseStockItems($request);
+            $items = $this->parseStockItems($request, true);
         } catch (\InvalidArgumentException $e) {
             if ($request->boolean('use_session_items')) {
                 $request->session()->forget('inventory.stock_opname_preview.processing');
@@ -180,6 +180,29 @@ class InventoryController extends Controller
                 return response()->json(['message' => $message], 422);
             }
             return redirect()->back()->with('error', $message);
+        }
+
+        if (empty($items)) {
+            $storeId = (int) ($request->session()->get('inventory.stock_opname_preview.store_id') ?? $request->input('store_id') ?? 0);
+            if ($storeId <= 0) {
+                if ($request->boolean('use_session_items')) {
+                    $request->session()->forget('inventory.stock_opname_preview.processing');
+                }
+                $message = "[$ver] store_id tidak ditemukan";
+                if ($request->expectsJson()) {
+                    return response()->json(['message' => $message], 422);
+                }
+                return redirect()->back()->with('error', $message);
+            }
+
+            $message = "[$ver] Tidak ada perubahan stok untuk disimpan.";
+            $request->session()->forget('inventory.stock_opname_preview');
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message]);
+            }
+            return redirect()
+                ->route('inventory.index', ['store_id' => $storeId])
+                ->with('success', $message);
         }
 
         $storeIds = array_values(array_unique(array_filter(array_column($items, 'store_id'))));
@@ -381,18 +404,27 @@ class InventoryController extends Controller
     {
         $ver = 'adj-v15-nobuilder';
         try {
-            $items = $this->parseStockItems($request);
+            $items = $this->parseStockItems($request, true);
         } catch (\InvalidArgumentException $e) {
             return response()->json(['message' => "[$ver] ".$e->getMessage()], 422);
         }
 
-        $storeIds = array_values(array_unique(array_filter(array_column($items, 'store_id'))));
-        if (count($storeIds) !== 1) {
-            return response()->json(['message' => "[$ver] Multiple/invalid store_id"], 422);
+        $storeId = 0;
+        if (!empty($items)) {
+            $storeIds = array_values(array_unique(array_filter(array_column($items, 'store_id'))));
+            if (count($storeIds) !== 1) {
+                return response()->json(['message' => "[$ver] Multiple/invalid store_id"], 422);
+            }
+            $storeId = (int)$storeIds[0];
+        } else {
+            $storeId = (int)$request->input('store_id', 0);
+            if ($storeId <= 0) {
+                return response()->json(['message' => "[$ver] store_id tidak ditemukan"], 422);
+            }
         }
-        $storeId = (int)$storeIds[0];
 
-        $summary = $this->buildStockSummary($items, $storeId);
+        $totalItems = (int)$request->input('total_items', 0);
+        $summary = $this->buildStockSummary($items, $storeId, $totalItems > 0 ? $totalItems : null);
         $token = bin2hex(random_bytes(16));
         $request->session()->put('inventory.stock_opname_preview', [
             'items' => $items,
@@ -581,12 +613,16 @@ class InventoryController extends Controller
             ->with('success', "Normalisasi selesai: {$productCount} produk, total {$totalQty} unit ditambahkan.");
     }
 
-    private function parseStockItems(Request $request): array
+    private function parseStockItems(Request $request, bool $allowEmpty = false): array
     {
         if ($request->boolean('use_session_items')) {
-            $previewItems = $request->session()->get('inventory.stock_opname_preview.items');
-            if (!is_array($previewItems) || empty($previewItems)) {
+            $preview = $request->session()->get('inventory.stock_opname_preview');
+            $previewItems = is_array($preview) ? ($preview['items'] ?? null) : null;
+            if (!is_array($previewItems) || (empty($previewItems) && !$allowEmpty)) {
                 throw new \InvalidArgumentException('Data preview tidak ditemukan atau sudah kedaluwarsa');
+            }
+            if (empty($previewItems)) {
+                return [];
             }
             return array_values(array_map(function ($row) {
                 if (is_object($row)) $row = (array)$row;
@@ -624,6 +660,9 @@ class InventoryController extends Controller
         }
 
         if (!is_array($items) || empty($items)) {
+            if ($allowEmpty) {
+                return [];
+            }
             throw new \InvalidArgumentException('Payload tidak valid (items)');
         }
 
@@ -637,7 +676,7 @@ class InventoryController extends Controller
         }, $items));
     }
 
-    private function buildStockSummary(array $items, int $storeId): array
+    private function buildStockSummary(array $items, int $storeId, ?int $totalItemsOverride = null): array
     {
         $now = now();
         $incomingDeletedSql = Schema::hasColumn('tb_incoming_goods', 'deleted_at')
@@ -663,7 +702,7 @@ class InventoryController extends Controller
             'store_name' => $storeRow ? $storeRow->store_name : null,
             'submitted_at' => $now->toDateTimeString(),
             'changes' => [],
-            'total_items' => count($items),
+            'total_items' => $totalItemsOverride ?? count($items),
             'changed_items' => 0,
             'total_minus_qty' => 0,
             'total_plus_qty' => 0,

@@ -84,6 +84,10 @@
 
     <form id="stock-form" action="{{ route('inventory.adjustStockPreview') }}" method="POST">
         @csrf
+        @if($storeId)
+            <input type="hidden" name="store_id" value="{{ $storeId }}">
+        @endif
+        <input type="hidden" name="total_items" value="{{ $query->count() }}">
 
         <div class="table-responsive stockopname-table">
             <table class="table table-bordered table-striped" id="stock-table">
@@ -339,14 +343,22 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (_) {}
         }
 
-        // KIRIM JSON ke endpoint preview
+        // KIRIM JSON ke endpoint preview (hanya item berubah)
         const items = [];
         table.querySelectorAll('tbody tr').forEach(tr => {
             const productId = parseInt(tr.querySelector('input[name="product_id[]"]').value);
             const storeId   = parseInt(tr.querySelector('input[name="store_id[]"]').value);
+            const systemStock = parseInt(tr.querySelector('.system-stock').textContent.replace(/[^\d-]/g, '')) || 0;
             const physical  = parseInt(tr.querySelector('.physical-qty').value) || 0;
-            items.push({ product_id: productId, store_id: storeId, physical_quantity: physical });
+            if (physical !== systemStock) {
+                items.push({ product_id: productId, store_id: storeId, physical_quantity: physical });
+            }
         });
+
+        const storeIdField = form.querySelector('input[name="store_id"]');
+        const totalItemsField = form.querySelector('input[name="total_items"]');
+        const storeIdValue = storeIdField ? parseInt(storeIdField.value) || 0 : 0;
+        const totalItemsValue = totalItemsField ? parseInt(totalItemsField.value) || 0 : 0;
 
         const csrfToken = readCsrfToken();
         const xsrfCookie = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
@@ -363,7 +375,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ items, _token: csrfToken })
+                body: JSON.stringify({
+                    items,
+                    store_id: storeIdValue,
+                    total_items: totalItemsValue,
+                    _token: csrfToken
+                })
             });
 
             const ct = res.headers.get('content-type') || '';
