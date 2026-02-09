@@ -6,7 +6,9 @@ use App\Models\tb_stores;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Maatwebsite\Excel\Facades\Excel;
 use Yajra\DataTables\Facades\DataTables;
+use App\Exports\ProductStockExport;
 
 class ProductStockController extends Controller
 {
@@ -40,6 +42,63 @@ class ProductStockController extends Controller
             return DataTables::of(collect())->toJson();
         }
 
+        $base = $this->stockBaseQuery($storeId);
+
+        return DataTables::of($base)
+            ->addIndexColumn()
+            ->filter(function ($query) use ($request) {
+                $search = $request->input('search.value');
+                if ($search) {
+                    $query->where(function ($q) use ($search) {
+                        $like = '%' . $search . '%';
+                        $q->where('p.product_name', 'like', $like)
+                          ->orWhere('p.product_code', 'like', $like);
+                    });
+                }
+            })
+            ->toJson();
+    }
+
+    public function export(Request $request)
+    {
+        $user         = $request->user();
+        $storeId      = store_access_resolve_id($request, $user, ['store']);
+
+        if (!$storeId) {
+            return back()->with('error', 'Pilih toko terlebih dahulu.');
+        }
+
+        $query = $this->stockBaseQuery($storeId);
+
+        $search = (string) ($request->input('search') ?? $request->input('search.value') ?? '');
+        $search = trim($search);
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $like = '%' . $search . '%';
+                $q->where('p.product_name', 'like', $like)
+                  ->orWhere('p.product_code', 'like', $like);
+            });
+        }
+
+        $items = $query->get();
+        $exportRows = $items->map(function ($row) {
+            return [
+                'Kode'        => $row->product_code,
+                'Produk'      => $row->product_name,
+                'Stok sistem' => (int) $row->stock_system,
+            ];
+        });
+
+        $storeName = DB::table('tb_stores')->where('id', $storeId)->value('store_name');
+        $safeStore = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $storeName);
+        $safeStore = trim($safeStore, '-');
+        $safeStore = $safeStore !== '' ? $safeStore : 'Toko';
+        $filename = 'Stock-' . $safeStore . '-' . now('Asia/Jakarta')->format('Y-m-d-H.i') . '.xlsx';
+        return Excel::download(new ProductStockExport($exportRows), $filename);
+    }
+
+    private function stockBaseQuery(int $storeId)
+    {
         $hasIncomingStore = Schema::hasColumn('tb_incoming_goods', 'store_id');
         $incomingSub = DB::table('tb_incoming_goods as ig')
             ->when(
@@ -91,7 +150,7 @@ class ProductStockController extends Controller
             ->select('og.product_id', DB::raw('SUM(og.quantity_out) AS total_out'))
             ->groupBy('og.product_id');
 
-        $base = DB::table('tb_products as p')
+        return DB::table('tb_products as p')
             ->leftJoinSub($incomingSub, 'incoming', fn($join) => $join->on('incoming.product_id', '=', 'p.id'))
             ->leftJoinSub($outgoingSub, 'outgoing', fn($join) => $join->on('outgoing.product_id', '=', 'p.id'))
             ->select(
@@ -102,19 +161,5 @@ class ProductStockController extends Controller
             )
             ->where(DB::raw('(COALESCE(incoming.total_in, 0) - COALESCE(outgoing.total_out, 0))'), '>', 0)
             ->orderBy('p.product_name');
-
-        return DataTables::of($base)
-            ->addIndexColumn()
-            ->filter(function ($query) use ($request) {
-                $search = $request->input('search.value');
-                if ($search) {
-                    $query->where(function ($q) use ($search) {
-                        $like = '%' . $search . '%';
-                        $q->where('p.product_name', 'like', $like)
-                          ->orWhere('p.product_code', 'like', $like);
-                    });
-                }
-            })
-            ->toJson();
     }
 }

@@ -2,6 +2,15 @@
 
 @section('css')
 <link href="{{ asset('assets/plugins/datatable/css/dataTables.bootstrap5.min.css') }}" rel="stylesheet" />
+<style>
+    .btn-export {
+        --bs-btn-padding-y: 0.45rem;
+        --bs-btn-padding-x: 1.1rem;
+        --bs-btn-font-size: 0.95rem;
+        --bs-btn-border-radius: 0.5rem;
+        --bs-btn-line-height: 1.2;
+    }
+</style>
 @endsection
 
 @section('content')
@@ -28,8 +37,15 @@
             <span class="badge bg-secondary">Toko: {{ $currentStore ?? '-' }}</span>
         @endif
 
-        <div class="ms-auto">
+        <div class="ms-auto d-flex align-items-center gap-2">
             <input type="text" id="search_box" class="form-control" placeholder="Cari produk / kode">
+            <a id="export_btn"
+               href="{{ $selectedStoreId ? route('master-stock.export', ['store' => $selectedStoreId]) : '#' }}"
+               data-base="{{ route('master-stock.export') }}"
+               class="btn btn-outline-success btn-export {{ $selectedStoreId ? '' : 'disabled' }}"
+               @if(!$selectedStoreId) aria-disabled="true" @endif>
+                Export
+            </a>
         </div>
     </div>
 </div>
@@ -64,8 +80,28 @@
         const $storeSelect = $('#store_selector');
         const $storeHint   = $('#store_hint');
         const $searchBox   = $('#search_box');
+        const $exportBtn   = $('#export_btn');
+        const exportBase   = $exportBtn.data('base');
         let table;
         let currentStoreId = @json($selectedStoreId);
+
+        function updateExportLink() {
+            if (!currentStoreId) {
+                $exportBtn.addClass('disabled')
+                    .attr('aria-disabled', 'true')
+                    .attr('href', '#');
+                return;
+            }
+            const params = new URLSearchParams();
+            params.set('store', currentStoreId);
+            const searchVal = ($searchBox.val() || '').trim();
+            if (searchVal) {
+                params.set('search', searchVal);
+            }
+            $exportBtn.removeClass('disabled')
+                .attr('aria-disabled', 'false')
+                .attr('href', `${exportBase}?${params.toString()}`);
+        }
 
         function buildTable() {
             table = $('#table_stock').DataTable({
@@ -94,12 +130,14 @@
 
             $searchBox.on('keyup', function () {
                 table.search(this.value).draw();
+                updateExportLink();
             });
         }
 
         function ensureTable() {
             if (!currentStoreId) {
                 $storeHint?.addClass('text-danger').text('Pilih toko terlebih dahulu.');
+                updateExportLink();
                 return;
             }
             $storeHint?.removeClass('text-danger').text('Memuat data stok...');
@@ -108,6 +146,7 @@
             } else {
                 buildTable();
             }
+            updateExportLink();
         }
 
         if (isSuperadmin) {
@@ -123,6 +162,7 @@
                     if (table) {
                         table.clear().draw();
                     }
+                    updateExportLink();
                     return;
                 }
                 ensureTable();

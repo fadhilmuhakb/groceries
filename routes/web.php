@@ -257,4 +257,5 @@ Route::prefix('settings')->group(function () {
     Route::prefix('master-stock')->group(function () {
         Route::get('/', [ProductStockController::class, 'index'])->name('master-stock.index');
         Route::get('/data', [ProductStockController::class, 'data'])->name('master-stock.data');
+        Route::get('/export', [ProductStockController::class, 'export'])->name('master-stock.export');
     });
