@@ -642,11 +642,33 @@ class InventoryController extends Controller
             }
         }
 
-        if (!$items) {
+        // Jika items tidak disediakan sama sekali (bukan array kosong), fallback ke input form.
+        if ($items === null || $items === '') {
             $pids = (array)$request->input('product_id', []);
-            $sids = (array)$request->input('store_id', []);
             $phys = (array)$request->input('physical_quantity', []);
+            $sids = $request->input('store_id', []);
+            Log::info('inventory.parseStockItems: items missing, fallback to form inputs', [
+                'route' => optional($request->route())->getName(),
+                'user_id' => auth()->id(),
+                'store_id' => $request->input('store_id'),
+                'product_id_count' => count($pids),
+                'physical_quantity_count' => count($phys),
+                'store_id_is_array' => is_array($sids),
+            ]);
+            if (!is_array($sids)) {
+                $sids = $pids ? array_fill(0, count($pids), (int)$sids) : [];
+            } else {
+                $sids = (array)$sids;
+            }
             if (count($pids) !== count($sids) || count($pids) !== count($phys)) {
+                Log::warning('inventory.parseStockItems: payload invalid (form inputs)', [
+                    'route' => optional($request->route())->getName(),
+                    'user_id' => auth()->id(),
+                    'store_id' => $request->input('store_id'),
+                    'product_id_count' => count($pids),
+                    'store_id_count' => count($sids),
+                    'physical_quantity_count' => count($phys),
+                ]);
                 throw new \InvalidArgumentException('Payload tidak valid');
             }
             $items = [];
@@ -663,6 +685,13 @@ class InventoryController extends Controller
             if ($allowEmpty) {
                 return [];
             }
+            Log::warning('inventory.parseStockItems: payload invalid (items)', [
+                'route' => optional($request->route())->getName(),
+                'user_id' => auth()->id(),
+                'store_id' => $request->input('store_id'),
+                'items_type' => gettype($items),
+                'items_count' => is_array($items) ? count($items) : null,
+            ]);
             throw new \InvalidArgumentException('Payload tidak valid (items)');
         }
 
