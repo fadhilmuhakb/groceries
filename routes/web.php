@@ -137,6 +137,8 @@ Route::get('/sync/manual', [SyncController::class, 'manual'])->name('sync.manual
     Route::prefix('sell')->group(function () {
         Route::get('/', [TbSellController::class, 'index'])->name('sell.index');
         Route::get('/detail/{id}', [TbSellController::class, 'detail'])->name('sell.detail');
+        Route::get('/edit/{id}', [TbSellController::class, 'edit'])->name('sell.edit');
+        Route::put('/update/{id}', [TbSellController::class, 'update'])->name('sell.update');
     });
 
     Route::prefix('store')->group(function () {
