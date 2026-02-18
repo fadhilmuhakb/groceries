@@ -17,6 +17,12 @@
 
     <h6 class="mb-0 text-uppercase">Data Penjualan</h6>
     <hr />
+    @if(session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">

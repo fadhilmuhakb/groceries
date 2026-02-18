@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\tb_sell;
 use App\Models\tb_products;
+use App\Models\tb_outgoing_goods;
+use App\Models\tb_stores;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -41,11 +44,8 @@ class TbSellController extends Controller
                 ->addColumn('action', function ($sells) {
                     return '
                 <div class="d-flex justify-content-center">
-                    <a href="/sell/edit/' . $sells->id . '" class="btn btn-sm btn-primary me-1">
-                       Edit
-                    </a>
-                    <a href="/sell/detail/' . $sells->id . '" class="btn btn-sm btn-success me-1">
-                       Detail Penjualan <i class="bx bx-right-arrow-alt"></i> 
+                    <a href="/sell/detail/' . $sells->id . '" class="btn btn-sm btn-primary me-1">
+                       Detail / Edit <i class="bx bx-right-arrow-alt"></i> 
                     </a>
                 </div>';
                 })
@@ -76,7 +76,9 @@ class TbSellController extends Controller
             ->where('sell_id', $sell->id)
             ->get();
 
-        return view('pages.admin.sell.detail', compact('sell', 'outgoingGoods'));
+        [$products, $priceData] = $this->loadProductsAndPrices((int) $sell->store_id);
+
+        return view('pages.admin.sell.detail', compact('sell', 'outgoingGoods', 'products', 'priceData'));
     }
 
     /**
@@ -144,8 +146,9 @@ class TbSellController extends Controller
             ->findOrFail($id);
 
         $outgoingGoods = $sell->outgoing_goods;
+        [$products, $priceData] = $this->loadProductsAndPrices((int) $sell->store_id);
 
-        return view('pages.admin.sell.edit', compact('sell', 'outgoingGoods'));
+        return view('pages.admin.sell.edit', compact('sell', 'outgoingGoods', 'products', 'priceData'));
     }
 
     public function updateById(Request $request, $id)
@@ -164,11 +167,40 @@ class TbSellController extends Controller
             })
             ->findOrFail($id);
 
-        $validator = Validator::make($request->all(), [
+        $existingItems = $request->input('items_existing', []);
+        $newItems = $request->input('items_new', []);
+
+        if (empty($existingItems) && empty($newItems)) {
+            DB::beginTransaction();
+            try {
+                foreach ($sell->outgoing_goods as $outgoing) {
+                    $outgoing->delete();
+                }
+                $sell->delete();
+                DB::commit();
+                return redirect()->route('sell.index')
+                    ->with('success', 'Invoice dihapus karena semua item dihapus.');
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return redirect()->back()->with('error', $e->getMessage())->withInput();
+            }
+        }
+
+        $rules = [
             'date' => 'required|date',
-            'items' => 'required|array|min:1',
-            'items.*.qty' => 'required|integer|min:1',
-        ]);
+            'payment_amount' => 'nullable|numeric|min:0',
+        ];
+        if (!empty($existingItems)) {
+            $rules['items_existing'] = 'array';
+            $rules['items_existing.*.qty'] = 'required|integer|min:1';
+        }
+        if (!empty($newItems)) {
+            $rules['items_new'] = 'array';
+            $rules['items_new.*.product_id'] = 'required|integer|exists:tb_products,id';
+            $rules['items_new.*.qty'] = 'required|integer|min:1';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
@@ -176,19 +208,18 @@ class TbSellController extends Controller
 
         DB::beginTransaction();
         try {
-            $items = $request->input('items', []);
-            $oldTotal = (float) $sell->total_price;
             $sell->date = $request->input('date');
             $sell->save();
 
             $totalPrice = 0;
-            foreach ($items as $outgoingId => $item) {
-                $qty = (int) ($item['qty'] ?? 0);
-                $outgoing = $sell->outgoing_goods->firstWhere('id', (int) $outgoingId);
-                if (!$outgoing) {
-                    throw new \Exception('Item penjualan tidak ditemukan.');
+            $existingMap = is_array($existingItems) ? $existingItems : [];
+            foreach ($sell->outgoing_goods as $outgoing) {
+                if (!array_key_exists($outgoing->id, $existingMap)) {
+                    $outgoing->delete();
+                    continue;
                 }
 
+                $qty = (int) ($existingMap[$outgoing->id]['qty'] ?? 0);
                 $outgoing->quantity_out = $qty;
                 $outgoing->date = $sell->date;
                 $outgoing->save();
@@ -201,9 +232,52 @@ class TbSellController extends Controller
                 }
             }
 
+            $storeId = (int) $sell->store_id;
+            $storeOnline = (int) tb_stores::where('id', $storeId)->value('is_online') === 1;
+            $isPendingStock = $storeOnline ? 0 : 1;
+            $hasOutgoingStore = Schema::hasColumn('tb_outgoing_goods', 'store_id');
+            $hasPendingStock = Schema::hasColumn('tb_outgoing_goods', 'is_pending_stock');
+
+            $newItemsArray = is_array($newItems) ? $newItems : [];
+            foreach ($newItemsArray as $item) {
+                $productId = (int) ($item['product_id'] ?? 0);
+                $qty = (int) ($item['qty'] ?? 0);
+                if ($productId <= 0 || $qty <= 0) {
+                    continue;
+                }
+
+                $product = tb_products::find($productId);
+                if (!$product) {
+                    throw new \Exception('Produk tidak ditemukan.');
+                }
+
+                $payload = [
+                    'product_id' => $productId,
+                    'sell_id' => $sell->id,
+                    'date' => $sell->date,
+                    'quantity_out' => $qty,
+                    'discount' => 0,
+                    'recorded_by' => $user->name,
+                    'description' => $item['description'] ?? null,
+                ];
+                if ($hasPendingStock) {
+                    $payload['is_pending_stock'] = $isPendingStock;
+                }
+                if ($hasOutgoingStore) {
+                    $payload['store_id'] = $storeId;
+                }
+                tb_outgoing_goods::create($payload);
+
+                $unitPrice = $this->resolveSellingPrice($product, $storeId, $qty);
+                $totalPrice += ($unitPrice * $qty);
+            }
+
             $sell->total_price = $totalPrice;
-            if (abs(((float) $sell->payment_amount) - $oldTotal) < 0.0001) {
+            $paymentInput = $request->input('payment_amount');
+            if ($paymentInput === null || $paymentInput === '') {
                 $sell->payment_amount = $totalPrice;
+            } else {
+                $sell->payment_amount = (float) $paymentInput;
             }
             $sell->save();
 
@@ -235,5 +309,25 @@ class TbSellController extends Controller
         }
 
         return $unitPrice;
+    }
+
+    private function loadProductsAndPrices(int $storeId): array
+    {
+        $products = tb_products::with('storePrices')
+            ->orderBy('product_name')
+            ->get();
+
+        $priceData = $products->mapWithKeys(function ($product) use ($storeId) {
+            $override = $product->storePrices->firstWhere('store_id', $storeId);
+            return [
+                $product->id => [
+                    'base' => (float) ($override->selling_price ?? $product->selling_price ?? 0),
+                    'discount' => (float) ($override->product_discount ?? $product->product_discount ?? 0),
+                    'tiers' => $override->tier_prices ?? $product->tier_prices ?? [],
+                ],
+            ];
+        })->toArray();
+
+        return [$products, $priceData];
     }
 }
