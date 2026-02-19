@@ -1,5 +1,9 @@
 @extends('layouts.app')
 
+@section('css')
+    <link href="{{ asset('assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet" />
+@endsection
+
 @section('content')
 <div class="container py-4">
     @if(session('success'))
@@ -156,8 +160,12 @@
 @endsection
 
 @section('scripts')
+<script src="{{ asset('assets/plugins/select2/js/select2.min.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        if (window.$ && $.fn.select2) {
+            $('#new-product').select2({ width: '100%' });
+        }
         const priceData = @json($priceData);
         const currencyFormat = new Intl.NumberFormat('id-ID', {
             style: 'currency',

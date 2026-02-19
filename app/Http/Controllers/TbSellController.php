@@ -21,12 +21,19 @@ class TbSellController extends Controller
     {
         $user = auth()->user();
         $role = strtolower((string) ($user->roles ?? ''));
+        $storeId = $request->filled('store_id') ? (int) $request->input('store_id') : null;
         $query = tb_sell::with('store')
             ->orderByDesc('id');
         if ($role !== 'superadmin') {
             $allowed = store_access_ids($user);
             $query->when(!empty($allowed), fn ($q) => $q->whereIn('store_id', $allowed))
                 ->when(empty($allowed), fn ($q) => $q->whereRaw('1 = 0'));
+
+            if ($storeId && in_array($storeId, $allowed, true)) {
+                $query->where('store_id', $storeId);
+            }
+        } elseif ($storeId) {
+            $query->where('store_id', $storeId);
         }
 
         if ($request->ajax()) {
@@ -53,7 +60,11 @@ class TbSellController extends Controller
                 ->make(true);
         }
 
-        return view('pages.admin.sell.index');
+        $stores = store_access_list($user);
+        $canSelectStore = store_access_can_select($user) || in_array($role, ['superadmin', 'admin'], true);
+        $selectedStoreId = $storeId;
+
+        return view('pages.admin.sell.index', compact('stores', 'canSelectStore', 'selectedStoreId'));
     }
 
     public function detail($id)

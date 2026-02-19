@@ -23,6 +23,26 @@
     @if(session('error'))
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
+
+    @if(!empty($canSelectStore))
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Pilih Toko</label>
+                        <select id="store-filter" class="form-select">
+                            <option value="">Semua Toko</option>
+                            @foreach($stores as $store)
+                                <option value="{{ $store->id }}" {{ (string)$store->id === (string)$selectedStoreId ? 'selected' : '' }}>
+                                    {{ $store->store_name ?? $store->name ?? ('Toko #' . $store->id) }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
@@ -33,6 +53,7 @@
                             <th>No Invoice</th>
                             <th>Toko</th>
                             <th>Tanggal Transaksi</th>
+                            <th>Jam</th>
                             <th>Total Pembelian</th>
                             <th>Uang Dibayarkan</th>
                             <th>Aksi</th>
@@ -53,10 +74,18 @@
 
     <script>
         $(document).ready(function () {
-            $('#table-sell').DataTable({
+            const table = $('#table-sell').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: "{{ route('sell.index') }}",
+                ajax: {
+                    url: "{{ route('sell.index') }}",
+                    data: function (d) {
+                        const storeId = $('#store-filter').val();
+                        if (storeId) {
+                            d.store_id = storeId;
+                        }
+                    }
+                },
                 columns: [
                     {
                         data: null,
@@ -77,6 +106,13 @@
                             return moment(data).format('DD MMM YYYY');
                         }
                     },
+                    {
+                        data: 'created_at',
+                        name: 'created_at',
+                        render: function (data) {
+                            return moment(data).format('HH:mm');
+                        }
+                    },
                     {   
                         data: 'total_price', 
                         name: 'total_price',
@@ -94,6 +130,10 @@
                     { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center align-self-center' }
                 ]
             });
+        });
+
+        $('#store-filter').on('change', function () {
+            table.ajax.reload();
         });
 
         const formattedPrice = (price) => {
