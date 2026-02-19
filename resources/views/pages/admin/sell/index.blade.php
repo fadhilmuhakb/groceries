@@ -73,12 +73,14 @@
     <script src="https://cdn.datatables.net/plug-ins/1.11.5/dataRender/datetime.js"></script>
 
     <script>
-        $(document).ready(function () {
-            const baseUrl = "{{ route('sell.index') }}";
-            const initialStoreId = $('#store-filter').val();
-            const initialUrl = initialStoreId ? `${baseUrl}?store_id=${initialStoreId}` : baseUrl;
+        const sellBaseUrl = "{{ route('sell.index') }}";
+        let sellTable = null;
 
-            const table = $('#table-sell').DataTable({
+        $(document).ready(function () {
+            const initialStoreId = $('#store-filter').val();
+            const initialUrl = initialStoreId ? `${sellBaseUrl}?store_id=${initialStoreId}` : sellBaseUrl;
+
+            sellTable = $('#table-sell').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: initialUrl,
@@ -126,12 +128,13 @@
                     { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center align-self-center' }
                 ]
             });
-        });
 
-        $('#store-filter').on('change', function () {
-            const storeId = $(this).val();
-            const nextUrl = storeId ? `${baseUrl}?store_id=${storeId}` : baseUrl;
-            table.ajax.url(nextUrl).load();
+            $('#store-filter').on('change', function () {
+                if (!sellTable) return;
+                const storeId = $(this).val();
+                const nextUrl = storeId ? `${sellBaseUrl}?store_id=${storeId}` : sellBaseUrl;
+                sellTable.ajax.url(nextUrl).load();
+            });
         });
 
         const formattedPrice = (price) => {
