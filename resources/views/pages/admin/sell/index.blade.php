@@ -74,18 +74,14 @@
 
     <script>
         $(document).ready(function () {
+            const baseUrl = "{{ route('sell.index') }}";
+            const initialStoreId = $('#store-filter').val();
+            const initialUrl = initialStoreId ? `${baseUrl}?store_id=${initialStoreId}` : baseUrl;
+
             const table = $('#table-sell').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: {
-                    url: "{{ route('sell.index') }}",
-                    data: function (d) {
-                        const storeId = $('#store-filter').val();
-                        if (storeId) {
-                            d.store_id = storeId;
-                        }
-                    }
-                },
+                ajax: initialUrl,
                 columns: [
                     {
                         data: null,
@@ -133,7 +129,9 @@
         });
 
         $('#store-filter').on('change', function () {
-            table.ajax.reload();
+            const storeId = $(this).val();
+            const nextUrl = storeId ? `${baseUrl}?store_id=${storeId}` : baseUrl;
+            table.ajax.url(nextUrl).load();
         });
 
         const formattedPrice = (price) => {
