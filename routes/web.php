@@ -228,6 +228,7 @@ Route::prefix('report')->name('report.')->group(function () {
     // Daily sales report (baru)
     Route::get('/sales/today', [DailySalesReportController::class, 'index'])->name('sales.today');
     Route::get('/sales/today/data', [DailySalesReportController::class, 'data'])->name('sales.today.data');
+    Route::get('/sales/today/export', [DailySalesReportController::class, 'export'])->name('sales.today.export');
 
     // Monthly cashier report (penjualan asli)
     Route::get('/cashier-monthly', [CashierMonthlyReportController::class, 'index'])->name('cashier.monthly');

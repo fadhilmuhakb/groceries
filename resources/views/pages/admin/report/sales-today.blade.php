@@ -6,7 +6,7 @@
 
 @section('content')
 <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
-    <div class="breadcrumb-title pe-3">Penjualan (Harian/Mingguan/Bulanan)</div>
+    <div class="breadcrumb-title pe-3">Penjualan Harian</div>
 </div>
 
 <div class="card mb-4">
@@ -33,15 +33,6 @@
 
         <div class="vr d-none d-md-block"></div>
 
-        <div class="d-flex align-items-center gap-2">
-            <label for="filter_group_mode" class="mb-0">Periode</label>
-            <select id="filter_group_mode" class="form-select" style="min-width:170px">
-                <option value="daily" {{ ($defaultGroupMode ?? 'daily') === 'daily' ? 'selected' : '' }}>Harian</option>
-                <option value="weekly" {{ ($defaultGroupMode ?? '') === 'weekly' ? 'selected' : '' }}>Mingguan</option>
-                <option value="monthly" {{ ($defaultGroupMode ?? '') === 'monthly' ? 'selected' : '' }}>Bulanan</option>
-            </select>
-        </div>
-
         <div class="vr d-none d-md-block"></div>
 
         <div class="d-flex flex-wrap align-items-center gap-2">
@@ -56,6 +47,15 @@
                        value="{{ $defaultDateTo }}">
             </div>
             <small id="date_hint" class="text-danger"></small>
+        </div>
+
+        <div class="ms-auto">
+            <a id="export_sales_excel"
+               class="btn btn-outline-success btn-sm"
+               data-base="{{ route('report.sales.today.export') }}"
+               href="{{ route('report.sales.today.export') }}">
+                Export Excel
+            </a>
         </div>
     </div>
 </div>
@@ -157,17 +157,16 @@
         const $store   = $('#filter_store');
         const $cashier = $('#filter_cashier');
         const $dataSource = $('#filter_data_source');
-        const $groupMode = $('#filter_group_mode');
         const $dateFrom = $('#filter_date_from');
         const $dateTo   = $('#filter_date_to');
         const $dateHint = $('#date_hint');
         const $cashierFilters = $('#cashier_filters');
         const $dataSourceButtons = $('#data_source_buttons');
-        const $dateHeader = $('#table_daily_sales thead th').eq(6);
+        const $exportBtn = $('#export_sales_excel');
+        const exportBase = $exportBtn.data('base');
 
         let totalsFromServer = null;
         const hideSales = @json($hideSalesTotal ?? false);
-        let currentGroupMode = $groupMode.val() || 'daily';
 
         const table = $('#table_daily_sales').DataTable({
             processing: true,
@@ -180,7 +179,6 @@
                     d.date_from = $dateFrom.val() || '';
                     d.date_to   = $dateTo.val() || '';
                     d.source_mode = $dataSource.val() || 'online';
-                    d.group_mode  = $groupMode.val() || 'daily';
                 },
                 dataSrc: function (json) {
                     try {
@@ -223,7 +221,7 @@
                 {
                     data: 'activity_date',
                     name: 'activity_date',
-                    render: (data) => formatPeriodDate(data)
+                    render: (data) => data ? moment(data).format('DD MMM YYYY') : '-'
                 },
                 { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' }
             ],
@@ -237,11 +235,6 @@
         $store.on('change', reloadTable);
         $dateFrom.on('change', handleDateChange);
         $dateTo.on('change', handleDateChange);
-        $groupMode.on('change', function () {
-            currentGroupMode = $groupMode.val() || 'daily';
-            syncDateHeader();
-            reloadTable();
-        });
         $cashierFilters.on('click', 'button[data-cashier-filter]', function () {
             const cashierVal = $(this).data('cashier-filter') ?? '';
             $cashier.val(cashierVal);
@@ -257,6 +250,7 @@
 
         function reloadTable() {
             table.ajax.reload(null, false);
+            updateExportLink();
         }
 
         function handleDateChange() {
@@ -281,26 +275,6 @@
             }
             $dateHint.text('');
             reloadTable();
-        }
-
-        function formatPeriodDate(data) {
-            if (!data) return '-';
-            if (currentGroupMode === 'monthly') {
-                return moment(data).format('MMM YYYY');
-            }
-            if (currentGroupMode === 'weekly') {
-                const start = moment(data);
-                const end = moment(data).add(6, 'days');
-                return `${start.format('DD MMM YYYY')} - ${end.format('DD MMM YYYY')}`;
-            }
-            return moment(data).format('DD MMM YYYY');
-        }
-
-        function syncDateHeader() {
-            const label = currentGroupMode === 'daily' ? 'Tanggal' : 'Periode';
-            if ($dateHeader.length) {
-                $dateHeader.text(label);
-            }
         }
 
         function updateSummary() {
@@ -358,7 +332,26 @@
             });
         }
 
-        syncDateHeader();
+        function updateExportLink() {
+            if (!$exportBtn.length) return;
+            const params = new URLSearchParams();
+            const storeVal = $store.length ? ($store.val() || '') : '';
+            const cashierVal = $cashier.val() || '';
+            const fromVal = $dateFrom.val() || '';
+            const toVal = $dateTo.val() || '';
+            const sourceMode = $dataSource.val() || '';
+
+            if (storeVal) params.set('store', storeVal);
+            if (cashierVal) params.set('cashier', cashierVal);
+            if (fromVal) params.set('date_from', fromVal);
+            if (toVal) params.set('date_to', toVal);
+            if (sourceMode) params.set('source_mode', sourceMode);
+
+            const qs = params.toString();
+            $exportBtn.attr('href', qs ? `${exportBase}?${qs}` : exportBase);
+        }
+
+        updateExportLink();
     });
 </script>
 @endsection
