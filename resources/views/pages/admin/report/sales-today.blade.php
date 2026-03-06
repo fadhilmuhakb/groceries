@@ -6,7 +6,7 @@
 
 @section('content')
 <div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
-    <div class="breadcrumb-title pe-3">Penjualan Harian</div>
+    <div class="breadcrumb-title pe-3">Penjualan (Harian/Mingguan/Bulanan)</div>
 </div>
 
 <div class="card mb-4">
@@ -32,6 +32,15 @@
         @endif
 
         <div class="vr d-none d-md-block"></div>
+
+        <div class="d-flex align-items-center gap-2">
+            <label for="filter_group_mode" class="mb-0">Periode</label>
+            <select id="filter_group_mode" class="form-select" style="min-width:170px">
+                <option value="daily" {{ ($defaultGroupMode ?? 'daily') === 'daily' ? 'selected' : '' }}>Harian</option>
+                <option value="weekly" {{ ($defaultGroupMode ?? '') === 'weekly' ? 'selected' : '' }}>Mingguan</option>
+                <option value="monthly" {{ ($defaultGroupMode ?? '') === 'monthly' ? 'selected' : '' }}>Bulanan</option>
+            </select>
+        </div>
 
         <div class="vr d-none d-md-block"></div>
 
@@ -148,14 +157,17 @@
         const $store   = $('#filter_store');
         const $cashier = $('#filter_cashier');
         const $dataSource = $('#filter_data_source');
+        const $groupMode = $('#filter_group_mode');
         const $dateFrom = $('#filter_date_from');
         const $dateTo   = $('#filter_date_to');
         const $dateHint = $('#date_hint');
         const $cashierFilters = $('#cashier_filters');
         const $dataSourceButtons = $('#data_source_buttons');
+        const $dateHeader = $('#table_daily_sales thead th').eq(6);
 
         let totalsFromServer = null;
         const hideSales = @json($hideSalesTotal ?? false);
+        let currentGroupMode = $groupMode.val() || 'daily';
 
         const table = $('#table_daily_sales').DataTable({
             processing: true,
@@ -168,6 +180,7 @@
                     d.date_from = $dateFrom.val() || '';
                     d.date_to   = $dateTo.val() || '';
                     d.source_mode = $dataSource.val() || 'online';
+                    d.group_mode  = $groupMode.val() || 'daily';
                 },
                 dataSrc: function (json) {
                     try {
@@ -210,7 +223,7 @@
                 {
                     data: 'activity_date',
                     name: 'activity_date',
-                    render: (data) => data ? moment(data).format('DD MMM YYYY') : '-'
+                    render: (data) => formatPeriodDate(data)
                 },
                 { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' }
             ],
@@ -224,6 +237,11 @@
         $store.on('change', reloadTable);
         $dateFrom.on('change', handleDateChange);
         $dateTo.on('change', handleDateChange);
+        $groupMode.on('change', function () {
+            currentGroupMode = $groupMode.val() || 'daily';
+            syncDateHeader();
+            reloadTable();
+        });
         $cashierFilters.on('click', 'button[data-cashier-filter]', function () {
             const cashierVal = $(this).data('cashier-filter') ?? '';
             $cashier.val(cashierVal);
@@ -263,6 +281,26 @@
             }
             $dateHint.text('');
             reloadTable();
+        }
+
+        function formatPeriodDate(data) {
+            if (!data) return '-';
+            if (currentGroupMode === 'monthly') {
+                return moment(data).format('MMM YYYY');
+            }
+            if (currentGroupMode === 'weekly') {
+                const start = moment(data);
+                const end = moment(data).add(6, 'days');
+                return `${start.format('DD MMM YYYY')} - ${end.format('DD MMM YYYY')}`;
+            }
+            return moment(data).format('DD MMM YYYY');
+        }
+
+        function syncDateHeader() {
+            const label = currentGroupMode === 'daily' ? 'Tanggal' : 'Periode';
+            if ($dateHeader.length) {
+                $dateHeader.text(label);
+            }
         }
 
         function updateSummary() {
@@ -319,6 +357,8 @@
                 $(this).toggleClass('btn-outline-secondary', !isActive && btnMode !== 'online');
             });
         }
+
+        syncDateHeader();
     });
 </script>
 @endsection

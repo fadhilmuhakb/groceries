@@ -28,6 +28,8 @@ class DailySalesReportController extends Controller
             : null;
 
         $today             = now('Asia/Jakarta')->toDateString();
+        $defaultGroupMode  = $request->get('group_mode', 'daily');
+        $defaultGroupMode  = in_array($defaultGroupMode, ['daily', 'weekly', 'monthly'], true) ? $defaultGroupMode : 'daily';
         $defaultDateFrom   = $today;
         $defaultDateTo     = $today;
         $cashiers          = $this->availableCashiers($selectedStoreId, $today, $today, 'all');
@@ -41,6 +43,7 @@ class DailySalesReportController extends Controller
             'currentStoreName' => $currentStoreName,
             'defaultDateFrom'  => $defaultDateFrom,
             'defaultDateTo'    => $defaultDateTo,
+            'defaultGroupMode' => $defaultGroupMode,
             'cashiers'         => $cashiers,
             'hideSalesTotal'   => $isCashierRole,
         ]);
@@ -55,6 +58,24 @@ class DailySalesReportController extends Controller
         $cashier      = $request->get('cashier');
         $sourceMode   = $request->get('source_mode');
         $sourceMode   = in_array($sourceMode, ['online', 'offline'], true) ? $sourceMode : 'all';
+
+        $groupMode = $request->get('group_mode');
+        $groupMode = in_array($groupMode, ['daily', 'weekly', 'monthly'], true) ? $groupMode : 'daily';
+
+        $activityField = 'COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at)';
+        $activityDateField = "DATE($activityField)";
+        switch ($groupMode) {
+            case 'weekly':
+                $groupField = "DATE_SUB($activityDateField, INTERVAL WEEKDAY($activityDateField) DAY)";
+                break;
+            case 'monthly':
+                $groupField = "DATE_FORMAT($activityField, '%Y-%m-01')";
+                break;
+            case 'daily':
+            default:
+                $groupField = $activityDateField;
+                break;
+        }
 
         $baseQuery = tb_outgoing_goods::query()
             ->join('tb_sells as s', 's.id', '=', 'tb_outgoing_goods.sell_id')
@@ -93,7 +114,7 @@ class DailySalesReportController extends Controller
                 st.store_name,
                 s.store_id,
                 tb_outgoing_goods.recorded_by,
-                DATE(COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at)) as activity_date,
+                '.$groupField.' as activity_date,
                 MAX(COALESCE(tb_outgoing_goods.created_at, s.created_at, tb_outgoing_goods.date, s.date)) as latest_activity,
                 SUM(tb_outgoing_goods.quantity_out) as quantity_out,
                 SUM(tb_outgoing_goods.discount) as discount,
@@ -109,7 +130,7 @@ class DailySalesReportController extends Controller
                 'st.store_name',
                 's.store_id',
                 'tb_outgoing_goods.recorded_by',
-                DB::raw('DATE(COALESCE(tb_outgoing_goods.date, s.date, tb_outgoing_goods.created_at, s.created_at))'),
+                DB::raw($groupField),
                 'p.selling_price'
             );
 
